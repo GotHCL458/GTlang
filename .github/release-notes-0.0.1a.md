@@ -82,10 +82,6 @@ All docs are bilingual (Chinese + English).
 
 ---
 
-**Full Changelog**: https://github.com/GotHCL458/GTlang/commits/v0.0.1a
-
----
-
 # GTLang v0.0.1a — 早期预览
 
 > ⚠️ **早期阶段项目。** API、语法与标准库可能随时变动，BUG 与缺失功能属正常现象。
@@ -165,6 +161,3 @@ fn main() {
 
 所有文档均有**中文 + 英文**两个版本。
 
----
-
-**完整变更**：https://github.com/GotHCL458/GTlang/commits/v0.0.1a

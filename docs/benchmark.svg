@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="340" viewBox="0 0 760 340" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <rect width="760" height="340" fill="#0d1117"/>
+  <text x="380" y="28" fill="#e6edf3" font-size="17" font-weight="bold" text-anchor="middle">loop_sum(2×10⁸) — tight loop with overflow checks</text>
+  <text x="380" y="47" fill="#8b949e" font-size="11" text-anchor="middle">lower is better · milliseconds · Windows x64 · clang -O2 · 2026-09</text>
+
+  <!-- axis -->
+  <line x1="150" y1="60" x2="150" y2="300" stroke="#30363d"/>
+  <line x1="150" y1="300" x2="740" y2="300" stroke="#30363d"/>
+
+  <!-- C 5.5 -->
+  <text x="140" y="90"  fill="#8b949e" font-size="12" text-anchor="end">C (-O2)</text>
+  <rect x="150" y="78"  width="7"  height="18" fill="#3fb950" rx="2"/>
+  <text x="163" y="92"  fill="#8b949e" font-size="11">5.5</text>
+
+  <!-- GTLang 5.9 -->
+  <text x="140" y="125" fill="#e6edf3" font-size="12" font-weight="bold" text-anchor="end">GTLang (-O2)</text>
+  <rect x="150" y="113" width="8"  height="18" fill="#58a6ff" rx="2"/>
+  <text x="164" y="127" fill="#58a6ff" font-size="11" font-weight="bold">5.9</text>
+
+  <!-- Rust 8 -->
+  <text x="140" y="160" fill="#8b949e" font-size="12" text-anchor="end">Rust (-O)</text>
+  <rect x="150" y="148" width="10" height="18" fill="#3fb950" rx="2"/>
+  <text x="166" y="162" fill="#8b949e" font-size="11">8</text>
+
+  <!-- Node 195 -->
+  <text x="140" y="195" fill="#8b949e" font-size="12" text-anchor="end">Node 24 (V8)</text>
+  <rect x="150" y="183" width="245" height="18" fill="#d29922" rx="2"/>
+  <text x="401" y="197" fill="#8b949e" font-size="11">195</text>
+
+  <!-- Lua 673 -->
+  <text x="140" y="230" fill="#8b949e" font-size="12" text-anchor="end">Lua 5.4</text>
+  <rect x="150" y="218" width="650" height="18" fill="#db6d28" rx="2"/>
+  <text x="700" y="232" fill="#8b949e" font-size="11">673</text>
+
+  <!-- Python 6788 (broken) -->
+  <text x="140" y="265" fill="#8b949e" font-size="12" text-anchor="end">Python 3.12</text>
+  <rect x="150" y="253" width="580" height="18" fill="#f85149" rx="2"/>
+  <text x="700" y="267" fill="#f85149" font-size="11">6788</text>
+
+  <text x="380" y="322" fill="#8b949e" font-size="11" text-anchor="middle">GTLang stays byte-for-byte identical across both backends while matching C on tight loops.</text>
+</svg>
