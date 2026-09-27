@@ -1,3 +1,7 @@
+> ⚠️ **Early-stage project.** APIs, syntax, and the standard library may change without notice. Bugs and missing features are expected.
+>
+> 🪟 **Windows only (for now).** The current build and runtime target Windows x64. Linux/macOS support is not yet available.
+
 <div align="center">
 
 <img src="GTlangLOGO.png" alt="GTLang" width="200">
