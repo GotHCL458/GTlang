@@ -92,7 +92,14 @@ REM ---------- 5. assemble res/ ----------
 echo.
 echo [res] assembling portable res/ ...
 set "RES=%ROOT%res"
-if exist "%RES%" rmdir /s /q "%RES%"
+if exist "%RES%" (
+    rmdir /s /q "%RES%" 2>nul
+    if exist "%RES%" (
+        echo [ERROR] cannot clean %RES% -- a process is using it.
+        echo         Close any running gtc.exe / gtfmt.exe from res\ and retry.
+        exit /b 1
+    )
+)
 mkdir "%RES%" 2>nul
 mkdir "%RES%\llvm\bin" 2>nul
 mkdir "%RES%\runtime" 2>nul
