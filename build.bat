@@ -94,6 +94,7 @@ echo [res] assembling portable res/ ...
 set "RES=%ROOT%res"
 if exist "%RES%" (
     rmdir /s /q "%RES%" 2>nul
+    if exist "%RES%" cmd /c rmdir /s /q "%RES%" 2>nul
     if exist "%RES%" (
         echo [ERROR] cannot clean %RES% -- a process is using it.
         echo         Close any running gtc.exe / gtfmt.exe from res\ and retry.
