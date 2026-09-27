@@ -130,6 +130,18 @@ impl<'a> Codegen<'a> {
                 self.body.push_str(&format!("  call void @gt_sleep(i64 {})\n", av));
                 Ok(Val::new(&Ty::Void, "0".to_string()))
             }
+            "read_line" | "readline" | "input" => {
+                self.declare("declare ptr @gt_read_line()");
+                let p = self.new_reg();
+                self.body.push_str(&format!("  {} = call ptr @gt_read_line()\n", p));
+                Ok(Val::new(&Ty::Str, p))
+            }
+            "read_int" | "readint" => {
+                self.declare("declare i64 @gt_read_int()");
+                let r = self.new_reg();
+                self.body.push_str(&format!("  {} = call i64 @gt_read_int()\n", r));
+                Ok(Val::new(&Ty::I64, r))
+            }
             "assert" => {
                 let c = self.expr(&args[0])?;
                 let cv = self.as_i64(&c);

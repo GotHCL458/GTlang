@@ -411,6 +411,16 @@ fn builtin_check(name: &str, args: &[Ty]) -> Result<Ty, String> {
             Ok(Ty::Void)
         }
 
+        // ---------- 输入 ----------
+        "read_line" | "readline" | "input" => {
+            if !args.is_empty() { return Err(crate::te!("{}() takes no arguments", "{}() 不接受参数", name)); }
+            Ok(Ty::Str)
+        }
+        "read_int" | "readint" => {
+            if !args.is_empty() { return Err(crate::te!("{}() takes no arguments", "{}() 不接受参数", name)); }
+            Ok(Ty::I64)
+        }
+
         // ---------- 长度 ----------
         "len" => match one()? {
             Ty::Str | Ty::Array(..) | Ty::List(..) | Ty::Set(..) | Ty::Map(..) | Ty::Unknown => {
@@ -747,7 +757,7 @@ pub fn is_builtin_name(name: &str) -> bool {
     matches!(
         name,
         // 输出 / 长度 / 转换
-        "put" | "print" | "len" | "str" | "string" | "int" | "i64" | "f64" | "float" | "bool"
+        "put" | "print" | "len" | "str" | "string" | "int" | "i64" | "f64" | "float" | "bool" | "read_line" | "readline" | "input" | "read_int" | "readint"
         // 容器构造
         | "list" | "List" | "set" | "Set" | "map" | "Map" | "dict" | "range" | "assert" | "sleep" | "chan" | "chan_send" | "chan_recv"
         // list 操作

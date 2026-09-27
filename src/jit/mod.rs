@@ -228,6 +228,8 @@ impl<'a> Jit<'a> {
 
         let mut jb = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
         jb.symbol("rt_write", rt_write as *const u8);
+        jb.symbol("rt_read_line", rt_read_line as *const u8);
+        jb.symbol("rt_read_int", rt_read_int as *const u8);
         jb.symbol("rt_write_cstr", rt_write_cstr as *const u8);
         jb.symbol("rt_write_i64", rt_write_i64 as *const u8);
         jb.symbol("rt_write_f64", rt_write_f64 as *const u8);
@@ -435,6 +437,8 @@ impl<'a> Jit<'a> {
             ("assert", "rt_assert", vec![i64v, i64v, i64v], None),
             ("thread_spawn", "rt_thread_spawn", vec![i64v, i64v, i64v], None),
             ("sleep", "rt_sleep", vec![i64v], None),
+            ("read_line", "rt_read_line", vec![], Some(i64v)),
+            ("read_int", "rt_read_int", vec![], Some(i64v)),
             ("chan_new", "rt_chan_new", vec![], Some(i64v)),
             ("chan_send", "rt_chan_send", vec![i64v, i64v], None),
             ("chan_recv", "rt_chan_recv", vec![i64v], Some(i64v)),

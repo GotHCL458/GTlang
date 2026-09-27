@@ -800,3 +800,22 @@ void gt_list_free(void *p) {
     if (l->data) free(l->data);
     free(l);
 }
+
+/* ============================================================
+ * 标准输入：read_line / read_int
+ *   - gt_read_line() 读一行（去换行），返回 NUL 结尾的堆字符串
+ *   - gt_read_int()  跳过空白读一个整数，EOF 返回 0
+ * ============================================================ */
+char *gt_read_line(void) {
+    char *buf = (char *)malloc(4096);
+    if (!buf) return NULL;
+    if (!fgets(buf, 4096, stdin)) { buf[0] = '\0'; return buf; }
+    size_t n = strlen(buf);
+    while (n > 0 && (buf[n-1] == '\n' || buf[n-1] == '\r')) { buf[--n] = '\0'; }
+    return buf;
+}
+long long gt_read_int(void) {
+    long long v;
+    if (scanf("%lld", &v) != 1) return 0;
+    return v;
+}

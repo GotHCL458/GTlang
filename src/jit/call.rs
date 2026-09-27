@@ -122,6 +122,16 @@ impl FnState {
                 b.ins().call(f, &[av]);
                 Ok((b.ins().iconst(types::I64, 0), Ty::Void))
             }
+            "read_line" | "readline" | "input" => {
+                let f = self.rt_ref(jit, b, "read_line")?;
+                let call = b.ins().call(f, &[]);
+                Ok((b.inst_results(call)[0], Ty::Str))
+            }
+            "read_int" | "readint" => {
+                let f = self.rt_ref(jit, b, "read_int")?;
+                let call = b.ins().call(f, &[]);
+                Ok((b.inst_results(call)[0], Ty::I64))
+            }
             "assert" => {
                 let c = self.gen_expr(jit, b, &args[0])?;
                 let cv = self.convert(b, &c, &Ty::I64);

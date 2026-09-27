@@ -944,3 +944,25 @@ pub(crate) extern "C" fn rt_rc_dec(p: i64, free_fn: i64) -> i64 {
         *rc
     }
 }
+
+pub(crate) extern "C" fn rt_read_line() -> i64 {
+    use std::io::Read;
+    let mut s = String::new();
+    let n = std::io::stdin().read_line(&mut s).unwrap_or(0);
+    let _ = n;
+    while s.ends_with('\n') || s.ends_with('\r') { s.pop(); }
+    let b = s.into_bytes();
+    let p = unsafe { libc_malloc(b.len() + 1) } as *mut u8;
+    unsafe {
+        std::ptr::copy_nonoverlapping(b.as_ptr(), p, b.len());
+        *p.add(b.len()) = 0;
+    }
+    p as i64
+}
+pub(crate) extern "C" fn rt_read_int() -> i64 {
+    let mut s = String::new();
+    if std::io::stdin().read_line(&mut s).is_err() { return 0; }
+    s.trim().parse::<i64>().unwrap_or(0)
+}
+extern "C" { fn malloc(n: usize) -> *mut u8; }
+unsafe fn libc_malloc(n: usize) -> *mut u8 { malloc(n) }
