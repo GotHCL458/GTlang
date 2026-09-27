@@ -40,6 +40,7 @@ powershell -NoProfile -Command "if ([version]('%CARGO_VER%') -lt [version]'1.75'
 if errorlevel 1 exit /b 1
 
 REM ---------- 2. LLVM / clang ----------
+REM Search order: GTC_CLANG env -> PATH
 if "%GTC_CLANG%"=="" (
     for /f "delims=" %%C in ('where clang 2^>nul') do set "GTC_CLANG=%%C"
 )
