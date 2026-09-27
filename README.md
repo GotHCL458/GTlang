@@ -96,8 +96,9 @@ It takes **no arguments**.
 via [TCC](https://bellard.org/tcc/). `build.bat` looks for it in this order:
 
 1. `GTC_TCC` environment variable (a directory containing `libtcc.dll`)
-2. `.\toolchain\tcc` (vendored)
-3. `tcc` on `PATH`
+2. `.\tcc` (vendored in this repo)
+3. `.\toolchain\tcc`
+4. `tcc` on `PATH`
 
 If none is found, the build still succeeds — only inline C becomes unavailable.
 

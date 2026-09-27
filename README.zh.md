@@ -92,8 +92,9 @@ build.bat
 **可选：TCC（用于内联 C 块）。** GTLang 通过 [TCC](https://bellard.org/tcc/) 执行内联 `C { ... }` 块。`build.bat` 按以下顺序查找：
 
 1. `GTC_TCC` 环境变量（指向含 `libtcc.dll` 的目录）
-2. `.\toolchain\tcc`（vendored）
-3. `PATH` 上的 `tcc`
+2. `.\tcc`（本仓库自带）
+3. `.\toolchain\tcc`
+4. `PATH` 上的 `tcc`
 
 若均未找到，构建仍会成功 —— 仅内联 C 不可用。
 

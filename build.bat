@@ -108,7 +108,8 @@ copy /Y "%GTC_CLANG%" "%RES%\llvm\bin\clang.exe" >nul
 if exist "%LLD_LINK%" copy /Y "%LLD_LINK%" "%RES%\llvm\bin\lld-link.exe" >nul
 
 REM ---------- TCC (optional, for inline C) ----------
-REM Search order: GTC_TCC env -> .\toolchain\tcc -> tcc on PATH
+REM Search order: GTC_TCC env -> .\tcc -> .\toolchain\tcc -> tcc on PATH
+if "%GTC_TCC%"=="" if exist "%ROOT%tcc\libtcc.dll" set "GTC_TCC=%ROOT%tcc"
 if "%GTC_TCC%"=="" if exist "%ROOT%toolchain\tcc\libtcc.dll" set "GTC_TCC=%ROOT%toolchain\tcc"
 if "%GTC_TCC%"=="" (
     for /f "delims=" %%T in ('where tcc 2^>nul') do set "GTC_TCC=%%~dpT"
