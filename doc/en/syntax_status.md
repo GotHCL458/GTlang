@@ -2,7 +2,7 @@
 
 > [中文](../syntax_status.md)
 
-> Version 0.0.1a | Dual backend (LLVM + Cranelift), byte-for-byte consistent
+> Version 0.0.1b | Dual backend (LLVM + Cranelift), byte-for-byte consistent
 
 ## 1. Implemented (100%)
 

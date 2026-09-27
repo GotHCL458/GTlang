@@ -1,6 +1,6 @@
 ﻿[package]
 name = "gtc_rust"
-version = "0.0.1-alpha"
+version = "0.0.1-beta"
 edition = "2021"
 description = "GTLang 编译器（Rust 实现，LLVM 全后端 + Cranelift 解释器）"
 
