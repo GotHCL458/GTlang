@@ -1,5 +1,7 @@
 # GTLang 语言手册 / Language Reference
 
+> [English](en/LANGUAGE.md)
+
 > 版本：0.1.0 ｜ 编译器：gtc（双后端）｜ 编码：UTF-8（自识别）
 
 ---

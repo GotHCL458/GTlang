@@ -1,0 +1,253 @@
+# GTLang Language Reference
+
+> [中文](../LANGUAGE.md)
+
+> Version 0.1.0 | Compiler: gtc (dual backend) | Encoding: UTF-8 (auto-detected)
+
+---
+
+## 1. Lexical
+
+| Element | Syntax | Notes |
+|---|---|---|
+| Comments | // ... , # ... | line |
+| Doc comments | /// ... | |
+| Identifiers | letters/underscore/any Unicode (incl. Chinese) | 累加, 计数器, x |
+| Integers | 123, 0xFF, 0b1010, 0o17, 1_000 | i64 |
+| Floats | 3.14, 1.5e-3 | f64 |
+| Bools | true, false | bool |
+| Strings | "..." | interpolation: $name / \${expr} |
+| Raw strings | r"..." | no escapes, no interpolation |
+
+---
+
+## 2. Variables
+
+    a = 1          // bare: auto-declare + infer (type may change)
+    x := 2         // inferred declaration
+    let mut y = 3  // inferred, mutable
+    let n: int = 4 // explicit fixed type
+    const K = 5    // constant
+
+| Declaration | Type | Reassign type |
+|---|---|---|
+| a = v | inferred | yes |
+| x := v | inferred | yes |
+| let mut y | inferred | yes |
+| let n: T | explicit | no |
+| const K | fixed | no |
+
+---
+
+## 3. Types
+
+| Type | Syntax | Semantics |
+|---|---|---|
+| Integer | int (i64) | value |
+| Float | f64 / float | value |
+| Bool | bool | value |
+| String | str / string | heap (NUL-terminated) |
+| Array | [T; N] | value (stack) |
+| List | list / List[T] | reference |
+| Set | set | reference |
+| Map | map / dict | reference |
+| Tuple | (T1, T2) | value (heap block, t.0) |
+| Struct | struct Name { ... } | value (stack) |
+| Enum | enum Name { V1(T) V2 } | reference (heap block [tag, payload]) |
+| Result | Result[T, E] | reference |
+| Option | ?T / Option[T] | reference |
+| Borrow | &T / &mut T | - |
+| Trait object | dyn Trait | reference (vtable) |
+| Closure | |x| ... | value ([fn_ptr, caps]) |
+
+---
+
+## 4. Control Flow
+
+    if c { ... } elif c2 { ... } else { ... }
+    loop 3 { ... }              // count loop
+    while c { ... }
+    do { ... } while c
+    for i in 0..n { ... }
+    for v in container { ... }
+    for ... else { ... }
+    outer: for ... { break outer }
+
+    match v {
+        1 => { ... }
+        1..10 => { ... }
+        1 | 2 | 3 => { ... }
+        n if n > 0 => { ... }
+        _ => { ... }
+    }
+
+Exhaustiveness: enum must list all variants / bool needs true+false / Option needs Some+None / Result needs Ok+Err (or _).
+
+---
+
+## 5. Functions
+
+    fn add(a: int, b: int) -> int { a + b }   // last expr = return
+    fn f(a, b) { ... }                        // types may be inferred
+    fn g(x: int = 10) { ... }                 // default args
+    g(x: 5)                                   // named args
+    fn id[T](x: T) -> T { x }                // generics
+    fn max[T](a: T, b: T) -> T where T: Ord { ... }
+    |x| x * 2                                 // closure
+    |x: int| -> int { x * x }                 // annotated closure
+
+---
+
+## 6. Struct / Enum / trait
+
+    struct Point { x: int, y: int }
+    p := Point { x: 1, y: 2 }
+
+    enum Shape { Circle(f64) Rect(f64, f64) Unit }
+    match s { Shape::Circle(r) => { ... } _ => { ... } }
+
+    trait Area { fn area(self) -> f64 }
+    impl Area for Circle { fn area(self) -> f64 { ... } }
+    fn f(s: dyn Area) { s.area() }            // dynamic dispatch
+
+    @derive(Eq, Clone, Debug, Default, Hash, Ord, PartialEq, Display)
+    struct Point { x: int }
+
+@derive methods:
+
+| Derive | Methods | Notes |
+|---|---|---|
+| Eq | eq / ne | field-wise |
+| PartialEq | eq | eq only |
+| Clone | clone | field copy |
+| Debug | to_str | "Name { f: v }" |
+| Display | to_str | "v1, v2" |
+| Default | default | zero values |
+| Hash | hash | FNV mix |
+| Ord | cmp/lt/le/gt/ge | lexicographic + < <= > >= |
+
+---
+
+## 7. Operator Overloading
+
+    impl Vec {
+        fn add(self, o: Vec) -> Vec { ... }
+        fn eq(self, o: Vec) -> bool { ... }
+    }
+    a + b   // -> Vec__add(a, b)
+    a == b  // -> Vec__eq(a, b)
+
+Overloadable: add sub mul div rem eq ne lt le gt ge neg
+
+---
+
+## 8. Concurrency
+
+    go worker(42)
+    ch := chan()
+    chan_send(ch, v)
+    v := chan_recv(ch)
+    sleep(500)
+
+---
+
+## 9. C Interop
+
+    C {
+        static long long square(long long x) { return x * x; }
+        static void cb(const char *s) { gt_report(s); }
+    }
+    put(square(5))
+
+    extern "C" { fn puts(s: str) -> int }
+
+    import c "math.h" as m
+    put(m.sqrt(2.0))
+
+---
+
+## 10. Error Handling
+
+    fn f(n: int) -> Result[int, str] {
+        if n < 0 { return Err("negative") }
+        return Ok(n * 2)
+    }
+    v := f(21)?
+    match f(-1) { Ok(v) => { ... } Err(e) => { ... } }
+
+    o := Some(1)
+    v := o or 0
+
+    try { throw "boom" } expt e { put(e) } fily { ... }
+
+---
+
+## 11. Data Extensions
+
+    t := (1, 2)
+    let (a, b) = t
+    s[0..3]
+    l[-1]
+    a, b = b, a
+    [x * 2 for x in l if x > 0]
+
+---
+
+## 12. Modules
+
+    import math
+    import math.vector
+    import "x.gt" as x
+    import c "a.h"
+
+---
+
+## 13. Macros
+
+    macro square(x) { (x) * (x) }
+    put(square(3))
+
+---
+
+## 14. Builtins
+
+| Category | Functions |
+|---|---|
+| Output | put / print |
+| Convert | str / int / f64 / bool |
+| Length | len |
+| Math | abs min max sum range |
+| Assert | assert |
+| Format | pad_left / pad_right / fmt_int |
+| String | upper lower trim split join find substr replace repeat |
+| Container | push pop insert remove has keys values |
+| Concurrency | chan chan_send chan_recv sleep |
+| Memory | mem_alloc mem_free mem_store_i64 mem_load_i64 |
+| Ternary | a if c else b |
+
+---
+
+## 15. Ownership
+
+- move: non-Copy values transferred on pass
+- borrow: &T (shared) / &mut T (exclusive)
+- flow-sensitive NLL: borrow ends at last use; branch join; unreachable after return/break
+
+---
+
+## 16. Memory Safety
+
+- array/list bounds checks
+- divide-by-zero checks
+- add/sub/mul overflow detection (both backends)
+
+---
+
+## 17. Diagnostics
+
+- stable error codes: E001 (lex) to E8xx (ownership)
+- suggestions: "did you mean X?" (Levenshtein <= 2), bilingual
+- Help: line
+- ariadne source spans
+- zh suffix for Chinese diagnostics
+- multiple errors (panic-mode recovery in parser)

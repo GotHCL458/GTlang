@@ -1,5 +1,7 @@
 # GTLang vs Python —— 语法与功能对比
 
+> [English](en/GTLang_vs_Python.md)
+
 > 基于 gtc_rust 当前实现对比 GTLang 与 Python 3.12。
 
 ## 1. 总览

@@ -1,5 +1,7 @@
 # GTLang 性能 / Performance
 
+> [English](en/PERFORMANCE.md)
+
 > 双后端：LLVM（编译）+ Cranelift（JIT）｜ 优化级别 -O0..3
 
 ---

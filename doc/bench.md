@@ -1,5 +1,7 @@
 # GTLang 性能基准（实测）
 
+> [English](en/bench.md)
+
 > 环境：Windows x64，clang 23.1（-O2），rustc 1.98（-O），Python 3.12。2026-09-27。
 
 ## 1. 测试项目

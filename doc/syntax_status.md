@@ -1,5 +1,7 @@
 # GTLang 语法 / 特性总览
 
+> [English](en/syntax_status.md)
+
 > 版本 0.1.0 ｜ 双后端（LLVM + Cranelift）逐字节一致
 
 ---

@@ -1,5 +1,7 @@
 # GTLang vs Python / 对比
 
+> [English](en/COMPARISON.md)
+
 > 面向熟悉 Python 的用户，快速了解差异。
 
 ---
