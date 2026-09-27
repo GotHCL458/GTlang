@@ -1,0 +1,14 @@
+C {
+    long long g_state = 1;
+    static long long step(void) {
+        g_state = (g_state * 1103515245 + 12345) & 0x7fffffff;
+        return g_state;
+    }
+}
+fn main() {
+    s := 0
+    for i in 0..10000000 {
+        s = (s + step()) % 1000000007
+    }
+    put(s)
+}

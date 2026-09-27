@@ -1,0 +1,109 @@
+// 综合演示：import 模块 + 容器 + 泛型 + 闭包 + struct/impl/trait + match + elif + 嵌套函数 + extern C + mem + 标准库
+import geometry
+import collections
+
+trait 形状 {
+    fn 面积(self) -> f64
+}
+
+struct 圆 { 半径: f64 }
+struct 矩形 { 宽: f64, 高: f64 }
+
+impl 形状 for 圆 {
+    fn 面积(self) -> f64 { pi() * self.半径 * self.半径 }
+}
+impl 形状 for 矩形 {
+    fn 面积(self) -> f64 { self.宽 * self.高 }
+}
+
+C {
+    #include <string.h>
+}
+extern "C" {
+    fn strlen(s: str) -> int
+}
+
+// 嵌套函数 + 递归
+fn 阶乘(n: int) -> int {
+    fn 内(n: int, acc: int) -> int {
+        if n <= 1 { acc } else { 内(n - 1, acc * n) }
+    }
+    内(n, 1)
+}
+
+// 泛型递归
+fn 斐波那契[T](n: T) -> T {
+    if n < 2 { n } else { 斐波那契(n - 1) + 斐波那契(n - 2) }
+}
+
+fn 评级(分: int) -> str {
+    if 分 >= 90 { "优秀" }
+    elif 分 >= 60 { "及格" }
+    else { "不及格" }
+}
+
+fn main() {
+    put("=== 1. 模块 + struct + impl + trait ===")
+    p := geometry.点 { x: 3.0, y: 4.0 }
+    put("距离平方 = ${p.到原点距离平方()}")
+    put("描述 = ${p.描述()}")
+
+    c := 圆 { 半径: 2.0 }
+    r := 矩形 { 宽: 3.0, 高: 4.0 }
+    put("圆面积 = ${c.面积()}")
+    put("矩形面积 = ${r.面积()}")
+
+    put("")
+    put("=== 2. 泛型 (含递归) ===")
+    put("最大(3, 7) = ${geometry.最大(3, 7)}")
+    put("最大(2.5, 1.5) = ${geometry.最大(2.5, 1.5)}")
+    put("斐波那契(10) = ${斐波那契(10)}")
+
+    put("")
+    put("=== 3. 容器 + 闭包 + 高阶函数 ===")
+    源 := list()
+    for i in 1..6 { push(源, i) }
+    平方后 := collections.映射(源, |x| x * x)
+    put("平方后求和 = ${collections.求和(平方后)}")
+    put("原列表长度 = ${len(源)}")
+
+    m := map()
+    insert(m, 1, 100)
+    insert(m, 2, 200)
+    put("map[1] = ${at(m, 1)}, 键数 = ${len(m)}")
+
+    去重 := set()
+    for i in 0..10 { insert(去重, i % 3) }
+    put("去重后 = ${len(去重)}")
+
+    put("")
+    put("=== 4. match + elif + 嵌套函数 ===")
+    put("评级(95) = ${评级(95)}")
+    put("评级(72) = ${评级(72)}")
+    put("评级(30) = ${评级(30)}")
+
+    for 分 in [95, 72, 30] {
+        类别 := match 分 {
+            95 => { "满分级" }
+            _ if 分 >= 60 => { "合格级" }
+            _ => { "不合格级" }
+        }
+        put("  ${分} → ${类别}")
+    }
+    put("阶乘(6) = ${阶乘(6)}")
+
+    put("")
+    put("=== 5. 标准库 + extern C + mem ===")
+    put("sqrt(2) = ${sqrt(2.0)}")
+    put("gcd(48, 36) = ${gcd(48, 36)}")
+    put("isprime(17) = ${isprime(17)}")
+    put("capitalize = ${capitalize(\"hello\")}")
+    put("strlen(\"GTLang\") = ${strlen(\"GTLang\")}")
+
+    buf := mem_alloc(16)
+    mem_store_i64(buf, 0, 12345)
+    mem_store_i64(buf, 8, 67890)
+    put("mem load = ${mem_load_i64(buf, 0)} + ${mem_load_i64(buf, 8)}")
+    mem_free(buf)
+}
+

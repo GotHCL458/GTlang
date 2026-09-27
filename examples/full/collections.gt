@@ -1,0 +1,14 @@
+pub fn 映射(源: list[int], f) -> list[int] {
+    结果 := list()
+    for x in 源 {
+        push(结果, f(x))
+    }
+    结果
+}
+pub fn 求和(源: list[int]) -> int {
+    s := 0
+    for x in 源 {
+        s = s + x
+    }
+    s
+}

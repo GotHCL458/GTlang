@@ -1,0 +1,37 @@
+﻿[package]
+name = "gtc_rust"
+version = "0.1.0"
+edition = "2021"
+description = "GTLang 编译器（Rust 实现，LLVM 全后端 + Cranelift 解释器）"
+
+# 对外库：统一 API（build / Unit::interpret / Unit::compile_to）
+# doctest = false：内置工具链不含 rustdoc，文档示例用 ```text 承载
+[lib]
+name = "gtc_rust"
+path = "src/lib.rs"
+doctest = false
+
+# 产物固定为 gtc.exe：可直接替换原 C 版编译器
+[[bin]]
+name = "gtc"
+path = "src/main.rs"
+
+[[bin]]
+name = "gtfmt"
+path = "src/bin/gtfmt.rs"
+
+[dependencies]
+ariadne = "0.6"
+cranelift-codegen = "0.115"
+cranelift-frontend = "0.115"
+cranelift-jit = "0.115"
+cranelift-module = "0.115"
+cranelift-native = "0.115"
+
+[profile.release]
+opt-level = 3
+# 链接时优化 + 去掉调试信息 + 减小体积/启动开销
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = true

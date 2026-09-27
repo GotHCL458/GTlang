@@ -1,0 +1,89 @@
+# 内联 C 与 GTLang 的双向无缝交互
+#
+# 两个方向都自动处理，无需手写 extern 声明：
+#   1. GTLang → C ：C 块里的函数直接调用（签名自动解析，static 自动剥离）
+#   2. C → GTLang ：C 块里直接调用 GTLang 函数（桥接头自动生成）
+
+# ---- GTLang 函数：下面会被 C 调用 ----
+fn 累加(到: int) -> int {
+    s := 0
+    for i in 1..(到 + 1) {
+        s = s + i
+    }
+    s
+}
+
+fn 标签(名: str, 值: int) -> str {
+    "$名 = $值"
+}
+
+fn 报告(项: str) {
+    put("  [C 回调] 处理中：${项}")
+}
+
+# ---- 内联 C 块 ----
+C {
+    #include <stdio.h>
+    #include <string.h>
+
+    /* 调用 GTLang 的 累加()：桥接头已自动生成同名 C 函数 */
+    static long long 用累加(long long n) {
+        return 累加(n) * 10;
+    }
+
+    /* 调用 GTLang 的 报告()（void 返回） */
+    static void 触发报告(const char *name) {
+        报告(name);
+    }
+
+    /* 纯 C 实现：给 GTLang 调用 */
+    static long long 位反转(long long v) {
+        long long r = 0;
+        for (int i = 0; i < 64; i++) {
+            r = (r << 1) | (v & 1);
+            v >>= 1;
+        }
+        return r;
+    }
+
+    static double 复利(double 本金, double 利率, long long 年数) {
+        double v = 本金;
+        for (long long i = 0; i < 年数; i++) {
+            v *= (1.0 + 利率);
+        }
+        return v;
+    }
+
+    static const char *重复(const char *s, long long n) {
+        static char buf[256];
+        buf[0] = 0;
+        for (long long i = 0; i < n && strlen(buf) + strlen(s) < sizeof buf; i++) {
+            strcat(buf, s);
+        }
+        return buf;
+    }
+
+    static void 标题(const char *s) {
+        printf("=== %s ===\n", s);
+    }
+}
+
+fn main() {
+    标题("GTLang 调用 C")
+    put("位反转(1) = ${位反转(1)}")
+    put("位反转(0b1100) = ${位反转(0b1100)}")
+    put("复利(1000, 0.05, 10) = ${复利(1000.0, 0.05, 10)}")
+    put(重复("ab", 5))
+    put("")
+
+    标题("C 调用 GTLang")
+    put("用累加(100) = ${用累加(100)}   ← C 里调了 GTLang 的 累加")
+    触发报告("任务A")
+    触发报告("任务B")
+    put("")
+
+    标题("双向混用")
+    put(标签("累加(10)", 累加(10)))
+    put("C 再加工：${用累加(10) + 位反转(8)}")
+    标题("完成")
+}

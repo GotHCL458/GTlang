@@ -1,0 +1,7 @@
+fn main() {
+    parts := list()
+    for i in 0..200000 {
+        push(parts, "x")
+    }
+    put(len(parts))
+}

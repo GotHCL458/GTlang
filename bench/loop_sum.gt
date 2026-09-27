@@ -1,0 +1,7 @@
+fn main() {
+    s := 0
+    for i in 0..200000000 {
+        s = s + i
+    }
+    put(s)
+}

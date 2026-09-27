@@ -1,0 +1,21 @@
+pub struct 点 { x: f64, y: f64 }
+
+impl 点 {
+    fn 到原点距离平方(self) -> f64 {
+        self.x * self.x + self.y * self.y
+    }
+}
+
+trait 可描述 {
+    fn 描述(self) -> str
+}
+
+impl 可描述 for 点 {
+    fn 描述(self) -> str {
+        "点(${self.x}, ${self.y})"
+    }
+}
+
+pub fn 最大[T](a: T, b: T) -> T {
+    if a > b { a } else { b }
+}

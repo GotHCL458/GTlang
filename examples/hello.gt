@@ -1,0 +1,7 @@
+// 快速上手
+fn main() {
+    num := 111              # 自动类型推导定义（默认可变）
+    num = 112               # 重赋值
+    put("Hello GTLang!")
+    put("num = ${num}")      # 格式化打印
+}

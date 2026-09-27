@@ -1,0 +1,4 @@
+# 让 gtc.exe 成为真正的单文件：静态链接 CRT，
+# 消除对 VCRUNTIME140.dll / api-ms-win-crt-*.dll 的运行时依赖。
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

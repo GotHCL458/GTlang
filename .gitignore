@@ -1,0 +1,38 @@
+# Build artifacts
+/target/
+/.build/
+/res/
+/*.zip
+*.exe
+*.obj
+*.lib
+*.dll
+*.ll
+*.pdb
+*.ilk
+
+# Toolchain (vendored)
+/toolchain/
+
+# Temp / scratch
+/tmp/
+bench/_*.gt
+bench/_cl_win
+*.txt
+!README.md
+!doc/*.md
+
+# Cuckoo Code (AI assistant)
+.cuckooCode/
+_cuckoo/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+
+# Cargo home (local)
+.cargo-home/
+.rustup-home/

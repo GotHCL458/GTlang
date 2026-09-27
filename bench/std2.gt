@@ -1,0 +1,13 @@
+fn main() {
+    put("isqrt(17) = ${isqrt(17)}")
+    put("factorial(5) = ${factorial(5)}")
+    put("fib(10) = ${fib(10)}")
+    put("isprime(17) = ${isprime(17)} isprime(18) = ${isprime(18)}")
+    put("comb(5,2) = ${comb(5, 2)}")
+    put("powmod(2,10,1000) = ${powmod(2, 10, 1000)}")
+    put("zfill = ${zfill(\"42\", 5)}")
+    put("title = ${title(\"hello world\")}")
+    put("swapcase = ${swapcase(\"AbC\")}")
+    put("ljust = [${ljust(\"x\", 3)}]")
+    put("isalpha = ${isalpha(\"abc\")}")
+}
