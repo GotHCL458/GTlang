@@ -150,55 +150,55 @@ hello.exe
 struct 点 { x: int, y: int }
 
 enum 形状 {
-Circle(f64)
-Rect(f64, f64)
-Unit
+    Circle(f64)
+    Rect(f64, f64)
+    Unit
 }
 
 trait 面积 {
-fn area(self) -> f64
+    fn area(self) -> f64
 }
 
 impl 面积 for 形状 {
-fn area(self) -> f64 {
-match self {
-形状::Circle(r) => { return 3.14159 * r * r }
-形状::Rect(w, h) => { return w * h }
-形状::Unit => { return 0.0 }
-}
-}
+    fn area(self) -> f64 {
+        match self {
+            形状::Circle(r) => { return 3.14159 * r * r }
+            形状::Rect(w, h) => { return w * h }
+            形状::Unit => { return 0.0 }
+        }
+    }
 }
 
 // Generic function (monomorphized)
 fn 映射[T](xs: list, f) -> list {
-r := list()
-for x in xs { push(r, f(x)) }
-return r
+    r := list()
+    for x in xs { push(r, f(x)) }
+    return r
 }
 
 fn main() {
-p := 点 { x: 3, y: 4 }
-put(p.to_str())                    // 点 { x: 3, y: 4 }
+    p := 点 { x: 3, y: 4 }
+    put(p.to_str())                    // 点 { x: 3, y: 4 }
 
-// List comprehension
-平方 := [x * x for x in 0..6]
-put(len(平方))                      // 6
+    // List comprehension
+    平方 := [x * x for x in 0..6]
+    put(len(平方))                      // 6
 
-// Count loop
-loop 3 { put("hi") }
+    // Count loop
+    loop 3 { put("hi") }
 
-// Exhaustive match
-s := 形状::Circle(2.0)
-put(s.area())                       // 12.56636
+    // Exhaustive match
+    s := 形状::Circle(2.0)
+    put(s.area())                       // 12.56636
 
-// Real threads + channels
-ch := chan()
-go 生产者(ch)
-put(chan_recv(ch))                  // 42
+    // Real threads + channels
+    ch := chan()
+    go 生产者(ch)
+    put(chan_recv(ch))                  // 42
 }
 
 fn 生产者(ch) {
-chan_send(ch, 42)
+    chan_send(ch, 42)
 }
 ```
 
