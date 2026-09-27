@@ -225,11 +225,11 @@ for ... else { ... }        // 无 break 时执行 else
 outer: for ... { break outer }
 
 match v {
-1 => { ... }
-1..10 => { ... }        // 范围
-1 | 2 | 3 => { ... }    // OR
-n if n > 0 => { ... }   // 守卫
-_ => { ... }            // 通配
+    1 => { ... }
+    1..10 => { ... }        // 范围
+    1 | 2 | 3 => { ... }    // OR
+    n if n > 0 => { ... }   // 守卫
+    _ => { ... }            // 通配
 }
 ```
 
@@ -303,7 +303,7 @@ sleep(500)             // 毫秒
 
 ```gt
 C {
-static long long 平方(long long x) { return x * x; }
+    static long long 平方(long long x) { return x * x; }
 }
 put(平方(5))           // 自动解析签名
 

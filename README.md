@@ -229,11 +229,11 @@ for ... else { ... }        // else runs if no break
 outer: for ... { break outer }
 
 match v {
-1 => { ... }
-1..10 => { ... }        // range
-1 | 2 | 3 => { ... }    // OR
-n if n > 0 => { ... }   // guard
-_ => { ... }            // wildcard
+    1 => { ... }
+    1..10 => { ... }        // range
+    1 | 2 | 3 => { ... }    // OR
+    n if n > 0 => { ... }   // guard
+    _ => { ... }            // wildcard
 }
 ```
 
@@ -307,7 +307,7 @@ sleep(500)             // milliseconds
 
 ```gt
 C {
-static long long 平方(long long x) { return x * x; }
+    static long long 平方(long long x) { return x * x; }
 }
 put(平方(5))           // auto-resolves signature
 
