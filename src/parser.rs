@@ -990,7 +990,11 @@ impl Parser {
             self.no_struct_lit = saved;
             let first = first?;
             if self.eat_punct("..") {
-                let to = self.expr(0)?;
+                let saved2 = self.no_struct_lit;
+                self.no_struct_lit = true;
+                let to = self.expr(0);
+                self.no_struct_lit = saved2;
+                let to = to?;
                 let body = self.block()?;
                 let els = self.parse_for_else()?;
                 return Ok(Stmt::ForRange { var, from: first, to, body, els, line });

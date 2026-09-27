@@ -1,0 +1,82 @@
+// 2048 (deterministic, preset moves) — CLI
+fn make(w: int) -> list {
+    b := list()
+    for i in 0..(w * w) { push(b, 0) }
+    return b
+}
+
+fn idx(w: int, x: int, y: int) -> int { return y * w + x }
+
+fn put_cell(board: list, w: int, x: int, y: int, v: int) { board[idx(w, x, y)] = v }
+fn get(board: list, w: int, x: int, y: int) -> int { return board[idx(w, x, y)] }
+
+// slide one row left (4 cells)
+fn slide_left(vals: list) -> list {
+    out := list()
+    for v in vals { if v != 0 { push(out, v) } }
+    while len(out) < 4 { push(out, 0) }
+    // merge
+    i := 0
+    while i < 3 {
+        if out[i] != 0 && out[i] == out[i + 1] {
+            out[i] = out[i] * 2
+            out[i + 1] = 0
+            i = i + 2
+        } else {
+            i = i + 1
+        }
+    }
+    res := list()
+    for v in out { if v != 0 { push(res, v) } }
+    while len(res) < 4 { push(res, 0) }
+    return res
+}
+
+fn move_left(board: list, w: int) -> list {
+    nb := make(w)
+    for y in 0..w {
+        row := list()
+        for x in 0..w { push(row, get(board, w, x, y)) }
+        s := slide_left(row)
+        for x in 0..w { put_cell(nb, w, x, y, s[x]) }
+    }
+    return nb
+}
+
+fn render(board: list, w: int, label: str) {
+    put("--- $label ---")
+    for y in 0..w {
+        row := ""
+        for x in 0..w {
+            v := get(board, w, x, y)
+            if v == 0 { row = "${row}. " } else { row = "${row}${v} " }
+        }
+        put(row)
+    }
+}
+
+fn score(board: list) -> int {
+    s := 0
+    for v in board { s = s + v }
+    return s
+}
+
+fn main() {
+    w := 4
+    b := make(w)
+    put_cell(b, w, 0, 0, 2)
+    put_cell(b, w, 1, 0, 2)
+    put_cell(b, w, 2, 0, 4)
+    put_cell(b, w, 3, 0, 4)
+    put_cell(b, w, 1, 1, 2)
+    put_cell(b, w, 2, 1, 2)
+    put_cell(b, w, 0, 2, 8)
+    put_cell(b, w, 3, 3, 2)
+
+    render(b, w, "start")
+    for step in 1..4 {
+        b = move_left(b, w)
+        render(b, w, "after move $step")
+    }
+    put("score = ${score(b)}")
+}

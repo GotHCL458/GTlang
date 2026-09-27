@@ -232,6 +232,10 @@ impl<'a> Codegen<'a> {
     }
 
     // ---------- 类型转换内置 ----------
+    /// 转字符串。注意：返回的 buf 是**当前函数的栈数组**，
+    /// 在循环内多次调用会各自 alloca（LLVM 可能复用栈槽），
+    /// 因此**不要把多次 `str()` 的返回值长期保存**（如 push 进 list 后再用）。
+    /// 需要长期保存时，先在循环外拼接或改用插值。
     pub(crate) fn to_str(&mut self, v: &Val, _line: usize) -> Result<Val, String> {
         let fmt = match v.ty {
             Ty::F64 => "%g",

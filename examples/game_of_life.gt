@@ -1,0 +1,71 @@
+// Conway's Game of Life (CLI, deterministic)
+const W = 20
+const H = 10
+
+fn idx(x: int, y: int) -> int {
+    return ((y + H) % H) * W + ((x + W) % W)
+}
+
+fn neighbors(grid: list, x: int, y: int) -> int {
+    n := 0
+    for dy in -1..2 {
+        for dx in -1..2 {
+            if dx == 0 && dy == 0 { continue }
+            n = n + grid[idx(x + dx, y + dy)]
+        }
+    }
+    return n
+}
+
+fn step(grid: list) -> list {
+    next := list()
+    for y in 0..H {
+        for x in 0..W {
+            n := neighbors(grid, x, y)
+            alive := grid[idx(x, y)]
+            if alive == 1 {
+                if n == 2 || n == 3 { push(next, 1) } else { push(next, 0) }
+            } else {
+                if n == 3 { push(next, 1) } else { push(next, 0) }
+            }
+        }
+    }
+    return next
+}
+
+fn render(grid: list, gen: int) {
+    put("--- Generation $gen ---")
+    for y in 0..H {
+        row := list()
+        for x in 0..W {
+            if grid[idx(x, y)] == 1 { push(row, "#") } else { push(row, ".") }
+        }
+        put(join(row, ""))
+    }
+}
+
+fn main() {
+    grid := list()
+    for i in 0..(W * H) { push(grid, 0) }
+
+    grid[idx(1, 1)] = 1
+    grid[idx(2, 2)] = 1
+    grid[idx(0, 3)] = 1
+    grid[idx(1, 3)] = 1
+    grid[idx(2, 3)] = 1
+
+    grid[idx(10, 5)] = 1
+    grid[idx(11, 5)] = 1
+    grid[idx(12, 5)] = 1
+
+    grid[idx(16, 7)] = 1
+    grid[idx(17, 7)] = 1
+    grid[idx(16, 8)] = 1
+    grid[idx(17, 8)] = 1
+
+    for gen in 0..6 {
+        render(grid, gen)
+        grid = step(grid)
+    }
+    put("done.")
+}
