@@ -70,14 +70,14 @@ GTLang is a **statically-typed**, **compiled**, **expression-oriented** programm
 
 ### Build
 
-\`\`\`bat
+```bat
 REM Requires Rust + LLVM/clang on PATH (TCC optional, for inline C).
 REM Set GTC_CLANG / GTC_TCC to override auto-detection.
 build.bat           REM release build
 build.bat debug     REM debug build
 build.bat test      REM run test suite
 build.bat clean     REM clean artifacts
-\`\`\`
+```
 
 This produces:
 - \`target\release\gtc.exe\` — compiler & interpreter
@@ -88,28 +88,28 @@ This produces:
 
 Create \`hello.gt\`:
 
-\`\`\`gt
+```gt
 fn main() {
     put("你好，世界！")
 }
-\`\`\`
+```
 
 Then:
 
-\`\`\`bat
+```bat
 REM Run directly (Cranelift JIT)
 target\release\gtc.exe --run hello.gt
 
 REM Compile to a standalone executable (LLVM + clang)
 target\release\gtc.exe hello.gt -o hello.exe -O 2
 hello.exe
-\`\`\`
+```
 
 ---
 
 ## A Taste of GTLang
 
-\`\`\`gt
+```gt
 // Structs, enums, traits, generics, pattern matching, closures, concurrency
 @derive(Debug, Clone, Eq)
 struct 点 { x: int, y: int }
@@ -165,7 +165,7 @@ fn main() {
 fn 生产者(ch) {
     chan_send(ch, 42)
 }
-\`\`\`
+```
 
 ---
 
@@ -173,17 +173,17 @@ fn 生产者(ch) {
 
 ### Variables
 
-\`\`\`gt
+```gt
 a = 1          // bare assignment: auto-declare + infer
 x := 2         // inferred declaration (type may change)
 let mut y = 3  // inferred, mutable
 let n: int = 4 // explicit fixed type
 const K = 5    // constant
-\`\`\`
+```
 
 ### Control Flow
 
-\`\`\`gt
+```gt
 if c { ... } elif c2 { ... } else { ... }
 loop 3 { ... }              // count loop
 while c { ... }
@@ -200,11 +200,11 @@ match v {
     n if n > 0 => { ... }   // guard
     _ => { ... }            // wildcard
 }
-\`\`\`
+```
 
 ### Functions
 
-\`\`\`gt
+```gt
 fn add(a: int, b: int) -> int { a + b }   // last expression is returned
 
 fn f(a, b) { ... }                        // types may be inferred
@@ -216,11 +216,11 @@ fn max[T](a: T, b: T) -> T where T: Ord { ... }  // where clause
 
 |x| x * 2                                 // closure
 |x: int| -> int { x * x }                 // annotated closure
-\`\`\`
+```
 
 ### Structs / Enums / Traits
 
-\`\`\`gt
+```gt
 struct 点 { x: int, y: int }
 
 enum 形状 { Circle(f64) Rect(f64, f64) Unit }
@@ -232,7 +232,7 @@ fn print_area(s: dyn 面积) { put(s.area()) }  // dynamic dispatch
 
 @derive(Eq, PartialEq, Clone, Debug, Display, Default, Hash, Ord)
 struct 点 { x: int }
-\`\`\`
+```
 
 **Available \`@derive\`s:**
 
@@ -249,28 +249,28 @@ struct 点 { x: int }
 
 ### Operator Overloading
 
-\`\`\`gt
+```gt
 impl 向量 {
     fn add(self, o: 向量) -> 向量 { ... }
     fn lt(self, o: 向量) -> bool { ... }
 }
 a + b    // → 向量__add(a, b)
 a < b    // → 向量__lt(a, b)
-\`\`\`
+```
 
 ### Concurrency
 
-\`\`\`gt
+```gt
 go 工作者(42)          // spawn real thread
 ch := chan()           // unbounded channel
 chan_send(ch, v)
 v := chan_recv(ch)     // blocking receive
 sleep(500)             // milliseconds
-\`\`\`
+```
 
 ### C Interop
 
-\`\`\`gt
+```gt
 C {
     static long long 平方(long long x) { return x * x; }
 }
@@ -280,11 +280,11 @@ extern "C" { fn puts(s: str) -> int }
 
 import c "math.h" as m
 put(m.sqrt(2.0))
-\`\`\`
+```
 
 ### Error Handling
 
-\`\`\`gt
+```gt
 fn f(n: int) -> Result[int, str] {
     if n < 0 { return Err("negative") }
     return Ok(n * 2)
@@ -297,18 +297,18 @@ o := Some(1)
 v := o or 0                                     // default
 
 try { throw "boom" } expt e { put(e) } fily { ... }
-\`\`\`
+```
 
 ### Data Extensions
 
-\`\`\`gt
+```gt
 t := (1, 2)                // tuple
 let (a, b) = t             // destructuring
 s[0..3]                    // slicing
 l[-1]                      // negative index
 a, b = b, a                // swap
 [x * 2 for x in l if x > 0]  // list comprehension
-\`\`\`
+```
 
 ---
 
@@ -349,7 +349,7 @@ See [doc/bench.md](doc/bench.md) for methodology.
 
 ## CLI Reference
 
-\`\`\`text
+```text
 gtc --c        <file.gt> [...] [-o out.exe] [-O 0..3]   compile to executable
 gtc --run      <file.gt> [...]                          run with Cranelift JIT
 gtc --check    <file.gt> [...]                          lex/parse/type-check only
@@ -363,13 +363,13 @@ gtc --version / --verbose                               version / verbose
 gtc ... zh                                              Chinese diagnostics
 
 gtfmt [--check] <file.gt>                               format (after full check)
-\`\`\`
+```
 
 ---
 
 ## Project Layout
 
-\`\`\`text
+```text
 src/
   lib.rs            module declarations + public API
   main.rs           CLI (arg parsing / diagnostic rendering)
@@ -402,13 +402,13 @@ src/
 res/lib/            stdlib artifacts (math.dll / string.dll + .lib)
 examples/  tests/  bench/
 toolchain/          (optional) vendored Rust + LLVM + TCC
-\`\`\`
+```
 
 ---
 
 ## Architecture
 
-\`\`\`text
+```text
 source text
    │  cblock::extract  (extract inline C)
    ▼
@@ -430,15 +430,15 @@ sema(2)  (full type check)
    ▼
 Unit ──┬── jit::run      (Cranelift)
        └── codegen       (LLVM IR → clang)
-\`\`\`
+```
 
 ---
 
 ## Testing
 
-\`\`\`bat
+```bat
 cargo test --release
-\`\`\`
+```
 
 **613 tests**:
 - **17 unit tests** (\`--lib\`) — type system, cblock, tmp

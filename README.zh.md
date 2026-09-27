@@ -70,14 +70,14 @@ GTLang 是一门**静态类型**、**编译型**、**表达式导向**的编程�
 
 ### 构建
 
-\`\`\`bat
+```bat
 REM 需要 PATH 上有 Rust + LLVM/clang（TCC 可选，用于内联 C）
 REM 可用 GTC_CLANG / GTC_TCC 覆盖自动探测
 build.bat           REM 发布构建
 build.bat debug     REM 调试构建
 build.bat test      REM 运行测试
 build.bat clean     REM 清理产物
-\`\`\`
+```
 
 产物：
 - \`target\release\gtc.exe\` —— 编译器 & 解释器
@@ -88,28 +88,28 @@ build.bat clean     REM 清理产物
 
 创建 \`hello.gt\`：
 
-\`\`\`gt
+```gt
 fn main() {
     put("你好，世界！")
 }
-\`\`\`
+```
 
 然后：
 
-\`\`\`bat
+```bat
 REM 直接运行（Cranelift JIT）
 target\release\gtc.exe --run hello.gt
 
 REM 编译为独立可执行文件（LLVM + clang）
 target\release\gtc.exe hello.gt -o hello.exe -O 2
 hello.exe
-\`\`\`
+```
 
 ---
 
 ## 代码一览
 
-\`\`\`gt
+```gt
 // 结构体、枚举、trait、泛型、模式匹配、闭包、并发
 @derive(Debug, Clone, Eq)
 struct 点 { x: int, y: int }
@@ -165,7 +165,7 @@ fn main() {
 fn 生产者(ch) {
     chan_send(ch, 42)
 }
-\`\`\`
+```
 
 ---
 
@@ -173,17 +173,17 @@ fn 生产者(ch) {
 
 ### 变量
 
-\`\`\`gt
+```gt
 a = 1          // 裸赋值：自动声明 + 推导
 x := 2         // 推导声明（类型可变）
 let mut y = 3  // 推导，可变
 let n: int = 4 // 显式固定类型
 const K = 5    // 常量
-\`\`\`
+```
 
 ### 控制流
 
-\`\`\`gt
+```gt
 if c { ... } elif c2 { ... } else { ... }
 loop 3 { ... }              // 计数循环
 while c { ... }
@@ -200,11 +200,11 @@ match v {
     n if n > 0 => { ... }   // 守卫
     _ => { ... }            // 通配
 }
-\`\`\`
+```
 
 ### 函数
 
-\`\`\`gt
+```gt
 fn 加(a: int, b: int) -> int { a + b }   // 尾表达式即返回值
 
 fn f(a, b) { ... }                        // 类型可推断
@@ -216,11 +216,11 @@ fn max[T](a: T, b: T) -> T where T: Ord { ... }  // where 约束
 
 |x| x * 2                                 // 闭包
 |x: int| -> int { x * x }                 // 标注闭包
-\`\`\`
+```
 
 ### 结构体 / 枚举 / trait
 
-\`\`\`gt
+```gt
 struct 点 { x: int, y: int }
 
 enum 形状 { Circle(f64) Rect(f64, f64) Unit }
@@ -232,7 +232,7 @@ fn print_area(s: dyn 面积) { put(s.area()) }  // 动态分发
 
 @derive(Eq, PartialEq, Clone, Debug, Display, Default, Hash, Ord)
 struct 点 { x: int }
-\`\`\`
+```
 
 **可用的 \`@derive\`：**
 
@@ -249,28 +249,28 @@ struct 点 { x: int }
 
 ### 运算符重载
 
-\`\`\`gt
+```gt
 impl 向量 {
     fn add(self, o: 向量) -> 向量 { ... }
     fn lt(self, o: 向量) -> bool { ... }
 }
 a + b    // → 向量__add(a, b)
 a < b    // → 向量__lt(a, b)
-\`\`\`
+```
 
 ### 并发
 
-\`\`\`gt
+```gt
 go 工作者(42)          // 启动真线程
 ch := chan()           // 无界通道
 chan_send(ch, v)
 v := chan_recv(ch)     // 阻塞接收
 sleep(500)             // 毫秒
-\`\`\`
+```
 
 ### C 交互
 
-\`\`\`gt
+```gt
 C {
     static long long 平方(long long x) { return x * x; }
 }
@@ -280,11 +280,11 @@ extern "C" { fn puts(s: str) -> int }
 
 import c "math.h" as m
 put(m.sqrt(2.0))
-\`\`\`
+```
 
 ### 错误处理
 
-\`\`\`gt
+```gt
 fn f(n: int) -> Result[int, str] {
     if n < 0 { return Err("负数") }
     return Ok(n * 2)
@@ -297,18 +297,18 @@ o := Some(1)
 v := o or 0                                     // 默认值
 
 try { throw "异常" } expt e { put(e) } fily { ... }
-\`\`\`
+```
 
 ### 数据扩展
 
-\`\`\`gt
+```gt
 t := (1, 2)                // 元组
 let (a, b) = t             // 解构
 s[0..3]                    // 切片
 l[-1]                      // 负索引
 a, b = b, a                // 交换
 [x * 2 for x in l if x > 0]  // 列表推导
-\`\`\`
+```
 
 ---
 
@@ -349,7 +349,7 @@ GTLang 提供**两个后端**，消费同一份 AST：
 
 ## CLI 速查
 
-\`\`\`text
+```text
 gtc --c        <文件.gt> [...] [-o 输出] [-O 0..3]   编译为可执行文件
 gtc --run      <文件.gt> [...]                        解释执行（Cranelift JIT）
 gtc --check    <文件.gt> [...]                        仅检查（词法/语法/类型）
@@ -363,13 +363,13 @@ gtc --version / --verbose                             版本 / 详细日志
 gtc ... zh                                            中文诊断
 
 gtfmt [--check] <文件.gt>                             格式化（先经完整检查）
-\`\`\`
+```
 
 ---
 
 ## 目录结构
 
-\`\`\`text
+```text
 src/
   lib.rs            模块声明 + 对外 API
   main.rs           CLI（参数解析 / 诊断渲染）
@@ -402,13 +402,13 @@ src/
 res/lib/            标准库产物（math.dll / string.dll + .lib）
 examples/  tests/  bench/
 toolchain/          （可选）vendored Rust + LLVM + TCC
-\`\`\`
+```
 
 ---
 
 ## 架构
 
-\`\`\`text
+```text
 源码文本
    │  cblock::extract（挖空内联 C）
    ▼
@@ -430,15 +430,15 @@ sema(2)（完整类型检查）
    ▼
 Unit ──┬── jit::run（Cranelift）
        └── codegen（LLVM IR → clang）
-\`\`\`
+```
 
 ---
 
 ## 测试
 
-\`\`\`bat
+```bat
 cargo test --release
-\`\`\`
+```
 
 **613 个测试**：
 - **17 个单元测试**（\`--lib\`）—— 类型系统、cblock、tmp
