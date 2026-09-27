@@ -74,6 +74,13 @@ GTLang is a **statically-typed**, **compiled**, **expression-oriented** programm
 
 ### Build
 
+> **Prebuilt bundle** (no Rust/LLVM needed): download [`dist/gtlang-res-win-x64.zip`](dist/gtlang-res-win-x64.zip) (10 MB),
+extract it anywhere, and run `gtc.exe`. It bundles `gtc`, `gtfmt`, the standard
+library, the runtime, and TCC. It does **not** bundle `clang`/`lld-link`
+(≈176 MB) — GTLang locates them on your system `PATH` (or via `GTC_CLANG`).
+
+Or build from source:
+
 ```bat
 REM Requires Rust (>= 1.75) and LLVM/clang (>= 15) on PATH.
 REM Set GTC_CLANG to the full path of clang.exe to override auto-detection.

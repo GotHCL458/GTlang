@@ -3,6 +3,7 @@
 /.build/
 /res/
 /*.zip
+!dist/*.zip
 *.exe
 *.obj
 *.lib

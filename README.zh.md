@@ -74,6 +74,12 @@ GTLang 是一门**静态类型**、**编译型**、**表达式导向**的编程�
 
 ### 构建
 
+> **预编译包**（无需 Rust/LLVM）：下载 [`dist/gtlang-res-win-x64.zip`](dist/gtlang-res-win-x64.zip)（10 MB），
+解压后直接运行 `gtc.exe`。包内已含 `gtc`、`gtfmt`、标准库、运行时与 TCC。
+**不含** `clang`/`lld-link`（约 176 MB）—— GTLang 会从系统 `PATH`（或 `GTC_CLANG`）定位它们。
+
+或从源码构建：
+
 ```bat
 REM 需要 PATH 上有 Rust（>= 1.75）与 LLVM/clang（>= 15）
 REM 可用 GTC_CLANG 指定 clang.exe 完整路径以覆盖自动探测
