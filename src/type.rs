@@ -343,7 +343,21 @@ pub fn check_annotation(site: &str, annotated: &Ty, actual: &Ty) -> Result<(), S
     if is_assignable(annotated, actual) {
         Ok(())
     } else {
-        Err(crate::te!("{} declared as {}, but is actually {}", "{} 声明为 {}，但实际是 {}", site, annotated, actual))
+        {
+            let (a_name, ac_name) = match (annotated, actual) {
+                (crate::ast::Ty::Struct(a), crate::ast::Ty::Struct(b)) => (Some(a.clone()), Some(b.clone())),
+                (crate::ast::Ty::Enum(a), crate::ast::Ty::Enum(b)) => (Some(a.clone()), Some(b.clone())),
+                _ => (None, None),
+            };
+            let mut msg = crate::te!("{} declared as {}, but is actually {}", "{} 声明为 {}，但实际是 {}", site, annotated, actual);
+            if let (Some(a), Some(b)) = (a_name, ac_name) {
+                if crate::sema::closest_name_pub(&a, &[b.clone()][..]) {
+                    let zh = crate::lang::is_zh();
+                    msg = format!("{}{}", msg, if zh { format!("\x01是否想用 '{}'？", b) } else { format!("\x01did you mean '{}'?", b) });
+                }
+            }
+            Err(msg)
+        }
     }
 }
 

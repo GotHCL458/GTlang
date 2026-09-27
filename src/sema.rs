@@ -1639,3 +1639,9 @@ fn closest_of<'a, I: Iterator<Item = String>>(name: &str, cands: I) -> Option<St
     }
     best.map(|(_, k)| k)
 }
+
+
+/// 公开：候选集中是否有编辑距离 ≤ 2 的名字（供 type.rs 用）。
+pub fn closest_name_pub(name: &str, cands: &[String]) -> bool {
+    cands.iter().any(|k| k != name && levenshtein(name, k) <= 2)
+}
