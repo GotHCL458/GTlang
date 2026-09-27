@@ -71,8 +71,12 @@ GTLang is a **statically-typed**, **compiled**, **expression-oriented** programm
 ### Build
 
 \`\`\`bat
-REM Windows (uses vendored Rust + LLVM + TCC toolchain)
-build.bat
+REM Requires Rust + LLVM/clang on PATH (TCC optional, for inline C).
+REM Set GTC_CLANG / GTC_TCC to override auto-detection.
+build.bat           REM release build
+build.bat debug     REM debug build
+build.bat test      REM run test suite
+build.bat clean     REM clean artifacts
 \`\`\`
 
 This produces:
@@ -397,7 +401,7 @@ src/
   stdlib/           standard library source (math.rs / string.rs)
 res/lib/            stdlib artifacts (math.dll / string.dll + .lib)
 examples/  tests/  bench/
-toolchain/          vendored Rust + LLVM + TCC (do not modify)
+toolchain/          (optional) vendored Rust + LLVM + TCC
 \`\`\`
 
 ---

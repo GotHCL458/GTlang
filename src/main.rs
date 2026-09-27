@@ -124,7 +124,7 @@ fn main() -> ExitCode {
                 return ExitCode::SUCCESS;
             }
             "-V" | "--version" => {
-                println!("gtc {}", env!("CARGO_PKG_VERSION"));
+                println!("gtc 0.0.1a");
                 return ExitCode::SUCCESS;
             }
             "--verbose" | "-v" => gtc_rust::set_verbose(true),

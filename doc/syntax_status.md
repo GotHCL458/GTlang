@@ -2,7 +2,7 @@
 
 > [English](en/syntax_status.md)
 
-> 版本 0.1.0 ｜ 双后端（LLVM + Cranelift）逐字节一致
+> 版本 0.0.1a ｜ 双后端（LLVM + Cranelift）逐字节一致
 
 ---
 

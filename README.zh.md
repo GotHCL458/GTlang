@@ -71,8 +71,12 @@ GTLang 是一门**静态类型**、**编译型**、**表达式导向**的编程�
 ### 构建
 
 \`\`\`bat
-REM Windows（使用 vendored Rust + LLVM + TCC 工具链）
-build.bat
+REM 需要 PATH 上有 Rust + LLVM/clang（TCC 可选，用于内联 C）
+REM 可用 GTC_CLANG / GTC_TCC 覆盖自动探测
+build.bat           REM 发布构建
+build.bat debug     REM 调试构建
+build.bat test      REM 运行测试
+build.bat clean     REM 清理产物
 \`\`\`
 
 产物：
@@ -397,7 +401,7 @@ src/
   stdlib/           标准库源码（math.rs / string.rs）
 res/lib/            标准库产物（math.dll / string.dll + .lib）
 examples/  tests/  bench/
-toolchain/          vendored Rust + LLVM + TCC（勿改）
+toolchain/          （可选）vendored Rust + LLVM + TCC
 \`\`\`
 
 ---
