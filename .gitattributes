@@ -1,0 +1,9 @@
+# Mark vendored / third-party code so GitHub Linguist ignores it
+tcc/** linguist-vendored
+toolchain/** linguist-vendored
+bench/** linguist-documentation
+doc/** linguist-documentation
+dist/** linguist-vendored
+
+# Generated files
+Cargo.lock linguist-generated
