@@ -5,9 +5,12 @@
 /*.zip
 !dist/*.zip
 *.exe
+!tcc/*.exe
 *.obj
+!tcc/**/*.obj
 *.lib
 *.dll
+!tcc/*.dll
 *.ll
 *.pdb
 *.ilk
