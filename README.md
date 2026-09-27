@@ -42,7 +42,7 @@ GTLang is a **statically-typed**, **compiled**, **expression-oriented** programm
 - **Rust's memory safety** — ownership, borrowing, flow-sensitive NLL, bounds/overflow/divide-by-zero checks
 - **C-level performance** — native machine code via LLVM; tight loops match C
 - **Python-like brevity** — expression-oriented, optional type annotations, closures, comprehensions
-- **First-class Chinese identifiers** — \`计数器\`, \`累加\`, \`点\` are all valid names
+- **First-class Chinese identifiers** — `计数器`, `累加`, `点` are all valid names
 - **Dual backends** — the same AST compiles to a native executable (LLVM) **or** runs in-memory (Cranelift JIT), with **byte-for-byte identical output** enforced by tests
 
 ---
@@ -56,13 +56,13 @@ GTLang is a **statically-typed**, **compiled**, **expression-oriented** programm
 | ⚡ | **Dual backend** — LLVM (release) + Cranelift (JIT), identical semantics |
 | 🌏 | **Chinese identifiers** — no transliteration needed |
 | 🧬 | **Generics** (monomorphization), traits, **dyn Trait** (vtable dispatch) |
-| 🎯 | **Enums with payloads** + exhaustive \`match\` (ranges, guards, OR-patterns) |
-| 🚀 | **Concurrency** — \`go\` (real threads) + \`chan\` (unbounded channels) |
-| 🔌 | **C interop** — inline C blocks, \`extern "C"\`, \`import c "header.h"\` |
-| 🧩 | **Macros** — declarative \`macro\` + \`@derive(Eq, Clone, Debug, ...)\` |
+| 🎯 | **Enums with payloads** + exhaustive `match` (ranges, guards, OR-patterns) |
+| 🚀 | **Concurrency** — `go` (real threads) + `chan` (unbounded channels) |
+| 🔌 | **C interop** — inline C blocks, `extern "C"`, `import c "header.h"` |
+| 🧩 | **Macros** — declarative `macro` + `@derive(Eq, Clone, Debug, ...)` |
 | 💬 | **Smart diagnostics** — stable codes, bilingual, "did you mean X?" |
-| 📦 | **Modules** — \`import math\` (builtin), \`import a.b\` (user), \`import "x.gt"\` |
-| 🛠️ | **Toolchain** — \`gtc\` (compiler/interpreter), \`gtfmt\` (formatter) |
+| 📦 | **Modules** — `import math` (builtin), `import a.b` (user), `import "x.gt"` |
+| 🛠️ | **Toolchain** — `gtc` (compiler/interpreter), `gtfmt` (formatter) |
 
 ---
 
@@ -80,13 +80,13 @@ build.bat clean     REM clean artifacts
 ```
 
 This produces:
-- \`target\release\gtc.exe\` — compiler & interpreter
-- \`target\release\gtfmt.exe\` — formatter
-- \`res\lib\*.dll\` — standard library
+- `target\release\gtc.exe` — compiler & interpreter
+- `target\release\gtfmt.exe` — formatter
+- `res\lib\*.dll` — standard library
 
 ### Run your first program
 
-Create \`hello.gt\`:
+Create `hello.gt`:
 
 ```gt
 fn main() {
@@ -234,18 +234,18 @@ fn print_area(s: dyn 面积) { put(s.area()) }  // dynamic dispatch
 struct 点 { x: int }
 ```
 
-**Available \`@derive\`s:**
+**Available `@derive`s:**
 
 | Derive | Generates |
 |---|---|
-| \`Eq\` | \`eq\`, \`ne\` |
-| \`PartialEq\` | \`eq\` |
-| \`Clone\` | \`clone\` |
-| \`Debug\` | \`to_str\` → \`"Name { f: v }"\` |
-| \`Display\` | \`to_str\` → \`"v1, v2"\` |
-| \`Default\` | \`default\` |
-| \`Hash\` | \`hash\` |
-| \`Ord\` | \`cmp\`, \`lt\`, \`le\`, \`gt\`, \`ge\` (+ \`<\`, \`<=\`, \`>\`, \`>=\`) |
+| `Eq` | `eq`, `ne` |
+| `PartialEq` | `eq` |
+| `Clone` | `clone` |
+| `Debug` | `to_str` → `"Name { f: v }"` |
+| `Display` | `to_str` → `"v1, v2"` |
+| `Default` | `default` |
+| `Hash` | `hash` |
+| `Ord` | `cmp`, `lt`, `le`, `gt`, `ge` (+ `<`, `<=`, `>`, `>=`) |
 
 ### Operator Overloading
 
@@ -316,7 +316,7 @@ a, b = b, a                // swap
 
 GTLang ships with **two backends** that consume the same AST:
 
-| | \`--c\` (LLVM) | \`--run\` (Cranelift) |
+| | `--c` (LLVM) | `--run` (Cranelift) |
 |---|---|---|
 | **Output** | Standalone native executable | In-memory |
 | **Speed (compile)** | Slower (clang) | Fast (JIT) |
@@ -324,13 +324,13 @@ GTLang ships with **two backends** that consume the same AST:
 | **Use case** | Release / distribution | Development / scripting |
 | **Consistency** | — | **Byte-for-byte identical output** |
 
-This consistency is enforced by the \`tests/consistency.rs\` test suite: every test runs the same source through both backends and asserts identical stdout.
+This consistency is enforced by the `tests/consistency.rs` test suite: every test runs the same source through both backends and asserts identical stdout.
 
 ---
 
 ## Performance
 
-Benchmark: \`loop_sum(2e8)\` — sum \`0..200_000_000\` with overflow checks enabled.
+Benchmark: `loop_sum(2e8)` — sum `0..200_000_000` with overflow checks enabled.
 
 | Implementation | fib(35) | loop_sum(2e8) |
 |---|---:|---:|
@@ -341,7 +341,7 @@ Benchmark: \`loop_sum(2e8)\` — sum \`0..200_000_000\` with overflow checks ena
 | Lua 5.4 | ~445 ms | ~673 ms |
 | Python 3.12 | ~1300 ms | ~6788 ms |
 
-**GTLang's default (safe) mode matches C on tight loops** thanks to flow-sensitive range analysis (\`src/range.rs\`) that elides provably-safe overflow checks — without sacrificing safety.
+**GTLang's default (safe) mode matches C on tight loops** thanks to flow-sensitive range analysis (`src/range.rs`) that elides provably-safe overflow checks — without sacrificing safety.
 
 See [doc/bench.md](doc/bench.md) for methodology.
 
@@ -441,9 +441,9 @@ cargo test --release
 ```
 
 **613 tests**:
-- **17 unit tests** (\`--lib\`) — type system, cblock, tmp
-- **96 dual-backend consistency tests** (\`tests/consistency.rs\`) — same source, both backends, identical stdout
-- **500 frontend bulk tests** (\`tests/bulk.rs\`) — parse + type-check coverage
+- **17 unit tests** (`--lib`) — type system, cblock, tmp
+- **96 dual-backend consistency tests** (`tests/consistency.rs`) — same source, both backends, identical stdout
+- **500 frontend bulk tests** (`tests/bulk.rs`) — parse + type-check coverage
 
 ---
 
@@ -458,26 +458,26 @@ cargo test --release
 | [doc/bench.md](doc/bench.md) | Benchmarks |
 | [doc/syntax_status.md](doc/syntax_status.md) | Syntax / feature status |
 
-All docs are available in both **Chinese** (\`doc/\`) and **English** (\`doc/en/\`).
+All docs are available in both **Chinese** (`doc/`) and **English** (`doc/en/`).
 
 ---
 
 ## FAQ
 
 **Q: Why Chinese identifiers?**
-A: GTLang treats Unicode identifiers as first-class. Chinese names like \`计数器\` or \`累加\` are as valid as \`counter\` or \`sum\`. This makes the language more approachable for Chinese-speaking developers and enables domain-specific naming (e.g. math, geometry) without transliteration.
+A: GTLang treats Unicode identifiers as first-class. Chinese names like `计数器` or `累加` are as valid as `counter` or `sum`. This makes the language more approachable for Chinese-speaking developers and enables domain-specific naming (e.g. math, geometry) without transliteration.
 
 **Q: Why two backends?**
 A: The JIT (Cranelift) gives instant feedback during development; the LLVM backend produces optimized native binaries for release. Both consume the same AST and produce identical output — tests enforce this.
 
 **Q: How is performance so close to C?**
-A: Overflow checks are the only cost. Flow-sensitive range analysis elides them when provably safe (e.g. \`for i in 0..N { s += i }\`), letting LLVM vectorize the loop. See \`doc/bench.md\`.
+A: Overflow checks are the only cost. Flow-sensitive range analysis elides them when provably safe (e.g. `for i in 0..N { s += i }`), letting LLVM vectorize the loop. See `doc/bench.md`.
 
 **Q: Is there a garbage collector?**
-A: Not yet. Containers are reference-semantics and live until process exit. RC primitives (\`gt_rc_inc\` / \`gt_rc_dec\`) are in place; instrumentation is pending.
+A: Not yet. Containers are reference-semantics and live until process exit. RC primitives (`gt_rc_inc` / `gt_rc_dec`) are in place; instrumentation is pending.
 
 **Q: What's not implemented?**
-A: Inline assembly (removed), \`async/await\` (overlaps with \`go\`), full GC instrumentation, cross-compilation, procedural macros. See [doc/syntax_status.md](doc/syntax_status.md).
+A: Inline assembly (removed), `async/await` (overlaps with `go`), full GC instrumentation, cross-compilation, procedural macros. See [doc/syntax_status.md](doc/syntax_status.md).
 
 ---
 

@@ -42,7 +42,7 @@ GTLang 是一门**静态类型**、**编译型**、**表达式导向**的编程�
 - **Rust 的内存安全** —— 所有权、借用、流敏感 NLL、边界/溢出/除零检查
 - **C 级性能** —— 经 LLVM 生成原生机器码；紧循环可与 C 持平
 - **Python 式简洁** —— 表达式导向、类型标注可选、闭包、列表推导
-- **原生中文标识符** —— \`计数器\`、\`累加\`、\`点\` 都是合法名字
+- **原生中文标识符** —— `计数器`、`累加`、`点` 都是合法名字
 - **双后端** —— 同一份 AST 既可编译为原生可执行文件（LLVM），也可内存执行（Cranelift JIT），**输出逐字节一致**（测试保证）
 
 ---
@@ -56,13 +56,13 @@ GTLang 是一门**静态类型**、**编译型**、**表达式导向**的编程�
 | ⚡ | **双后端** —— LLVM（发布）+ Cranelift（JIT），语义一致 |
 | 🌏 | **中文标识符** —— 无需音译 |
 | 🧬 | **泛型**（单态化）、trait、**dyn Trait**（vtable 动态分发） |
-| 🎯 | **带载荷枚举** + 穷尽 \`match\`（范围/守卫/OR） |
-| 🚀 | **并发** —— \`go\`（真线程）+ \`chan\`（无界通道） |
-| 🔌 | **C 交互** —— 内联 C、\`extern "C"\`、\`import c "头.h"\` |
-| 🧩 | **宏** —— 声明式 \`macro\` + \`@derive(Eq, Clone, Debug, ...)\` |
+| 🎯 | **带载荷枚举** + 穷尽 `match`（范围/守卫/OR） |
+| 🚀 | **并发** —— `go`（真线程）+ `chan`（无界通道） |
+| 🔌 | **C 交互** —— 内联 C、`extern "C"`、`import c "头.h"` |
+| 🧩 | **宏** —— 声明式 `macro` + `@derive(Eq, Clone, Debug, ...)` |
 | 💬 | **智能诊断** —— 稳定错误码、中英双语、"是否想用 X？" |
-| 📦 | **模块** —— \`import math\`（内置）、\`import a.b\`（用户）、\`import "x.gt"\` |
-| 🛠️ | **工具链** —— \`gtc\`（编译器/解释器）、\`gtfmt\`（格式化器） |
+| 📦 | **模块** —— `import math`（内置）、`import a.b`（用户）、`import "x.gt"` |
+| 🛠️ | **工具链** —— `gtc`（编译器/解释器）、`gtfmt`（格式化器） |
 
 ---
 
@@ -80,13 +80,13 @@ build.bat clean     REM 清理产物
 ```
 
 产物：
-- \`target\release\gtc.exe\` —— 编译器 & 解释器
-- \`target\release\gtfmt.exe\` —— 格式化器
-- \`res\lib\*.dll\` —— 标准库
+- `target\release\gtc.exe` —— 编译器 & 解释器
+- `target\release\gtfmt.exe` —— 格式化器
+- `res\lib\*.dll` —— 标准库
 
 ### 运行第一个程序
 
-创建 \`hello.gt\`：
+创建 `hello.gt`：
 
 ```gt
 fn main() {
@@ -234,18 +234,18 @@ fn print_area(s: dyn 面积) { put(s.area()) }  // 动态分发
 struct 点 { x: int }
 ```
 
-**可用的 \`@derive\`：**
+**可用的 `@derive`：**
 
 | 派生 | 生成 |
 |---|---|
-| \`Eq\` | \`eq\`、\`ne\` |
-| \`PartialEq\` | \`eq\` |
-| \`Clone\` | \`clone\` |
-| \`Debug\` | \`to_str\` → \`"类型名 { f: v }"\` |
-| \`Display\` | \`to_str\` → \`"v1, v2"\` |
-| \`Default\` | \`default\` |
-| \`Hash\` | \`hash\` |
-| \`Ord\` | \`cmp\`、\`lt\`、\`le\`、\`gt\`、\`ge\`（+ \`<\`、\`<=\`、\`>\`、\`>=\`） |
+| `Eq` | `eq`、`ne` |
+| `PartialEq` | `eq` |
+| `Clone` | `clone` |
+| `Debug` | `to_str` → `"类型名 { f: v }"` |
+| `Display` | `to_str` → `"v1, v2"` |
+| `Default` | `default` |
+| `Hash` | `hash` |
+| `Ord` | `cmp`、`lt`、`le`、`gt`、`ge`（+ `<`、`<=`、`>`、`>=`） |
 
 ### 运算符重载
 
@@ -316,7 +316,7 @@ a, b = b, a                // 交换
 
 GTLang 提供**两个后端**，消费同一份 AST：
 
-| | \`--c\`（LLVM） | \`--run\`（Cranelift） |
+| | `--c`（LLVM） | `--run`（Cranelift） |
 |---|---|---|
 | **产物** | 独立原生可执行文件 | 内存中 |
 | **编译速度** | 慢（clang） | 快（JIT） |
@@ -324,13 +324,13 @@ GTLang 提供**两个后端**，消费同一份 AST：
 | **适用** | 发布 / 分发 | 开发 / 脚本 |
 | **一致性** | — | **输出逐字节一致** |
 
-一致性由 \`tests/consistency.rs\` 强制：每个测试用同一份源码跑两个后端，断言 stdout 相同。
+一致性由 `tests/consistency.rs` 强制：每个测试用同一份源码跑两个后端，断言 stdout 相同。
 
 ---
 
 ## 性能
 
-基准：\`loop_sum(2e8)\` —— 累加 \`0..200_000_000\`，**开启溢出检查**。
+基准：`loop_sum(2e8)` —— 累加 `0..200_000_000`，**开启溢出检查**。
 
 | 实现 | fib(35) | loop_sum(2e8) |
 |---|---:|---:|
@@ -341,7 +341,7 @@ GTLang 提供**两个后端**，消费同一份 AST：
 | Lua 5.4 | ~445 ms | ~673 ms |
 | Python 3.12 | ~1300 ms | ~6788 ms |
 
-**GTLang 默认（安全）模式在紧循环上追平 C** —— 流敏感范围分析（\`src/range.rs\`）证明安全即省略溢出检查，**不牺牲安全性**。
+**GTLang 默认（安全）模式在紧循环上追平 C** —— 流敏感范围分析（`src/range.rs`）证明安全即省略溢出检查，**不牺牲安全性**。
 
 详见 [doc/bench.md](doc/bench.md)。
 
@@ -441,9 +441,9 @@ cargo test --release
 ```
 
 **613 个测试**：
-- **17 个单元测试**（\`--lib\`）—— 类型系统、cblock、tmp
-- **96 个双后端一致性测试**（\`tests/consistency.rs\`）—— 同一源码、两个后端、stdout 相同
-- **500 个前端批量测试**（\`tests/bulk.rs\`）—— parse + type-check 覆盖
+- **17 个单元测试**（`--lib`）—— 类型系统、cblock、tmp
+- **96 个双后端一致性测试**（`tests/consistency.rs`）—— 同一源码、两个后端、stdout 相同
+- **500 个前端批量测试**（`tests/bulk.rs`）—— parse + type-check 覆盖
 
 ---
 
@@ -458,26 +458,26 @@ cargo test --release
 | [doc/bench.md](doc/bench.md) | 基准 |
 | [doc/syntax_status.md](doc/syntax_status.md) | 语法 / 特性状态 |
 
-所有文档均有**中文**（\`doc/\`）与**英文**（\`doc/en/\`）两个版本。
+所有文档均有**中文**（`doc/`）与**英文**（`doc/en/`）两个版本。
 
 ---
 
 ## 常见问题
 
 **Q：为什么支持中文标识符？**
-A：GTLang 把 Unicode 标识符视为一等公民。\`计数器\`、\`累加\` 与 \`counter\`、\`sum\` 同样合法，便于中文开发者与领域命名（数学、几何），无需音译。
+A：GTLang 把 Unicode 标识符视为一等公民。`计数器`、`累加` 与 `counter`、`sum` 同样合法，便于中文开发者与领域命名（数学、几何），无需音译。
 
 **Q：为什么有两个后端？**
 A：JIT（Cranelift）提供开发时的即时反馈；LLVM 后端产出优化的原生二进制用于发布。两者消费同一 AST 且输出一致 —— 测试保证。
 
 **Q：性能为何接近 C？**
-A：溢出检查是唯一成本。流敏感范围分析在可证明安全时省略检查（如 \`for i in 0..N { s += i }\`），让 LLVM 向量化循环。详见 \`doc/bench.md\`。
+A：溢出检查是唯一成本。流敏感范围分析在可证明安全时省略检查（如 `for i in 0..N { s += i }`），让 LLVM 向量化循环。详见 `doc/bench.md`。
 
 **Q：有垃圾回收吗？**
-A：暂无。容器是引用语义，存活至进程退出。RC 原语（\`gt_rc_inc\` / \`gt_rc_dec\`）已就绪，插桩待续。
+A：暂无。容器是引用语义，存活至进程退出。RC 原语（`gt_rc_inc` / `gt_rc_dec`）已就绪，插桩待续。
 
 **Q：有哪些未实现？**
-A：内联汇编（已移除）、\`async/await\`（与 \`go\` 重复）、完整 GC 插桩、交叉编译、过程宏。详见 [doc/syntax_status.md](doc/syntax_status.md)。
+A：内联汇编（已移除）、`async/await`（与 `go` 重复）、完整 GC 插桩、交叉编译、过程宏。详见 [doc/syntax_status.md](doc/syntax_status.md)。
 
 ---
 
