@@ -121,7 +121,7 @@ build.bat
 
 ```gt
 fn main() {
-put("你好，世界！")
+    put("你好，世界！")
 }
 ```
 
@@ -282,8 +282,8 @@ struct 点 { x: int }
 
 ```gt
 impl 向量 {
-fn add(self, o: 向量) -> 向量 { ... }
-fn lt(self, o: 向量) -> bool { ... }
+    fn add(self, o: 向量) -> 向量 { ... }
+    fn lt(self, o: 向量) -> bool { ... }
 }
 a + b    // → 向量__add(a, b)
 a < b    // → 向量__lt(a, b)
@@ -317,8 +317,8 @@ put(m.sqrt(2.0))
 
 ```gt
 fn f(n: int) -> Result[int, str] {
-if n < 0 { return Err("负数") }
-return Ok(n * 2)
+    if n < 0 { return Err("负数") }
+    return Ok(n * 2)
 }
 
 v := f(21)?                                     // ? 传播
