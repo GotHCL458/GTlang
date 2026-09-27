@@ -107,11 +107,25 @@ copy /Y "%STDOUT%\string.lib" "%RES%\lib\string.lib" >nul
 copy /Y "%GTC_CLANG%" "%RES%\llvm\bin\clang.exe" >nul
 if exist "%LLD_LINK%" copy /Y "%LLD_LINK%" "%RES%\llvm\bin\lld-link.exe" >nul
 
-if not "%GTC_TCC%"=="" (
-    mkdir "%RES%\tcc" 2>nul
-    copy /Y "%GTC_TCC%\libtcc.dll" "%RES%\tcc\libtcc.dll" >nul
-    xcopy /E /I /Y /Q "%GTC_TCC%\include" "%RES%\tcc\include" >nul
-    xcopy /E /I /Y /Q "%GTC_TCC%\lib"     "%RES%\tcc\lib"     >nul
+REM ---------- TCC (optional, for inline C) ----------
+REM Search order: GTC_TCC env -> .\toolchain\tcc -> tcc on PATH
+if "%GTC_TCC%"=="" if exist "%ROOT%toolchain\tcc\libtcc.dll" set "GTC_TCC=%ROOT%toolchain\tcc"
+if "%GTC_TCC%"=="" (
+    for /f "delims=" %%T in ('where tcc 2^>nul') do set "GTC_TCC=%%~dpT"
+)
+if "%GTC_TCC%"=="" (
+    echo [WARN] TCC not found; inline C blocks will be unavailable.
+    echo        Set GTC_TCC to a TCC directory, or place one at .\toolchain\tcc
+) else (
+    if not exist "%GTC_TCC%\libtcc.dll" (
+        echo [WARN] %GTC_TCC% has no libtcc.dll; inline C will be unavailable.
+    ) else (
+        echo [check] tcc %GTC_TCC%
+        mkdir "%RES%\tcc" 2>nul
+        copy /Y "%GTC_TCC%\libtcc.dll" "%RES%\tcc\libtcc.dll" >nul
+        if exist "%GTC_TCC%\include" xcopy /E /I /Y /Q "%GTC_TCC%\include" "%RES%\tcc\include" >nul
+        if exist "%GTC_TCC%\lib"     xcopy /E /I /Y /Q "%GTC_TCC%\lib"     "%RES%\tcc\lib"     >nul
+    )
 )
 
 copy /Y "%ROOT%src\runtime\gt_rt.c" "%RES%\runtime\gt_rt.c" >nul

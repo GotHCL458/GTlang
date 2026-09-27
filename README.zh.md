@@ -77,10 +77,19 @@ GTLang 是一门**静态类型**、**编译型**、**表达式导向**的编程�
 ```bat
 REM 需要 PATH 上有 Rust（>= 1.75）与 LLVM/clang（>= 15）
 REM 可用 GTC_CLANG 指定 clang.exe 完整路径以覆盖自动探测
+REM TCC 可选（用于内联 C 块），见下方 GTC_TCC 说明
 build.bat
 ```
 
-`build.bat` 会先检查工具链版本，然后构建 `gtc`、`gtfmt` 与标准库，**无需任何参数**。
+`build.bat` 会先检查工具链版本，然后构建 `gtc`、`gtfmt`、标准库，并组装可分发的 `res/` 目录，**无需任何参数**。
+
+**可选：TCC（用于内联 C 块）。** GTLang 通过 [TCC](https://bellard.org/tcc/) 执行内联 `C { ... }` 块。`build.bat` 按以下顺序查找：
+
+1. `GTC_TCC` 环境变量（指向含 `libtcc.dll` 的目录）
+2. `.\toolchain\tcc`（vendored）
+3. `PATH` 上的 `tcc`
+
+若均未找到，构建仍会成功 —— 仅内联 C 不可用。
 
 产物：
 - `target\release\gtc.exe` —— 编译器 & 解释器

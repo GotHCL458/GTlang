@@ -77,11 +77,22 @@ GTLang is a **statically-typed**, **compiled**, **expression-oriented** programm
 ```bat
 REM Requires Rust (>= 1.75) and LLVM/clang (>= 15) on PATH.
 REM Set GTC_CLANG to the full path of clang.exe to override auto-detection.
+REM TCC is optional (for inline C blocks); see GTC_TCC below.
 build.bat
 ```
 
-`build.bat` checks the toolchain versions, then builds `gtc`, `gtfmt`, and the
-standard library. It takes **no arguments**.
+`build.bat` checks the toolchain versions, then builds `gtc`, `gtfmt`, the
+standard library, and assembles a portable `res/` directory.
+It takes **no arguments**.
+
+**Optional: TCC for inline C blocks.** GTLang executes inline `C { ... }` blocks
+via [TCC](https://bellard.org/tcc/). `build.bat` looks for it in this order:
+
+1. `GTC_TCC` environment variable (a directory containing `libtcc.dll`)
+2. `.\toolchain\tcc` (vendored)
+3. `tcc` on `PATH`
+
+If none is found, the build still succeeds — only inline C becomes unavailable.
 
 This produces:
 - `target\release\gtc.exe` — compiler & interpreter
