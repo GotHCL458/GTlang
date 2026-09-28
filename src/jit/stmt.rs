@@ -270,10 +270,16 @@ impl FnState {
             Stmt::ForEach { var, iter, body, els: _, line } => {
                 let arr = self.gen_expr(jit, b, iter)?;
                 let is_list = matches!(&arr.1, Ty::List(_));
+                let is_str = matches!(&arr.1, Ty::Str);
+                let is_set = matches!(&arr.1, Ty::Set(_));
+                let is_map = matches!(&arr.1, Ty::Map(..));
                 let elem = match &arr.1 {
                     Ty::Array(e, _) => (**e).clone(),
                     Ty::List(e) => (**e).clone(),
-                    other => return Err(crate::lb!(line, "for can only iterate over arrays/lists, found {}", "for 只能遍历数组/列表，实际是 {}", other)),
+                    Ty::Str => Ty::Str,
+                    Ty::Set(e) => (**e).clone(),
+                    Ty::Map(k, _) => (**k).clone(),
+                    other => return Err(crate::lb!(line, "for can only iterate over arrays/lists/strings/sets/maps, found {}", "for 只能遍历数组/列表/字符串/集合/映射，实际是 {}", other)),
                 };
                 let base = arr.0;
                 let n_const: i64 = match &arr.1 { Ty::Array(_, n) => *n as i64, _ => 0 };
@@ -281,20 +287,51 @@ impl FnState {
                 let zero = b.ins().iconst(types::I64, 0); b.def_var(idx, zero);
                 let ev = self.new_var(b, &elem); b.def_var(ev, zero);
                 let header = self.new_block(b); let bodyb = self.new_block(b); let inc = self.new_block(b); let exit = self.new_block(b);
+                // 长度在循环外计算一次
+                let len_val = if is_list {
+                    let f = self.rt_ref(jit, b, "list_len")?;
+                    let call = b.ins().call(f, &[base]);
+                    Some(b.inst_results(call)[0])
+                } else if is_str {
+                    let f = self.rt_ref(jit, b, "str_char_len")?;
+                    let call = b.ins().call(f, &[base]);
+                    Some(b.inst_results(call)[0])
+                } else if is_set {
+                    let f = self.rt_ref(jit, b, "set_len")?;
+                    let call = b.ins().call(f, &[base]);
+                    Some(b.inst_results(call)[0])
+                } else if is_map {
+                    let f = self.rt_ref(jit, b, "map_len")?;
+                    let call = b.ins().call(f, &[base]);
+                    Some(b.inst_results(call)[0])
+                } else { None };
                 b.ins().jump(header, &[]);
                 b.switch_to_block(header);
                 let i1 = b.use_var(idx);
-                let c = if is_list {
-                    let f = self.rt_ref(jit, b, "list_len")?;
-                    let call = b.ins().call(f, &[base]); let len = b.inst_results(call)[0];
-                    b.ins().icmp(IntCC::SignedLessThan, i1, len)
-                } else { b.ins().icmp_imm(IntCC::SignedLessThan, i1, n_const) };
+                let c = match len_val {
+                    Some(lv) => b.ins().icmp(IntCC::SignedLessThan, i1, lv),
+                    None => b.ins().icmp_imm(IntCC::SignedLessThan, i1, n_const),
+                };
                 b.ins().brif(c, bodyb, &[], exit, &[]);
                 b.switch_to_block(bodyb); self.terminated = false;
                 let i2 = b.use_var(idx);
                 let ld = if is_list {
                     let f = self.rt_ref(jit, b, "list_at")?;
                     let call = b.ins().call(f, &[base, i2]); let raw = b.inst_results(call)[0];
+                    if elem == Ty::F64 { b.ins().bitcast(types::F64, MemFlags::new(), raw) } else { raw }
+                } else if is_str {
+                    let f = self.rt_ref(jit, b, "str_char_at")?;
+                    let call = b.ins().call(f, &[base, i2]);
+                    b.inst_results(call)[0]
+                } else if is_set {
+                    let f = self.rt_ref(jit, b, "set_at")?;
+                    let call = b.ins().call(f, &[base, i2]);
+                    let raw = b.inst_results(call)[0];
+                    if elem == Ty::F64 { b.ins().bitcast(types::F64, MemFlags::new(), raw) } else { raw }
+                } else if is_map {
+                    let f = self.rt_ref(jit, b, "map_key_at")?;
+                    let call = b.ins().call(f, &[base, i2]);
+                    let raw = b.inst_results(call)[0];
                     if elem == Ty::F64 { b.ins().bitcast(types::F64, MemFlags::new(), raw) } else { raw }
                 } else {
                     let off = b.ins().imul_imm(i2, 8); let addr = b.ins().iadd(base, off);

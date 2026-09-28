@@ -966,3 +966,55 @@ pub(crate) extern "C" fn rt_read_int() -> i64 {
 }
 extern "C" { fn malloc(n: usize) -> *mut u8; }
 unsafe fn libc_malloc(n: usize) -> *mut u8 { malloc(n) }
+
+pub(crate) extern "C" fn rt_str_char_at(s: i64, i: i64) -> i64 {
+    if s == 0 || i < 0 { return rt_alloc_empty(); }
+    let bytes = unsafe { std::ffi::CStr::from_ptr(s as *const i8).to_bytes() };
+    let mut pos = 0usize;
+    let mut k = 0i64;
+    while pos < bytes.len() {
+        let c = bytes[pos];
+        let clen = if c & 0x80 == 0 { 1 } else if c & 0xE0 == 0xC0 { 2 } else if c & 0xF0 == 0xE0 { 3 } else if c & 0xF8 == 0xF0 { 4 } else { 1 };
+        if k == i {
+            let p = unsafe { libc_malloc(clen + 1) };
+            unsafe {
+                std::ptr::copy_nonoverlapping(bytes.as_ptr().add(pos), p, clen);
+                *p.add(clen) = 0;
+            }
+            return p as i64;
+        }
+        pos += clen;
+        k += 1;
+    }
+    rt_alloc_empty()
+}
+pub(crate) extern "C" fn rt_str_char_len(s: i64) -> i64 {
+    if s == 0 { return 0; }
+    let bytes = unsafe { std::ffi::CStr::from_ptr(s as *const i8).to_bytes() };
+    let mut pos = 0usize;
+    let mut n = 0i64;
+    while pos < bytes.len() {
+        let c = bytes[pos];
+        let clen = if c & 0x80 == 0 { 1 } else if c & 0xE0 == 0xC0 { 2 } else if c & 0xF0 == 0xE0 { 3 } else if c & 0xF8 == 0xF0 { 4 } else { 1 };
+        pos += clen;
+        n += 1;
+    }
+    n
+}
+pub(crate) extern "C" fn rt_set_at(p: i64, i: i64) -> i64 {
+    unsafe {
+        let s = &*(p as *const RtSet);
+        *s.data.add(i as usize)
+    }
+}
+pub(crate) extern "C" fn rt_map_key_at(p: i64, i: i64) -> i64 {
+    unsafe {
+        let m = &*(p as *const RtMap);
+        *m.keys.add(i as usize)
+    }
+}
+fn rt_alloc_empty() -> i64 {
+    let p = unsafe { libc_malloc(1) };
+    unsafe { *p = 0; }
+    p as i64
+}

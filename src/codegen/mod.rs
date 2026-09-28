@@ -785,10 +785,16 @@ impl<'a> Codegen<'a> {
             Stmt::ForEach { var, iter, body, els: _, line } => {
                 let arr = self.expr(iter)?;
                 let is_list = matches!(&arr.ty, Ty::List(_));
+                let is_str = matches!(&arr.ty, Ty::Str);
+                let is_set = matches!(&arr.ty, Ty::Set(_));
+                let is_map = matches!(&arr.ty, Ty::Map(..));
                 let elem = match &arr.ty {
                     Ty::Array(e, _) => (**e).clone(),
                     Ty::List(e) => (**e).clone(),
-                    other => return Err(crate::lb!(line, "for can only iterate over arrays/lists, found {}", "for 只能遍历数组/列表，实际是 {}", other)),
+                    Ty::Str => Ty::Str,
+                    Ty::Set(e) => (**e).clone(),
+                    Ty::Map(k, _) => (**k).clone(),
+                    other => return Err(crate::lb!(line, "for can only iterate over arrays/lists/strings/sets/maps, found {}", "for 只能遍历数组/列表/字符串/集合/映射，实际是 {}", other)),
                 };
                 let n: i64 = match &arr.ty { Ty::Array(_, n) => *n as i64, _ => 0 };
                 let idx = self.new_alloca(&Ty::I64);
@@ -798,18 +804,36 @@ impl<'a> Codegen<'a> {
                 let lbody = self.new_label();
                 let linc = self.new_label();
                 let lend = self.new_label();
+                // 长度在循环外计算一次（避免每次迭代都调用运行时）
+                let len_reg = if is_list {
+                    self.declare("declare i64 @gt_list_len(ptr)");
+                    let lr = self.new_reg();
+                    self.body.push_str(&format!("  {} = call i64 @gt_list_len(ptr {})\n", lr, arr.s));
+                    Some(lr)
+                } else if is_str {
+                    self.declare("declare i64 @gt_str_char_len(ptr)");
+                    let lr = self.new_reg();
+                    self.body.push_str(&format!("  {} = call i64 @gt_str_char_len(ptr {})\n", lr, arr.s));
+                    Some(lr)
+                } else if is_set {
+                    self.declare("declare i64 @gt_set_len(ptr)");
+                    let lr = self.new_reg();
+                    self.body.push_str(&format!("  {} = call i64 @gt_set_len(ptr {})\n", lr, arr.s));
+                    Some(lr)
+                } else if is_map {
+                    self.declare("declare i64 @gt_map_len(ptr)");
+                    let lr = self.new_reg();
+                    self.body.push_str(&format!("  {} = call i64 @gt_map_len(ptr {})\n", lr, arr.s));
+                    Some(lr)
+                } else { None };
                 self.body.push_str(&format!("  br label %{}\n", lcond));
                 self.emit_label(&lcond);
                 let i1 = self.new_reg();
                 self.body.push_str(&format!("  {} = load i64, ptr {}\n", i1, idx));
                 let c = self.new_reg();
-                if is_list {
-                    self.declare("declare i64 @gt_list_len(ptr)");
-                    let lenr = self.new_reg();
-                    self.body.push_str(&format!("  {} = call i64 @gt_list_len(ptr {})\n", lenr, arr.s));
-                    self.body.push_str(&format!("  {} = icmp slt i64 {}, {}\n", c, i1, lenr));
-                } else {
-                    self.body.push_str(&format!("  {} = icmp slt i64 {}, {}\n", c, i1, n));
+                match &len_reg {
+                    Some(lr) => { self.body.push_str(&format!("  {} = icmp slt i64 {}, {}\n", c, i1, lr)); }
+                    None => { self.body.push_str(&format!("  {} = icmp slt i64 {}, {}\n", c, i1, n)); }
                 }
                 self.body.push_str(&format!("  br i1 {}, label %{}, label %{}\n", c, lbody, lend));
                 self.emit_label(&lbody);
@@ -821,6 +845,23 @@ impl<'a> Codegen<'a> {
                     self.declare("declare i64 @gt_list_at(ptr, i64)");
                     let raw = self.new_reg();
                     self.body.push_str(&format!("  {} = call i64 @gt_list_at(ptr {}, i64 {})\n", raw, arr.s, i1));
+                    let sv = self.from_slot(&raw, &elem);
+                    self.body.push_str(&format!("  store {} {}, ptr {}\n", elem.llvm(), sv, ev));
+                } else if is_str {
+                    self.declare("declare ptr @gt_str_char_at(ptr, i64)");
+                    let sp = self.new_reg();
+                    self.body.push_str(&format!("  {} = call ptr @gt_str_char_at(ptr {}, i64 {})\n", sp, arr.s, i1));
+                    self.body.push_str(&format!("  store ptr {}, ptr {}\n", sp, ev));
+                } else if is_set {
+                    self.declare("declare i64 @gt_set_at(ptr, i64)");
+                    let raw = self.new_reg();
+                    self.body.push_str(&format!("  {} = call i64 @gt_set_at(ptr {}, i64 {})\n", raw, arr.s, i1));
+                    let sv = self.from_slot(&raw, &elem);
+                    self.body.push_str(&format!("  store {} {}, ptr {}\n", elem.llvm(), sv, ev));
+                } else if is_map {
+                    self.declare("declare i64 @gt_map_key_at(ptr, i64)");
+                    let raw = self.new_reg();
+                    self.body.push_str(&format!("  {} = call i64 @gt_map_key_at(ptr {}, i64 {})\n", raw, arr.s, i1));
                     let sv = self.from_slot(&raw, &elem);
                     self.body.push_str(&format!("  store {} {}, ptr {}\n", elem.llvm(), sv, ev));
                 } else {

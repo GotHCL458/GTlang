@@ -819,3 +819,57 @@ long long gt_read_int(void) {
     if (scanf("%lld", &v) != 1) return 0;
     return v;
 }
+
+/* 取字符串第 i 个"字符"（UTF-8 码点），返回新分配的 NUL 结尾子串。
+   i 超出返回空串。 */
+char *gt_str_char_at(const char *s, long long i) {
+    if (!s || i < 0) { char *e = (char *)malloc(1); if (e) e[0] = 0; return e; }
+    size_t len = strlen(s);
+    size_t pos = 0;
+    long long k = 0;
+    while (pos < len) {
+        unsigned char c = (unsigned char)s[pos];
+        size_t clen = 1;
+        if      ((c & 0x80) == 0x00) clen = 1;
+        else if ((c & 0xE0) == 0xC0) clen = 2;
+        else if ((c & 0xF0) == 0xE0) clen = 3;
+        else if ((c & 0xF8) == 0xF0) clen = 4;
+        if (k == i) {
+            char *out = (char *)malloc(clen + 1);
+            if (!out) return NULL;
+            memcpy(out, s + pos, clen);
+            out[clen] = '\0';
+            return out;
+        }
+        pos += clen;
+        k++;
+    }
+    { char *e = (char *)malloc(1); if (e) e[0] = 0; return e; }
+}
+long long gt_str_char_len(const char *s) {
+    if (!s) return 0;
+    size_t len = strlen(s);
+    long long n = 0;
+    size_t pos = 0;
+    while (pos < len) {
+        unsigned char c = (unsigned char)s[pos];
+        size_t clen = 1;
+        if      ((c & 0x80) == 0x00) clen = 1;
+        else if ((c & 0xE0) == 0xC0) clen = 2;
+        else if ((c & 0xF0) == 0xE0) clen = 3;
+        else if ((c & 0xF8) == 0xF0) clen = 4;
+        pos += clen;
+        n++;
+    }
+    return n;
+}
+
+/* 按索引取集合元素 / 映射键（线性扫描，供 for 遍历） */
+long long gt_set_at(GtSet *s, long long i) {
+    if (!s || i < 0 || i >= s->len) return 0;
+    return s->data[i];
+}
+long long gt_map_key_at(GtMap *m, long long i) {
+    if (!m || i < 0 || i >= m->len) return 0;
+    return m->keys[i];
+}

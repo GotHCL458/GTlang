@@ -229,6 +229,10 @@ impl<'a> Jit<'a> {
         let mut jb = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
         jb.symbol("rt_write", rt_write as *const u8);
         jb.symbol("rt_read_line", rt_read_line as *const u8);
+        jb.symbol("rt_str_char_at", rt_str_char_at as *const u8);
+        jb.symbol("rt_str_char_len", rt_str_char_len as *const u8);
+        jb.symbol("rt_set_at", rt_set_at as *const u8);
+        jb.symbol("rt_map_key_at", rt_map_key_at as *const u8);
         jb.symbol("rt_read_int", rt_read_int as *const u8);
         jb.symbol("rt_write_cstr", rt_write_cstr as *const u8);
         jb.symbol("rt_write_i64", rt_write_i64 as *const u8);
@@ -438,6 +442,10 @@ impl<'a> Jit<'a> {
             ("thread_spawn", "rt_thread_spawn", vec![i64v, i64v, i64v], None),
             ("sleep", "rt_sleep", vec![i64v], None),
             ("read_line", "rt_read_line", vec![], Some(i64v)),
+            ("str_char_at", "rt_str_char_at", vec![i64v, i64v], Some(i64v)),
+            ("str_char_len", "rt_str_char_len", vec![i64v], Some(i64v)),
+            ("set_at", "rt_set_at", vec![i64v, i64v], Some(i64v)),
+            ("map_key_at", "rt_map_key_at", vec![i64v, i64v], Some(i64v)),
             ("read_int", "rt_read_int", vec![], Some(i64v)),
             ("chan_new", "rt_chan_new", vec![], Some(i64v)),
             ("chan_send", "rt_chan_send", vec![i64v, i64v], None),

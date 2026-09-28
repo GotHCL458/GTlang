@@ -616,6 +616,9 @@ fn check_stmt(ctx: &mut Ctx, s: &mut Stmt, errors: &mut Vec<String>) {
                     let elem = match &t {
                         Ty::Array(el, _) => (**el).clone(),
                         Ty::List(el) => (**el).clone(),
+                        Ty::Str => Ty::Str,
+                        Ty::Set(el) => (**el).clone(),
+                        Ty::Map(k, _) => (**k).clone(),
                         _ => {
                             errors.push(crate::error::msg::not_iterable(*line, &t).render());
                             Ty::I64
