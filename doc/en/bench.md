@@ -11,6 +11,17 @@
 | fib(35) | naive recursion (~30M calls) |
 | loop_sum | for i in 0..200000000 (2e8 iterations) |
 
+**fib(35) measured (2026-09)**:
+
+| Version | Time |
+|---|---|
+| GTLang default (overflow checks) | ~43 ms |
+| GTLang `--no-overflow-check` | ~33 ms |
+| C (clang -O2) | ~26 ms |
+| GTLang JIT | ~62 ms |
+
+fib is **recursive** (`n-1`/`n-2`); range analysis cannot prove non-overflow, so every call carries 2 checks — the price of safety. Use `--no-overflow-check` to disable (wraps on overflow).
+
 ## 2. Results (ms)
 
 | Lang / Impl | fib(35) | loop_sum(2e8) | Notes |
