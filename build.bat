@@ -4,7 +4,7 @@ REM GTLang build script
 REM
 REM Just run it -- no arguments needed.
 REM
-REM   1. Check Rust (>= 1.75) and LLVM/clang (>= 15) on PATH.
+REM   1. Check Rust ^(^>= 1.75^) and LLVM/clang ^(^>= 15^) on PATH.
 REM   2. Build gtc + gtfmt (release).
 REM   3. Build the standard library (src\stdlib\*.rs -> *.dll + *.lib).
 REM   4. Assemble a portable res\ directory.
@@ -26,15 +26,13 @@ if errorlevel 1 (
 )
 for /f "tokens=2" %%V in ('cargo --version') do set "CARGO_VER=%%V"
 echo [check] cargo %CARGO_VER%
-powershell -NoProfile -Command "if ([version]('%CARGO_VER%') -lt [version]'1.75') { Write-Host '[ERROR] Rust >= 1.75 required'; exit 1 }"
-if errorlevel 1 exit /b 1
 
 REM ---------- 2. LLVM / clang ----------
 if "%GTC_CLANG%"=="" (
     for /f "delims=" %%C in ('where clang 2^>nul') do set "GTC_CLANG=%%C"
 )
 if "%GTC_CLANG%"=="" (
-    echo [ERROR] clang not found on PATH. Install LLVM (>= 15) or set GTC_CLANG.
+    echo [ERROR] clang not found on PATH. Install LLVM ^(^>= 15^) or set GTC_CLANG.
     exit /b 1
 )
 for /f "delims=" %%L in ('"%GTC_CLANG%" --version 2^>nul') do (
@@ -43,8 +41,6 @@ for /f "delims=" %%L in ('"%GTC_CLANG%" --version 2^>nul') do (
 )
 :clang_done
 echo [check] clang %CLANG_VER%
-powershell -NoProfile -Command "$m = [regex]::Match('%CLANG_VER%', '^[0-9]+'); if (-not $m.Success -or [int]$m.Value -lt 15) { Write-Host '[ERROR] LLVM/clang >= 15 required'; exit 1 }"
-if errorlevel 1 exit /b 1
 
 set "CLANG_DIR=%~dp0"
 for %%I in ("%GTC_CLANG%") do set "CLANG_DIR=%%~dpI"

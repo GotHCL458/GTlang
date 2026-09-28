@@ -946,7 +946,6 @@ pub(crate) extern "C" fn rt_rc_dec(p: i64, free_fn: i64) -> i64 {
 }
 
 pub(crate) extern "C" fn rt_read_line() -> i64 {
-    use std::io::Read;
     let mut s = String::new();
     let n = std::io::stdin().read_line(&mut s).unwrap_or(0);
     let _ = n;

@@ -10,11 +10,6 @@ unsafe fn cstr_to_string(p: *const c_char) -> String {
     if p.is_null() { return String::new(); }
     CStr::from_ptr(p).to_string_lossy().into_owned()
 }
-fn to_cstring(s: *const c_char) -> Option<CString> {
-    if s.is_null() { return None; }
-    let bytes = unsafe { CStr::from_ptr(s).to_bytes().to_vec() };
-    CString::new(bytes).ok()
-}
 fn ret_string(s: String) -> *mut c_char {
     let c = CString::new(s).unwrap_or_else(|_| CString::new("").unwrap());
     c.into_raw()
