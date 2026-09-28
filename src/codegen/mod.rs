@@ -843,8 +843,10 @@ impl<'a> Codegen<'a> {
                 // 取元素值写入 ev
                 if is_list {
                     // 内联 `data[i]`（GtList.data 在偏移 8），省函数调用与边界检查
+                    let daddr = self.new_reg();
+                    self.body.push_str(&format!("  {} = getelementptr i8, ptr {}, i64 8\n", daddr, arr.s));
                     let data = self.new_reg();
-                    self.body.push_str(&format!("  {} = load ptr, ptr {}, i64 8\n", data, arr.s));
+                    self.body.push_str(&format!("  {} = load ptr, ptr {}\n", data, daddr));
                     let off = self.new_reg();
                     self.body.push_str(&format!("  {} = mul i64 {}, 8\n", off, i1));
                     let addr = self.new_reg();
