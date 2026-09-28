@@ -123,11 +123,11 @@ fn main() -> ExitCode {
                 println!("{}", usage());
                 return ExitCode::SUCCESS;
             }
-            "-V" | "--version" => {
-                println!("gtc 0.0.1b");
+            "-v" | "-V" | "--version" => {
+                println!("gtc 0.0.1c");
                 return ExitCode::SUCCESS;
             }
-            "--verbose" | "-v" => gtc_rust::set_verbose(true),
+            "--verbose" => gtc_rust::set_verbose(true),
             "--c" | "--compile" => mode = Mode::Compile,
             "--run" | "--interp" => mode = Mode::Run,
             "--check" => mode = Mode::Check,
