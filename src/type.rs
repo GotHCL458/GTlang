@@ -748,6 +748,20 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "swapcase" => f("py_swapcase", Ty::Str, &[Ty::Str]),
         "isalpha" => f("py_isalpha", Ty::Bool, &[Ty::Str]),
         "isspace" => f("py_isspace", Ty::Bool, &[Ty::Str]),
+        // ---- os ----
+        "getcwd" => f("py_getcwd", Ty::Str, &[]),
+        "getenv" => f("py_getenv", Ty::Str, &[Ty::Str]),
+        "setenv" => f("py_setenv", Ty::Bool, &[Ty::Str, Ty::Str]),
+        "path_exists" => f("py_path_exists", Ty::Bool, &[Ty::Str]),
+        "os_remove" | "remove_file" => f("py_remove", Ty::Bool, &[Ty::Str]),
+        "mkdir" => f("py_mkdir", Ty::Bool, &[Ty::Str]),
+        "system" => f("py_system", Ty::I64, &[Ty::Str]),
+        // ---- json ----
+        "json_dumps" => f("py_json_dumps", Ty::Str, &[Ty::Str]),
+        "json_loads" => f("py_json_loads", Ty::Str, &[Ty::Str]),
+        // ---- toml ----
+        "toml_loads" => f("py_toml_loads", Ty::Str, &[Ty::Str]),
+        "toml_load" => f("py_toml_load", Ty::Str, &[Ty::Str]),
         _ => return None,
     })
 }
@@ -771,6 +785,9 @@ pub fn is_builtin_name(name: &str) -> bool {
         // 裸内存
         | "mem_alloc" | "mem_free" | "mem_store_i64" | "mem_load_i64"
         | "mem_store_u8" | "mem_load_u8" | "mem_copy" | "mem_set"
+        // 标准库（os / json / toml）
+        | "getcwd" | "getenv" | "setenv" | "path_exists" | "mkdir" | "system"
+        | "json_dumps" | "json_loads" | "toml_loads" | "toml_load"
     ) || stdlib_fn(name).is_some()
 }
 

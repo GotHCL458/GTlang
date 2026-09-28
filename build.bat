@@ -80,7 +80,7 @@ REM ---------- 4. build stdlib ----------
 set "STDOUT=%ROOT%.build\stdlib"
 if exist "%STDOUT%" rmdir /s /q "%STDOUT%"
 mkdir "%STDOUT%" 2>nul
-for %%M in (math string) do (
+for %%M in (math string os json toml) do (
     echo [build] stdlib %%M
     rustc --edition 2021 --crate-type cdylib --crate-name %%M "%ROOT%src\stdlib\%%M.rs" -o "%STDOUT%\%%M.dll" -O
     if errorlevel 1 ( echo [ERROR] stdlib %%M failed. & exit /b 1 )

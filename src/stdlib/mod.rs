@@ -24,6 +24,20 @@ pub const MODULES: &[StdModule] = &[
             "title", "swapcase", "isalpha", "isspace",
         ],
     },
+    StdModule {
+        dll: "os",
+        funcs: &[
+            "getcwd", "getenv", "setenv", "path_exists", "remove", "mkdir", "system",
+        ],
+    },
+    StdModule {
+        dll: "json",
+        funcs: &["dumps", "loads"],
+    },
+    StdModule {
+        dll: "toml",
+        funcs: &["loads", "load"],
+    },
 ];
 
 pub fn dll_of(func: &str) -> Option<&'static str> {
