@@ -753,12 +753,23 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "getenv" => f("py_getenv", Ty::Str, &[Ty::Str]),
         "setenv" => f("py_setenv", Ty::Bool, &[Ty::Str, Ty::Str]),
         "path_exists" => f("py_path_exists", Ty::Bool, &[Ty::Str]),
+        "listdir" => f("py_listdir", Ty::Str, &[Ty::Str]),
+        "rmdir" => f("py_rmdir", Ty::Bool, &[Ty::Str]),
+        "basename" => f("py_basename", Ty::Str, &[Ty::Str]),
+        "dirname" => f("py_dirname", Ty::Str, &[Ty::Str]),
+        "path_join" => f("py_path_join", Ty::Str, &[Ty::Str, Ty::Str]),
+        "abspath" => f("py_abspath", Ty::Str, &[Ty::Str]),
+        "is_file" => f("py_is_file", Ty::Bool, &[Ty::Str]),
+        "is_dir" => f("py_is_dir", Ty::Bool, &[Ty::Str]),
+        "getsize" => f("py_getsize", Ty::I64, &[Ty::Str]),
         "os_remove" | "remove_file" => f("py_remove", Ty::Bool, &[Ty::Str]),
         "mkdir" => f("py_mkdir", Ty::Bool, &[Ty::Str]),
         "system" => f("py_system", Ty::I64, &[Ty::Str]),
         // ---- json ----
         "json_dumps" => f("py_json_dumps", Ty::Str, &[Ty::Str]),
         "json_loads" => f("py_json_loads", Ty::Str, &[Ty::Str]),
+        "json_dump" => f("py_json_dump", Ty::Bool, &[Ty::Str, Ty::Str]),
+        "json_load" => f("py_json_load", Ty::Str, &[Ty::Str]),
         // ---- toml ----
         "toml_loads" => f("py_toml_loads", Ty::Str, &[Ty::Str]),
         "toml_load" => f("py_toml_load", Ty::Str, &[Ty::Str]),
@@ -787,7 +798,8 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "mem_store_u8" | "mem_load_u8" | "mem_copy" | "mem_set"
         // 标准库（os / json / toml）
         | "getcwd" | "getenv" | "setenv" | "path_exists" | "mkdir" | "system"
-        | "json_dumps" | "json_loads" | "toml_loads" | "toml_load"
+        | "json_dumps" | "json_loads" | "json_dump" | "json_load" | "toml_loads" | "toml_load"
+        | "listdir" | "rmdir" | "basename" | "dirname" | "path_join" | "abspath" | "is_file" | "is_dir" | "getsize"
     ) || stdlib_fn(name).is_some()
 }
 

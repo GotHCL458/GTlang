@@ -80,6 +80,7 @@ REM ---------- 4. build stdlib ----------
 set "STDOUT=%ROOT%.build\stdlib"
 if exist "%STDOUT%" rmdir /s /q "%STDOUT%"
 mkdir "%STDOUT%" 2>nul
+REM Modules correspond to src\stdlib\<name>.rs (add new ones here)
 for %%M in (math string os json toml) do (
     echo [build] stdlib %%M
     rustc --edition 2021 --crate-type cdylib --crate-name %%M "%ROOT%src\stdlib\%%M.rs" -o "%STDOUT%\%%M.dll" -O
@@ -112,8 +113,6 @@ for %%M in (math string os json toml) do (
     if exist "%STDOUT%\%%M.dll" copy /Y "%STDOUT%\%%M.dll" "%RES%\lib\%%M.dll" >nul
     if exist "%STDOUT%\%%M.lib" copy /Y "%STDOUT%\%%M.lib" "%RES%\lib\%%M.lib" >nul
 )
-copy /Y "%STDOUT%\math.lib"   "%RES%\lib\math.lib"   >nul
-copy /Y "%STDOUT%\string.lib" "%RES%\lib\string.lib" >nul
 
 copy /Y "%GTC_CLANG%" "%RES%\llvm\bin\clang.exe" >nul
 if exist "%LLD_LINK%" copy /Y "%LLD_LINK%" "%RES%\llvm\bin\lld-link.exe" >nul

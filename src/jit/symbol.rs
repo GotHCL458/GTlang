@@ -104,6 +104,8 @@ pub(crate) fn std_dll_dirs() -> Vec<std::path::PathBuf> {
 pub(crate) const STDLIB_NAMES: &[&str] = &[
     // os
     "getcwd", "getenv", "setenv", "path_exists", "os_remove", "remove_file", "mkdir", "system",
+    "listdir", "rmdir", "basename", "dirname", "path_join", "abspath", "is_file", "is_dir", "getsize",
+    "json_dump", "json_load",
     // json
     "json_dumps", "json_loads",
     // toml

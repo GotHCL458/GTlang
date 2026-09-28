@@ -35,6 +35,21 @@ pub extern "C" fn py_json_dumps(s: *const c_char) -> *mut c_char {
     ret_string(out)
 }
 
+/// json.dump(s, path) -> bool：把 s 当 JSON 字符串写入文件
+#[no_mangle]
+pub extern "C" fn py_json_dump(s: *const c_char, path: *const c_char) -> std::os::raw::c_int {
+    let v = unsafe { to_string(s) };
+    let p = unsafe { to_string(path) };
+    match std::fs::write(&p, v.as_bytes()) { Ok(_) => 1, Err(_) => 0 }
+}
+
+/// json.load(path) -> str：读文件
+#[no_mangle]
+pub extern "C" fn py_json_load(path: *const c_char) -> *mut c_char {
+    let p = unsafe { to_string(path) };
+    match std::fs::read_to_string(&p) { Ok(t) => ret_string(t), Err(_) => ret_string(String::new()) }
+}
+
 /// json.loads(s) -> str：把 JSON 字符串字面量反转义（要求带引号）
 #[no_mangle]
 pub extern "C" fn py_json_loads(s: *const c_char) -> *mut c_char {

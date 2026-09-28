@@ -227,6 +227,44 @@ Overloadable: add sub mul div rem eq ne lt le gt ge neg
 
 ---
 
+## 14b. Stdlib modules
+
+The standard library ships as `*.dll` under `res/lib`; names mirror **Python**.
+
+### os
+| Function | Signature | Notes |
+|---|---|---|
+| `getcwd()` | `() -> str` | current working directory |
+| `getenv(name)` | `(str) -> str` | env var (empty if unset) |
+| `setenv(k, v)` | `(str, str) -> bool` | set env var |
+| `path_exists(p)` | `(str) -> bool` | path exists |
+| `is_file(p)` / `is_dir(p)` | `(str) -> bool` | file / dir |
+| `getsize(p)` | `(str) -> int` | bytes (-1 on error) |
+| `listdir(p)` | `(str) -> str` | entries (`\n` separated) |
+| `basename(p)` / `dirname(p)` | `(str) -> str` | file name / parent |
+| `path_join(a, b)` | `(str, str) -> str` | join paths |
+| `abspath(p)` | `(str) -> str` | absolute path |
+| `mkdir(p)` / `rmdir(p)` | `(str) -> bool` | create / remove dir |
+| `os_remove(p)` | `(str) -> bool` | remove file |
+| `system(cmd)` | `(str) -> int` | run command, exit code |
+
+### json
+| Function | Signature | Notes |
+|---|---|---|
+| `json_dumps(s)` | `(str) -> str` | escape to JSON string |
+| `json_loads(s)` | `(str) -> str` | unescape |
+| `json_dump(s, path)` | `(str, str) -> bool` | write to file |
+| `json_load(path)` | `(str) -> str` | read from file |
+
+### toml
+| Function | Signature | Notes |
+|---|---|---|
+| `toml_loads(text)` | `(str) -> str` | parse to `k=v;k=v` |
+| `toml_load(path)` | `(str) -> str` | read from file |
+
+### math / string
+**Python-style**: `sqrt` / `pow` / `floor` / `sin` …; `capitalize` / `title` / `zfill` / `isalpha` …
+
 ## 15. Ownership
 
 - move: non-Copy values transferred on pass

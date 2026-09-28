@@ -228,6 +228,44 @@
 
 ---
 
+## 14b. 标准库模块 / Stdlib modules
+
+标准库以 `*.dll` 形式随 `res/lib` 分发，函数名与 **Python** 对齐。
+
+### os
+| 函数 | 签名 | 说明 |
+|---|---|---|
+| `getcwd()` | `() -> str` | 当前工作目录 |
+| `getenv(name)` | `(str) -> str` | 环境变量（无则空串）|
+| `setenv(k, v)` | `(str, str) -> bool` | 设置环境变量 |
+| `path_exists(p)` | `(str) -> bool` | 路径是否存在 |
+| `is_file(p)` / `is_dir(p)` | `(str) -> bool` | 文件 / 目录 |
+| `getsize(p)` | `(str) -> int` | 字节数（失败 -1）|
+| `listdir(p)` | `(str) -> str` | 目录项（`\n` 分隔）|
+| `basename(p)` / `dirname(p)` | `(str) -> str` | 文件名 / 父目录 |
+| `path_join(a, b)` | `(str, str) -> str` | 拼接路径 |
+| `abspath(p)` | `(str) -> str` | 绝对路径 |
+| `mkdir(p)` / `rmdir(p)` | `(str) -> bool` | 创建 / 删除目录 |
+| `os_remove(p)` | `(str) -> bool` | 删除文件 |
+| `system(cmd)` | `(str) -> int` | 执行命令，返回退出码 |
+
+### json
+| 函数 | 签名 | 说明 |
+|---|---|---|
+| `json_dumps(s)` | `(str) -> str` | 转义为 JSON 字符串 |
+| `json_loads(s)` | `(str) -> str` | 反转义 |
+| `json_dump(s, path)` | `(str, str) -> bool` | 写入文件 |
+| `json_load(path)` | `(str) -> str` | 读文件 |
+
+### toml
+| 函数 | 签名 | 说明 |
+|---|---|---|
+| `toml_loads(text)` | `(str) -> str` | 解析为 `k=v;k=v` |
+| `toml_load(path)` | `(str) -> str` | 读文件 |
+
+### math / string
+**Python 风格**：`sqrt` / `pow` / `floor` / `sin` …；`capitalize` / `title` / `zfill` / `isalpha` …
+
 ## 15. 所有权 / Ownership
 
 - move：非 Copy 值传递即转移
