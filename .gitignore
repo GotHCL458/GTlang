@@ -1,9 +1,12 @@
+# Tests (kept locally, not in the public repo)
+/tests/
+
 # Build artifacts
 /target/
 /.build/
 /res/
+/dist/
 /*.zip
-!dist/*.zip
 *.exe
 !tcc/*.exe
 *.obj

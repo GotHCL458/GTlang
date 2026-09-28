@@ -842,9 +842,15 @@ impl<'a> Codegen<'a> {
                 self.continue_label = Some(linc.clone());
                 // 取元素值写入 ev
                 if is_list {
-                    self.declare("declare i64 @gt_list_at(ptr, i64)");
+                    // 内联 `data[i]`（GtList.data 在偏移 8），省函数调用与边界检查
+                    let data = self.new_reg();
+                    self.body.push_str(&format!("  {} = load ptr, ptr {}, i64 8\n", data, arr.s));
+                    let off = self.new_reg();
+                    self.body.push_str(&format!("  {} = mul i64 {}, 8\n", off, i1));
+                    let addr = self.new_reg();
+                    self.body.push_str(&format!("  {} = getelementptr i8, ptr {}, i64 {}\n", addr, data, off));
                     let raw = self.new_reg();
-                    self.body.push_str(&format!("  {} = call i64 @gt_list_at(ptr {}, i64 {})\n", raw, arr.s, i1));
+                    self.body.push_str(&format!("  {} = load i64, ptr {}\n", raw, addr));
                     let sv = self.from_slot(&raw, &elem);
                     self.body.push_str(&format!("  store {} {}, ptr {}\n", elem.llvm(), sv, ev));
                 } else if is_str {

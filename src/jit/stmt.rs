@@ -316,8 +316,12 @@ impl FnState {
                 b.switch_to_block(bodyb); self.terminated = false;
                 let i2 = b.use_var(idx);
                 let ld = if is_list {
-                    let f = self.rt_ref(jit, b, "list_at")?;
-                    let call = b.ins().call(f, &[base, i2]); let raw = b.inst_results(call)[0];
+                    // 内联 `data[i]`（RtList.data 在偏移 0），省函数调用与边界检查
+                    // （循环上界已保证 i < len）
+                    let data = b.ins().load(types::I64, MemFlags::new(), base, 0);
+                    let off = b.ins().imul_imm(i2, 8);
+                    let addr = b.ins().iadd(data, off);
+                    let raw = b.ins().load(types::I64, MemFlags::new(), addr, 0);
                     if elem == Ty::F64 { b.ins().bitcast(types::F64, MemFlags::new(), raw) } else { raw }
                 } else if is_str {
                     let f = self.rt_ref(jit, b, "str_char_at")?;
