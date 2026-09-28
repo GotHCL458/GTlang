@@ -1,0 +1,12 @@
+[package]
+name = "gtstdlib"
+version = "0.0.1"
+edition = "2021"
+
+[lib]
+name = "gtstdlib"
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+serde_json = "1"
+toml = "0.8"
