@@ -108,8 +108,10 @@ mkdir "%RES%\lib" 2>nul
 
 copy /Y "%ROOT%target\release\gtc.exe"   "%RES%\gtc.exe"   >nul || (echo [ERROR] gtc.exe not found & exit /b 1)
 copy /Y "%ROOT%target\release\gtfmt.exe" "%RES%\gtfmt.exe" >nul
-copy /Y "%STDOUT%\math.dll"   "%RES%\lib\math.dll"   >nul
-copy /Y "%STDOUT%\string.dll" "%RES%\lib\string.dll" >nul
+for %%M in (math string os json toml) do (
+    if exist "%STDOUT%\%%M.dll" copy /Y "%STDOUT%\%%M.dll" "%RES%\lib\%%M.dll" >nul
+    if exist "%STDOUT%\%%M.lib" copy /Y "%STDOUT%\%%M.lib" "%RES%\lib\%%M.lib" >nul
+)
 copy /Y "%STDOUT%\math.lib"   "%RES%\lib\math.lib"   >nul
 copy /Y "%STDOUT%\string.lib" "%RES%\lib\string.lib" >nul
 

@@ -102,6 +102,12 @@ pub(crate) fn std_dll_dirs() -> Vec<std::path::PathBuf> {
 
 /// 标准库函数名的规范列表（与 type.rs::stdlib_fn 的键一致）
 pub(crate) const STDLIB_NAMES: &[&str] = &[
+    // os
+    "getcwd", "getenv", "setenv", "path_exists", "os_remove", "remove_file", "mkdir", "system",
+    // json
+    "json_dumps", "json_loads",
+    // toml
+    "toml_loads", "toml_load",
     "sqrt", "pow", "floor", "ceil", "round", "sin", "cos", "tan", "asin", "acos", "atan",
     "atan2", "exp", "log", "log2", "log10", "fmod", "hypot", "cbrt", "gcd", "lcm", "pi", "e",
     "ipow", "isnumeric", "isdigit", "capitalize", "reverse", "count", "startswith", "endswith",

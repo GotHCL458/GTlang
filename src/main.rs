@@ -15,7 +15,7 @@ use std::process::ExitCode;
 use gtc_rust::{build, lang, Diag, Span, Unit};
 
 const USAGE_EN: &str = "\
-gtc -- GTLang compiler / interpreter (unified AST, dual backend)
+gtc -- GTLang compiler / interpreter
 
 Usage:
   gtc --c   <file.gt> [more.gt ...] [-o out.exe] [-O 0..3]   compile to executable
@@ -43,7 +43,7 @@ Notes:
 ";
 
 const USAGE_ZH: &str = "\
-gtc —— GTLang 编译器 / 解释器（统一 AST，双后端）
+gtc —— GTLang 编译器 / 解释器
 
 用法：
   gtc --c   <文件.gt> [更多文件.gt ...] [-o 输出.exe] [-O 0..3]   编译为可执行文件
