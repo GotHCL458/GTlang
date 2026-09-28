@@ -223,8 +223,8 @@ if c { ... } elif c2 { ... } else { ... }
 loop 3 { ... }              // count loop
 while c { ... }
 do { ... } while c
-for i in 0..n { ... }
-for v in container { ... }
+for i in 0..n { ... }        // range
+for v in container { ... }   // list / [T;N] / str / set / map (iterates keys)
 for ... else { ... }        // else runs if no break
 outer: for ... { break outer }
 

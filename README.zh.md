@@ -219,8 +219,8 @@ if c { ... } elif c2 { ... } else { ... }
 loop 3 { ... }              // 计数循环
 while c { ... }
 do { ... } while c
-for i in 0..n { ... }
-for v in 容器 { ... }
+for i in 0..n { ... }        // 范围
+for v in 容器 { ... }         // list / [T;N] / str / set / map（遍历键）
 for ... else { ... }        // 无 break 时执行 else
 outer: for ... { break outer }
 
