@@ -733,11 +733,16 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "fib" => f("py_fib", Ty::I64, &[Ty::I64]),
         "isprime" => f("py_isprime", Ty::Bool, &[Ty::I64]),
         "comb" => f("py_comb", Ty::I64, &[Ty::I64, Ty::I64]),
+        // ---- random ----
         "seed" => f("py_seed", Ty::Void, &[Ty::I64]),
         "random" => f("py_random", Ty::F64, &[]),
         "randint" => f("py_randint", Ty::I64, &[Ty::I64, Ty::I64]),
+        "randrange" => f("py_randrange", Ty::I64, &[Ty::I64, Ty::I64]),
         "uniform" => f("py_uniform", Ty::F64, &[Ty::F64, Ty::F64]),
         "choice" => f("py_choice", Ty::Str, &[Ty::Str]),
+        "shuffle" => f("py_shuffle", Ty::Str, &[Ty::Str]),
+        "sample" => f("py_sample", Ty::Str, &[Ty::Str, Ty::I64]),
+        "gauss" => f("py_gauss", Ty::F64, &[Ty::F64, Ty::F64]),
         // ---- string ----
         "isnumeric" | "isdigit" => f("py_isnumeric", Ty::Bool, &[Ty::Str]),
         "capitalize" => f("py_capitalize", Ty::Str, &[Ty::Str]),
@@ -824,7 +829,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "json_dumps" | "json_loads" | "json_dump" | "json_load" | "json_pretty" | "json_minify" | "json_valid" | "toml_loads" | "toml_load" | "toml_dumps"
         | "listdir" | "rmdir" | "basename" | "dirname" | "path_join" | "abspath" | "is_file" | "is_dir" | "getsize"
         | "read_text" | "write_text" | "append_text" | "read_lines" | "write_lines" | "file_exists" | "file_copy" | "file_size" | "file_rename" | "touch" | "args" | "exit" | "glob"
-        | "seed" | "random" | "randint" | "uniform" | "choice"
+        | "seed" | "random" | "randint" | "randrange" | "uniform" | "choice" | "shuffle" | "sample" | "gauss"
     ) || stdlib_fn(name).is_some()
 }
 

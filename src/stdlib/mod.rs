@@ -37,6 +37,13 @@ pub const MODULES: &[StdModule] = &[
         funcs: &["loads", "load"],
     },
     StdModule {
+        dll: "random",
+        funcs: &[
+            "seed", "random", "randint", "randrange", "uniform",
+            "choice", "shuffle", "sample", "gauss",
+        ],
+    },
+    StdModule {
         dll: "file",
         funcs: &[
             "path_exists", "file_exists", "is_file", "is_dir", "getsize", "file_size",
