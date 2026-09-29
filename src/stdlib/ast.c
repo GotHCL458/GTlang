@@ -253,3 +253,6 @@ GT_API int64_t gto_ast_walk_next(int64_t wh){
     return 0;
 }
 GT_API void gto_ast_walk_free(int64_t wh){ free((GtAstWalk*)(void*)wh); }
+
+/* 释放 gto_ast_dump 返回的字符串 */
+GT_API void gto_ast_str_free(char *s){ free(s); }
