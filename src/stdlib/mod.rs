@@ -37,6 +37,13 @@ pub const MODULES: &[StdModule] = &[
         funcs: &["loads", "load"],
     },
     StdModule {
+        dll: "ast",
+        funcs: &[
+            "ast_node", "ast_add", "ast_kind", "ast_nchildren", "ast_child",
+            "ast_sval", "ast_ival", "ast_dump", "ast_free", "ast_kind_name",
+        ],
+    },
+    StdModule {
         dll: "random",
         funcs: &[
             "seed", "random", "randint", "randrange", "uniform",

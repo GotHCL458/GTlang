@@ -57,15 +57,25 @@ REM ---------- 4. stdlib ----------
 set "STDOUT=%ROOT%.build\stdlib"
 if exist "%STDOUT%" rmdir /s /q "%STDOUT%"
 mkdir "%STDOUT%" 2>nul
+REM Rust stdlib modules
 for %%F in ("%ROOT%src\stdlib\*.rs") do (
     set "MOD=%%~nF"
     if not "!MOD!"=="mod" (
-        echo [build] stdlib !MOD!
+        echo [build] stdlib !MOD! (rust)
         rustc --edition 2021 --crate-type cdylib --crate-name !MOD! "%%~fF" -o "%STDOUT%\!MOD!.dll" -O
         if errorlevel 1 ( echo [ERROR] stdlib !MOD! failed. & exit /b 1 )
         rustc --edition 2021 --crate-type staticlib --crate-name !MOD! "%%~fF" -o "%STDOUT%\!MOD!.lib" -O
         if errorlevel 1 ( echo [ERROR] stdlib !MOD! failed. & exit /b 1 )
     )
+)
+REM C stdlib modules
+for %%F in ("%ROOT%src\stdlib\*.c") do (
+    set "MOD=%%~nF"
+    echo [build] stdlib !MOD! ^(c^)
+    set "CFILE=%ROOT%src\stdlib\!MOD!.c"
+    "%GTC_CLANG%" -shared -O2 -o "%STDOUT%\!MOD!.dll" "!CFILE!"
+    if errorlevel 1 ( echo [ERROR] stdlib !MOD! ^(c^) failed. & exit /b 1 )
+    if exist "%LLD_LINK%" "%LLD_LINK%" /lib /out:"%STDOUT%\!MOD!.lib" "!CFILE!" >nul 2>nul
 )
 
 REM ---------- 5. res ----------

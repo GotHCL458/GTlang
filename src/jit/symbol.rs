@@ -111,6 +111,8 @@ pub(crate) const STDLIB_NAMES: &[&str] = &[
     "read_text", "write_text", "append_text", "read_lines", "write_lines", "file_copy", "file_rename", "touch", "glob",
     // random
     "seed", "random", "randint", "randrange", "uniform", "choice", "shuffle", "sample", "gauss",
+    // ast (pure C)
+    "ast_node", "ast_add", "ast_kind", "ast_nchildren", "ast_child", "ast_sval", "ast_ival", "ast_dump", "ast_free", "ast_kind_name",
     "json_dump", "json_load", "json_pretty", "json_minify", "json_valid",
     // json
     "json_dumps", "json_loads",

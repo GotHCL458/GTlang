@@ -789,6 +789,17 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "file_rename" => f("py_file_rename", Ty::Bool, &[Ty::Str, Ty::Str]),
         "touch" => f("py_touch", Ty::Bool, &[Ty::Str]),
         "glob" => f("py_glob", Ty::Str, &[Ty::Str, Ty::Str]),
+        // ---- ast ----
+        "ast_node" => f("ast_node", Ty::I64, &[Ty::I64, Ty::Str, Ty::I64]),
+        "ast_add" => f("ast_add", Ty::Void, &[Ty::I64, Ty::I64]),
+        "ast_kind" => f("ast_kind", Ty::I64, &[Ty::I64]),
+        "ast_nchildren" => f("ast_nchildren", Ty::I64, &[Ty::I64]),
+        "ast_child" => f("ast_child", Ty::I64, &[Ty::I64, Ty::I64]),
+        "ast_sval" => f("ast_sval", Ty::Str, &[Ty::I64]),
+        "ast_ival" => f("ast_ival", Ty::I64, &[Ty::I64]),
+        "ast_dump" => f("ast_dump", Ty::Str, &[Ty::I64]),
+        "ast_free" => f("ast_free", Ty::Void, &[Ty::I64]),
+        "ast_kind_name" => f("ast_kind_name", Ty::Str, &[Ty::I64]),
         // ---- json ----
         "json_dumps" => f("py_json_dumps", Ty::Str, &[Ty::Str]),
         "json_loads" => f("py_json_loads", Ty::Str, &[Ty::Str]),
@@ -830,6 +841,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "listdir" | "rmdir" | "basename" | "dirname" | "path_join" | "abspath" | "is_file" | "is_dir" | "getsize"
         | "read_text" | "write_text" | "append_text" | "read_lines" | "write_lines" | "file_exists" | "file_copy" | "file_size" | "file_rename" | "touch" | "args" | "exit" | "glob"
         | "seed" | "random" | "randint" | "randrange" | "uniform" | "choice" | "shuffle" | "sample" | "gauss"
+        | "ast_node" | "ast_add" | "ast_kind" | "ast_nchildren" | "ast_child" | "ast_sval" | "ast_ival" | "ast_dump" | "ast_free" | "ast_kind_name"
     ) || stdlib_fn(name).is_some()
 }
 
