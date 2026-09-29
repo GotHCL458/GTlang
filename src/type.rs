@@ -789,17 +789,68 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "file_rename" => f("py_file_rename", Ty::Bool, &[Ty::Str, Ty::Str]),
         "touch" => f("py_touch", Ty::Bool, &[Ty::Str]),
         "glob" => f("py_glob", Ty::Str, &[Ty::Str, Ty::Str]),
-        // ---- ast ----
-        "ast_node" => f("ast_node", Ty::I64, &[Ty::I64, Ty::Str, Ty::I64]),
-        "ast_add" => f("ast_add", Ty::Void, &[Ty::I64, Ty::I64]),
-        "ast_kind" => f("ast_kind", Ty::I64, &[Ty::I64]),
-        "ast_nchildren" => f("ast_nchildren", Ty::I64, &[Ty::I64]),
-        "ast_child" => f("ast_child", Ty::I64, &[Ty::I64, Ty::I64]),
-        "ast_sval" => f("ast_sval", Ty::Str, &[Ty::I64]),
-        "ast_ival" => f("ast_ival", Ty::I64, &[Ty::I64]),
-        "ast_dump" => f("ast_dump", Ty::Str, &[Ty::I64]),
-        "ast_free" => f("ast_free", Ty::Void, &[Ty::I64]),
-        "ast_kind_name" => f("ast_kind_name", Ty::Str, &[Ty::I64]),
+        // ---- ast（纯 C，gto_ 前缀）----
+        "ast_lit_int" => f("gto_ast_lit_int", Ty::I64, &[Ty::I64]),
+        "ast_lit_float" => f("gto_ast_lit_float", Ty::I64, &[Ty::F64]),
+        "ast_lit_str" => f("gto_ast_lit_str", Ty::I64, &[Ty::Str]),
+        "ast_lit_char" => f("gto_ast_lit_char", Ty::I64, &[Ty::I64]),
+        "ast_lit_bool" => f("gto_ast_lit_bool", Ty::I64, &[Ty::I64]),
+        "ast_id" => f("gto_ast_id", Ty::I64, &[Ty::Str]),
+        "ast_binary" => f("gto_ast_binary", Ty::I64, &[Ty::I64, Ty::I64, Ty::I64]),
+        "ast_unary" => f("gto_ast_unary", Ty::I64, &[Ty::I64, Ty::I64]),
+        "ast_call" => f("gto_ast_call", Ty::I64, &[Ty::I64, Ty::I64]),
+        "ast_add_arg" => f("gto_ast_add_arg", Ty::I64, &[Ty::I64, Ty::I64]),
+        "ast_if" => f("gto_ast_if", Ty::I64, &[Ty::I64, Ty::I64, Ty::I64]),
+        "ast_while" => f("gto_ast_while", Ty::I64, &[Ty::I64, Ty::I64]),
+        "ast_block" => f("gto_ast_block", Ty::I64, &[Ty::I64]),
+        "ast_add_stmt" => f("gto_ast_add_stmt", Ty::I64, &[Ty::I64, Ty::I64]),
+        "ast_fn" => f("gto_ast_fn", Ty::I64, &[Ty::Str, Ty::I64]),
+        "ast_add_param" => f("gto_ast_add_param", Ty::I64, &[Ty::I64, Ty::I64]),
+        "ast_ret" => f("gto_ast_ret", Ty::I64, &[Ty::I64]),
+        "ast_let" => f("gto_ast_let", Ty::I64, &[Ty::Str, Ty::I64, Ty::I64]),
+        "ast_assign" => f("gto_ast_assign", Ty::I64, &[Ty::Str, Ty::I64]),
+        "ast_assign_expr" => f("gto_ast_assign_expr", Ty::I64, &[Ty::I64, Ty::I64]),
+        "ast_member" => f("gto_ast_member", Ty::I64, &[Ty::I64, Ty::Str]),
+        "ast_index" => f("gto_ast_index", Ty::I64, &[Ty::I64, Ty::I64]),
+        "ast_for" => f("gto_ast_for", Ty::I64, &[Ty::Str, Ty::I64, Ty::I64]),
+        "ast_loop" => f("gto_ast_loop", Ty::I64, &[Ty::I64]),
+        "ast_loopn" => f("gto_ast_loopn", Ty::I64, &[Ty::I64, Ty::I64]),
+        "ast_break" => f("gto_ast_break_stmt", Ty::I64, &[]),
+        "ast_continue" => f("gto_ast_continue_stmt", Ty::I64, &[]),
+        "ast_import" => f("gto_ast_import", Ty::I64, &[Ty::Str]),
+        "ast_cast" => f("gto_ast_cast", Ty::I64, &[Ty::I64, Ty::Str]),
+        "ast_enum_val" => f("gto_ast_enum_val", Ty::I64, &[Ty::Str, Ty::I64]),
+        "ast_slice" => f("gto_ast_slice", Ty::I64, &[Ty::I64, Ty::I64, Ty::I64]),
+        "ast_tuple" => f("gto_ast_tuple", Ty::I64, &[Ty::I64, Ty::I64]),
+        "ast_add_elem" => f("gto_ast_add_elem", Ty::I64, &[Ty::I64, Ty::I64]),
+        "ast_defer" => f("gto_ast_defer", Ty::I64, &[Ty::I64]),
+        "ast_asm" => f("gto_ast_asm", Ty::I64, &[Ty::Str]),
+        "ast_none" => f("gto_ast_none", Ty::I64, &[]),
+        "ast_some" => f("gto_ast_some", Ty::I64, &[Ty::I64]),
+        "ast_match" => f("gto_ast_match", Ty::I64, &[Ty::I64, Ty::I64]),
+        "ast_add_arm" => f("gto_ast_add_arm", Ty::I64, &[Ty::I64, Ty::I64]),
+        "ast_arm" => f("gto_ast_arm", Ty::I64, &[Ty::I64, Ty::I64, Ty::I64]),
+        "ast_set_line" => f("gto_ast_set_line", Ty::I64, &[Ty::I64, Ty::I64]),
+        "ast_line" => f("gto_ast_line", Ty::I64, &[Ty::I64]),
+        "ast_type" => f("gto_ast_type", Ty::I64, &[Ty::I64]),
+        "ast_tag" => f("gto_ast_tag", Ty::I64, &[Ty::I64]),
+        "ast_ival" => f("gto_ast_ival", Ty::I64, &[Ty::I64]),
+        "ast_fval" => f("gto_ast_fval", Ty::F64, &[Ty::I64]),
+        "ast_sval" => f("gto_ast_sval", Ty::Str, &[Ty::I64]),
+        "ast_name" => f("gto_ast_name", Ty::Str, &[Ty::I64]),
+        "ast_a" => f("gto_ast_a", Ty::I64, &[Ty::I64]),
+        "ast_b" => f("gto_ast_b", Ty::I64, &[Ty::I64]),
+        "ast_c" => f("gto_ast_c", Ty::I64, &[Ty::I64]),
+        "ast_d" => f("gto_ast_d", Ty::I64, &[Ty::I64]),
+        "ast_nkids" => f("gto_ast_nkids", Ty::I64, &[Ty::I64]),
+        "ast_kid" => f("gto_ast_kid", Ty::I64, &[Ty::I64, Ty::I64]),
+        "ast_type_name" => f("gto_ast_type_name", Ty::Str, &[Ty::I64]),
+        "ast_free" => f("gto_ast_free", Ty::Void, &[Ty::I64]),
+        "ast_dump" => f("gto_ast_dump", Ty::Str, &[Ty::I64]),
+        "ast_str_free" => f("gto_ast_str_free", Ty::Void, &[Ty::Str]),
+        "ast_walk" => f("gto_ast_walk", Ty::I64, &[Ty::I64]),
+        "ast_walk_next" => f("gto_ast_walk_next", Ty::I64, &[Ty::I64]),
+        "ast_walk_free" => f("gto_ast_walk_free", Ty::Void, &[Ty::I64]),
         // ---- json ----
         "json_dumps" => f("py_json_dumps", Ty::Str, &[Ty::Str]),
         "json_loads" => f("py_json_loads", Ty::Str, &[Ty::Str]),
@@ -841,7 +892,16 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "listdir" | "rmdir" | "basename" | "dirname" | "path_join" | "abspath" | "is_file" | "is_dir" | "getsize"
         | "read_text" | "write_text" | "append_text" | "read_lines" | "write_lines" | "file_exists" | "file_copy" | "file_size" | "file_rename" | "touch" | "args" | "exit" | "glob"
         | "seed" | "random" | "randint" | "randrange" | "uniform" | "choice" | "shuffle" | "sample" | "gauss"
-        | "ast_node" | "ast_add" | "ast_kind" | "ast_nchildren" | "ast_child" | "ast_sval" | "ast_ival" | "ast_dump" | "ast_free" | "ast_kind_name"
+        | "ast_lit_int" | "ast_lit_float" | "ast_lit_str" | "ast_lit_char" | "ast_lit_bool"
+        | "ast_id" | "ast_binary" | "ast_unary" | "ast_call" | "ast_add_arg"
+        | "ast_if" | "ast_while" | "ast_block" | "ast_add_stmt" | "ast_fn" | "ast_add_param"
+        | "ast_ret" | "ast_let" | "ast_assign" | "ast_assign_expr" | "ast_member" | "ast_index"
+        | "ast_for" | "ast_loop" | "ast_loopn" | "ast_break" | "ast_continue"
+        | "ast_import" | "ast_cast" | "ast_enum_val" | "ast_slice" | "ast_tuple" | "ast_add_elem"
+        | "ast_defer" | "ast_asm" | "ast_none" | "ast_some" | "ast_match" | "ast_add_arm" | "ast_arm"
+        | "ast_set_line" | "ast_line" | "ast_type" | "ast_tag" | "ast_ival" | "ast_fval"
+        | "ast_sval" | "ast_name" | "ast_a" | "ast_b" | "ast_c" | "ast_d" | "ast_nkids" | "ast_kid"
+        | "ast_type_name" | "ast_free" | "ast_dump" | "ast_str_free" | "ast_walk" | "ast_walk_next" | "ast_walk_free"
     ) || stdlib_fn(name).is_some()
 }
 

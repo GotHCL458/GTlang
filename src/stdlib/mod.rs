@@ -39,8 +39,16 @@ pub const MODULES: &[StdModule] = &[
     StdModule {
         dll: "ast",
         funcs: &[
-            "ast_node", "ast_add", "ast_kind", "ast_nchildren", "ast_child",
-            "ast_sval", "ast_ival", "ast_dump", "ast_free", "ast_kind_name",
+            "ast_lit_int", "ast_lit_float", "ast_lit_str", "ast_lit_char", "ast_lit_bool",
+            "ast_id", "ast_binary", "ast_unary", "ast_call", "ast_add_arg",
+            "ast_if", "ast_while", "ast_block", "ast_add_stmt", "ast_fn", "ast_add_param",
+            "ast_ret", "ast_let", "ast_assign", "ast_assign_expr", "ast_member", "ast_index",
+            "ast_for", "ast_loop", "ast_loopn", "ast_break", "ast_continue",
+            "ast_import", "ast_cast", "ast_enum_val", "ast_slice", "ast_tuple", "ast_add_elem",
+            "ast_defer", "ast_asm", "ast_none", "ast_some", "ast_match", "ast_add_arm", "ast_arm",
+            "ast_set_line", "ast_line", "ast_type", "ast_tag", "ast_ival", "ast_fval",
+            "ast_sval", "ast_name", "ast_a", "ast_b", "ast_c", "ast_d", "ast_nkids", "ast_kid",
+            "ast_type_name", "ast_free", "ast_dump", "ast_str_free", "ast_walk", "ast_walk_next", "ast_walk_free",
         ],
     },
     StdModule {

@@ -73,9 +73,12 @@ for %%F in ("%ROOT%src\stdlib\*.c") do (
     set "MOD=%%~nF"
     echo [build] stdlib !MOD! ^(c^)
     set "CFILE=%ROOT%src\stdlib\!MOD!.c"
-    "%GTC_CLANG%" -shared -O2 -o "%STDOUT%\!MOD!.dll" "!CFILE!"
-    if errorlevel 1 ( echo [ERROR] stdlib !MOD! ^(c^) failed. & exit /b 1 )
-    if exist "%LLD_LINK%" "%LLD_LINK%" /lib /out:"%STDOUT%\!MOD!.lib" "!CFILE!" >nul 2>nul
+    set "COBJ=%STDOUT%\!MOD!.obj"
+    "%GTC_CLANG%" -c -O2 -o "!COBJ!" "!CFILE!"
+    if errorlevel 1 ( echo [ERROR] stdlib !MOD! ^(c^) compile failed. & exit /b 1 )
+    "%GTC_CLANG%" -shared -O2 -o "%STDOUT%\!MOD!.dll" "!COBJ!"
+    if exist "%LLD_LINK%" "%LLD_LINK%" /lib /out:"%STDOUT%\!MOD!.lib" "!COBJ!" >nul 2>nul
+    del /q "!COBJ!" 2>nul
 )
 
 REM ---------- 5. res ----------
