@@ -199,3 +199,32 @@ pub extern "C" fn py_touch(path: *const c_char) -> c_int {
     if std::path::Path::new(&p).exists() { return 1; }
     match std::fs::File::create(&p) { Ok(mut f) => { let _ = f.write_all(b""); 1 } Err(_) => 0 }
 }
+
+/// file.glob(dir, pattern) -> str（"\n" 分隔）：简单通配（* 与 ?）
+#[no_mangle]
+pub extern "C" fn py_glob(dir: *const c_char, pattern: *const c_char) -> *mut c_char {
+    let d = unsafe { to_string(dir) };
+    let pat = unsafe { to_string(pattern) };
+    fn matches(name: &str, pat: &str) -> bool {
+        let n: Vec<char> = name.chars().collect();
+        let p: Vec<char> = pat.chars().collect();
+        fn go(n: &[char], p: &[char]) -> bool {
+            if p.is_empty() { return n.is_empty(); }
+            match p[0] {
+                '*' => go(n, &p[1..]) || (!n.is_empty() && go(&n[1..], p)),
+                '?' => !n.is_empty() && go(&n[1..], &p[1..]),
+                c => !n.is_empty() && n[0] == c && go(&n[1..], &p[1..]),
+            }
+        }
+        go(&n, &p)
+    }
+    let mut out: Vec<String> = Vec::new();
+    if let Ok(rd) = std::fs::read_dir(&d) {
+        for e in rd.flatten() {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if matches(&name, &pat) { out.push(name); }
+        }
+    }
+    out.sort();
+    ret_string(out.join("\n"))
+}

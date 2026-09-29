@@ -108,7 +108,9 @@ pub(crate) const STDLIB_NAMES: &[&str] = &[
     // file（路径 + 文件）
     "path_exists", "file_exists", "is_file", "is_dir", "getsize", "file_size",
     "listdir", "basename", "dirname", "path_join", "abspath", "mkdir", "rmdir", "os_remove", "remove_file",
-    "read_text", "write_text", "append_text", "read_lines", "write_lines", "file_copy", "file_rename", "touch",
+    "read_text", "write_text", "append_text", "read_lines", "write_lines", "file_copy", "file_rename", "touch", "glob",
+    // math random
+    "seed", "random", "randint", "uniform", "choice",
     "json_dump", "json_load", "json_pretty", "json_minify", "json_valid",
     // json
     "json_dumps", "json_loads",

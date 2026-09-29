@@ -733,6 +733,11 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "fib" => f("py_fib", Ty::I64, &[Ty::I64]),
         "isprime" => f("py_isprime", Ty::Bool, &[Ty::I64]),
         "comb" => f("py_comb", Ty::I64, &[Ty::I64, Ty::I64]),
+        "seed" => f("py_seed", Ty::Void, &[Ty::I64]),
+        "random" => f("py_random", Ty::F64, &[]),
+        "randint" => f("py_randint", Ty::I64, &[Ty::I64, Ty::I64]),
+        "uniform" => f("py_uniform", Ty::F64, &[Ty::F64, Ty::F64]),
+        "choice" => f("py_choice", Ty::Str, &[Ty::Str]),
         // ---- string ----
         "isnumeric" | "isdigit" => f("py_isnumeric", Ty::Bool, &[Ty::Str]),
         "capitalize" => f("py_capitalize", Ty::Str, &[Ty::Str]),
@@ -778,6 +783,7 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "file_copy" => f("py_file_copy", Ty::Bool, &[Ty::Str, Ty::Str]),
         "file_rename" => f("py_file_rename", Ty::Bool, &[Ty::Str, Ty::Str]),
         "touch" => f("py_touch", Ty::Bool, &[Ty::Str]),
+        "glob" => f("py_glob", Ty::Str, &[Ty::Str, Ty::Str]),
         // ---- json ----
         "json_dumps" => f("py_json_dumps", Ty::Str, &[Ty::Str]),
         "json_loads" => f("py_json_loads", Ty::Str, &[Ty::Str]),
@@ -817,7 +823,8 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "getcwd" | "getenv" | "setenv" | "path_exists" | "mkdir" | "system"
         | "json_dumps" | "json_loads" | "json_dump" | "json_load" | "json_pretty" | "json_minify" | "json_valid" | "toml_loads" | "toml_load" | "toml_dumps"
         | "listdir" | "rmdir" | "basename" | "dirname" | "path_join" | "abspath" | "is_file" | "is_dir" | "getsize"
-        | "read_text" | "write_text" | "append_text" | "read_lines" | "write_lines" | "file_exists" | "file_copy" | "file_size" | "file_rename" | "touch" | "args" | "exit"
+        | "read_text" | "write_text" | "append_text" | "read_lines" | "write_lines" | "file_exists" | "file_copy" | "file_size" | "file_rename" | "touch" | "args" | "exit" | "glob"
+        | "seed" | "random" | "randint" | "uniform" | "choice"
     ) || stdlib_fn(name).is_some()
 }
 
