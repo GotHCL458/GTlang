@@ -38,6 +38,13 @@ pub const MODULES: &[StdModule] = &[
         dll: "toml",
         funcs: &["loads", "load"],
     },
+    StdModule {
+        dll: "file",
+        funcs: &[
+            "read_text", "write_text", "append_text", "read_lines",
+            "file_exists", "file_copy", "file_size",
+        ],
+    },
 ];
 
 pub fn dll_of(func: &str) -> Option<&'static str> {

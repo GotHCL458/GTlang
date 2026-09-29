@@ -106,6 +106,8 @@ pub(crate) const STDLIB_NAMES: &[&str] = &[
     "getcwd", "getenv", "setenv", "path_exists", "os_remove", "remove_file", "mkdir", "system",
     "listdir", "rmdir", "basename", "dirname", "path_join", "abspath", "is_file", "is_dir", "getsize",
     "json_dump", "json_load",
+    // file
+    "read_text", "write_text", "append_text", "read_lines", "file_exists", "file_copy", "file_size",
     // json
     "json_dumps", "json_loads",
     // toml

@@ -762,6 +762,14 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "is_file" => f("py_is_file", Ty::Bool, &[Ty::Str]),
         "is_dir" => f("py_is_dir", Ty::Bool, &[Ty::Str]),
         "getsize" => f("py_getsize", Ty::I64, &[Ty::Str]),
+        // ---- file ----
+        "read_text" => f("py_read_text", Ty::Str, &[Ty::Str]),
+        "write_text" => f("py_write_text", Ty::Bool, &[Ty::Str, Ty::Str]),
+        "append_text" => f("py_append_text", Ty::Bool, &[Ty::Str, Ty::Str]),
+        "read_lines" => f("py_read_lines", Ty::Str, &[Ty::Str]),
+        "file_exists" => f("py_file_exists", Ty::Bool, &[Ty::Str]),
+        "file_copy" => f("py_file_copy", Ty::Bool, &[Ty::Str, Ty::Str]),
+        "file_size" => f("py_file_size", Ty::I64, &[Ty::Str]),
         "os_remove" | "remove_file" => f("py_remove", Ty::Bool, &[Ty::Str]),
         "mkdir" => f("py_mkdir", Ty::Bool, &[Ty::Str]),
         "system" => f("py_system", Ty::I64, &[Ty::Str]),
@@ -800,6 +808,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "getcwd" | "getenv" | "setenv" | "path_exists" | "mkdir" | "system"
         | "json_dumps" | "json_loads" | "json_dump" | "json_load" | "toml_loads" | "toml_load"
         | "listdir" | "rmdir" | "basename" | "dirname" | "path_join" | "abspath" | "is_file" | "is_dir" | "getsize"
+        | "read_text" | "write_text" | "append_text" | "read_lines" | "file_exists" | "file_copy" | "file_size"
     ) || stdlib_fn(name).is_some()
 }
 
