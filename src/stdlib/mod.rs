@@ -26,9 +26,7 @@ pub const MODULES: &[StdModule] = &[
     },
     StdModule {
         dll: "os",
-        funcs: &[
-            "getcwd", "getenv", "setenv", "path_exists", "remove", "mkdir", "system",
-        ],
+        funcs: &["getcwd", "getenv", "setenv", "system", "args", "exit"],
     },
     StdModule {
         dll: "json",
@@ -41,8 +39,10 @@ pub const MODULES: &[StdModule] = &[
     StdModule {
         dll: "file",
         funcs: &[
-            "read_text", "write_text", "append_text", "read_lines",
-            "file_exists", "file_copy", "file_size",
+            "path_exists", "file_exists", "is_file", "is_dir", "getsize", "file_size",
+            "listdir", "basename", "dirname", "path_join", "abspath", "mkdir", "rmdir",
+            "os_remove", "remove_file", "read_text", "write_text", "append_text",
+            "read_lines", "write_lines", "file_copy", "file_rename", "touch",
         ],
     },
 ];

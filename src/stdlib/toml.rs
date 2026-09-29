@@ -45,3 +45,23 @@ pub extern "C" fn py_toml_load(path: *const c_char) -> *mut c_char {
         Err(_) => ret_string(String::new()),
     }
 }
+
+/// toml.dumps(s) -> str：把 "k=v;k=v" 转为 TOML 文本
+#[no_mangle]
+pub extern "C" fn py_toml_dumps(s: *const c_char) -> *mut c_char {
+    let v = unsafe { to_string(s) };
+    let mut out = String::new();
+    for pair in v.split(';') {
+        let pair = pair.trim();
+        if pair.is_empty() { continue; }
+        if let Some(eq) = pair.find('=') {
+            let k = pair[..eq].trim();
+            let val = pair[eq+1..].trim();
+            out.push_str(k);
+            out.push_str(" = ");
+            out.push_str(val);
+            out.push('\n');
+        }
+    }
+    ret_string(out)
+}

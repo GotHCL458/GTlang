@@ -103,15 +103,17 @@ pub(crate) fn std_dll_dirs() -> Vec<std::path::PathBuf> {
 /// 标准库函数名的规范列表（与 type.rs::stdlib_fn 的键一致）
 pub(crate) const STDLIB_NAMES: &[&str] = &[
     // os
-    "getcwd", "getenv", "setenv", "path_exists", "os_remove", "remove_file", "mkdir", "system",
-    "listdir", "rmdir", "basename", "dirname", "path_join", "abspath", "is_file", "is_dir", "getsize",
-    "json_dump", "json_load",
-    // file
-    "read_text", "write_text", "append_text", "read_lines", "file_exists", "file_copy", "file_size",
+    // os（环境 / 进程）
+    "getcwd", "getenv", "setenv", "system", "args", "exit",
+    // file（路径 + 文件）
+    "path_exists", "file_exists", "is_file", "is_dir", "getsize", "file_size",
+    "listdir", "basename", "dirname", "path_join", "abspath", "mkdir", "rmdir", "os_remove", "remove_file",
+    "read_text", "write_text", "append_text", "read_lines", "write_lines", "file_copy", "file_rename", "touch",
+    "json_dump", "json_load", "json_pretty", "json_minify", "json_valid",
     // json
     "json_dumps", "json_loads",
     // toml
-    "toml_loads", "toml_load",
+    "toml_loads", "toml_load", "toml_dumps",
     "sqrt", "pow", "floor", "ceil", "round", "sin", "cos", "tan", "asin", "acos", "atan",
     "atan2", "exp", "log", "log2", "log10", "fmod", "hypot", "cbrt", "gcd", "lcm", "pi", "e",
     "ipow", "isnumeric", "isdigit", "capitalize", "reverse", "count", "startswith", "endswith",

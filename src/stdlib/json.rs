@@ -89,3 +89,80 @@ pub extern "C" fn py_json_loads(s: *const c_char) -> *mut c_char {
     }
     ret_string(out)
 }
+
+/// json.pretty(s) -> str：把紧凑 JSON 美化（缩进 2 空格）—— 简单缩进器
+#[no_mangle]
+pub extern "C" fn py_json_pretty(s: *const c_char) -> *mut c_char {
+    let v = unsafe { to_string(s) };
+    let mut out = String::with_capacity(v.len() * 2);
+    let mut depth = 0usize;
+    let mut in_str = false;
+    let mut esc = false;
+    for c in v.chars() {
+        if in_str {
+            out.push(c);
+            if esc { esc = false; }
+            else if c == '\\' { esc = true; }
+            else if c == '"' { in_str = false; }
+            continue;
+        }
+        match c {
+            '"' => { in_str = true; out.push(c); }
+            '{' | '[' => { out.push(c); depth += 1; out.push('\n'); for _ in 0..depth { out.push_str("  "); } }
+            '}' | ']' => { depth = depth.saturating_sub(1); out.push('\n'); for _ in 0..depth { out.push_str("  "); } out.push(c); }
+            ',' => { out.push(c); out.push('\n'); for _ in 0..depth { out.push_str("  "); } }
+            ':' => { out.push_str(": "); }
+            c if c.is_whitespace() => {}
+            c => out.push(c),
+        }
+    }
+    ret_string(out)
+}
+
+/// json.minify(s) -> str：去掉 JSON 中字符串外的空白
+#[no_mangle]
+pub extern "C" fn py_json_minify(s: *const c_char) -> *mut c_char {
+    let v = unsafe { to_string(s) };
+    let mut out = String::with_capacity(v.len());
+    let mut in_str = false;
+    let mut esc = false;
+    for c in v.chars() {
+        if in_str {
+            out.push(c);
+            if esc { esc = false; }
+            else if c == '\\' { esc = true; }
+            else if c == '"' { in_str = false; }
+            continue;
+        }
+        match c {
+            '"' => { in_str = true; out.push(c); }
+            c if c.is_whitespace() => {}
+            c => out.push(c),
+        }
+    }
+    ret_string(out)
+}
+
+/// json.valid(s) -> bool：粗略校验（括号配对 + 引号闭合）
+#[no_mangle]
+pub extern "C" fn py_json_valid(s: *const c_char) -> std::os::raw::c_int {
+    let v = unsafe { to_string(s) };
+    let mut depth: i32 = 0;
+    let mut in_str = false;
+    let mut esc = false;
+    for c in v.chars() {
+        if in_str {
+            if esc { esc = false; }
+            else if c == '\\' { esc = true; }
+            else if c == '"' { in_str = false; }
+            continue;
+        }
+        match c {
+            '"' => in_str = true,
+            '{' | '[' => depth += 1,
+            '}' | ']' => { depth -= 1; if depth < 0 { return 0; } }
+            _ => {}
+        }
+    }
+    if in_str || depth != 0 { 0 } else { 1 }
+}
