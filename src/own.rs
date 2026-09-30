@@ -272,10 +272,11 @@ impl<'a> Ctx<'a> {
     /// 若 `name.field` 当前被借用，则禁止写该字段。
     fn forbid_borrowed_field_write(&mut self, name: &str, field: &str, line: usize, st: &State) {
         let probe = Loan { var: name.to_string(), field: Some(field.to_string()), mutable: true, line: 0, holder: None };
+        let what = format!("{}.{}", name, field);
         if st.loans.iter().any(|l| loans_conflict(l, &probe)) {
             self.errf(line,
-                "cannot assign to '{}.{}' because it is borrowed",
-                "不能给 '{}.{}' 赋值：它正被借用", &format!("{}.{}", name, field));
+                "cannot assign to '{}' because it is borrowed",
+                "不能给 '{}' 赋值：它正被借用", &what);
         }
     }
 

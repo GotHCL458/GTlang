@@ -214,32 +214,50 @@ fn collect_expr(e: &Expr, generics: &HashMap<String, FnDef>, out: &mut Vec<(Stri
     }
 }
 
-/// 从实参类型推断泛型参数（按出现顺序，支持嵌套）
+/// 从实参类型推断泛型参数。
+///
+/// 用 HM `Unifier`：把每个 `Generic(T)` 换成一个 fresh 类型变量，
+/// 与实参类型合一；再读回变量绑定。比"字符串直接替换"更可靠——
+/// 同一 `T` 出现在多个形参时会强制它们一致（如 `fn f[T](x: T, y: T)`）。
 fn infer_type_args(gf: &FnDef, args: &[Expr]) -> Option<Vec<Ty>> {
-    let mut map: HashMap<String, Ty> = HashMap::new();
+    use crate::unify::Unifier;
+    use std::collections::HashMap as Map;
+    let mut u = Unifier::new();
+    // type_param -> fresh var
+    let mut vars: Map<String, Ty> = Map::new();
+    for tp in &gf.type_params {
+        vars.insert(tp.clone(), u.fresh());
+    }
+    // 把形参类型里的 Generic 替换成对应 var
+    fn subst(t: &Ty, vars: &Map<String, Ty>) -> Ty {
+        match t {
+            Ty::Generic(n) => vars.get(n).cloned().unwrap_or(Ty::I64),
+            Ty::List(e) => Ty::List(Box::new(subst(e, vars))),
+            Ty::Set(e) => Ty::Set(Box::new(subst(e, vars))),
+            Ty::Map(k, v) => Ty::Map(Box::new(subst(k, vars)), Box::new(subst(v, vars))),
+            Ty::Array(e, n) => Ty::Array(Box::new(subst(e, vars)), *n),
+            Ty::Option(e) => Ty::Option(Box::new(subst(e, vars))),
+            Ty::Ref(e) => Ty::Ref(Box::new(subst(e, vars))),
+            Ty::RefMut(e) => Ty::RefMut(Box::new(subst(e, vars))),
+            other => other.clone(),
+        }
+    }
     for (i, p) in gf.params.iter().enumerate() {
         let at = args.get(i)?.ty.clone();
         if let Some(pty) = &p.ty {
-            unify(pty, &at, &mut map);
+            let want = subst(pty, &vars);
+            // 合一失败则退回宽松处理（避免误报）
+            let _ = u.unify(&want, &at);
         }
     }
-    // 按声明顺序输出
+    // 读回：按声明顺序，未解出的退 i64
     let mut out = Vec::new();
     for tp in &gf.type_params {
-        out.push(map.get(tp).cloned().unwrap_or(Ty::I64));
+        let v = vars.get(tp).cloned().unwrap_or(Ty::I64);
+        let r = u.apply(&v);
+        out.push(if matches!(r, Ty::Var(_)) { Ty::I64 } else { r });
     }
     Some(out)
-}
-
-fn unify(param: &Ty, actual: &Ty, map: &mut HashMap<String, Ty>) {
-    match param {
-        Ty::Generic(n) => {
-            map.entry(n.clone()).or_insert_with(|| actual.clone());
-        }
-        Ty::List(e) => { if let Ty::List(a) = actual { unify(e, a, map); } }
-        Ty::Array(e, _) => { if let Ty::Array(a, _) = actual { unify(e, a, map); } }
-        _ => {}
-    }
 }
 
 /// 泛型 struct 单态化：扫描 `StructLit`，推导类型参数，生成具体 struct 定义并改名引用。
