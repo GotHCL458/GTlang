@@ -212,6 +212,7 @@ impl<'a> Ctx<'a> {
             }
             Stmt::Return(Some(e), _) => {
                 self.use_expr(e, &cur, depth);
+                self.check_borrow_escape(e, stmt_line(s));
                 cur = self.after_value_use(e, &cur);
             }
             Stmt::Return(None, _) => {}
@@ -258,6 +259,33 @@ impl<'a> Ctx<'a> {
             Stmt::Break(..) | Stmt::Continue(..) | Stmt::LocalFn(_) => {}
         }
         cur
+    }
+
+    /// 检查“返回局部变量的借用”（悬垂借用）：`return &x` / `return &p.x` 中
+    /// x/p 是当前函数内的局部值语义变量时，借用会悬垂 → 报错。
+    fn check_borrow_escape(&mut self, e: &Expr, line: usize) {
+        if let ExprKind::Borrow { inner, .. } = &e.kind {
+            let base = match &inner.kind {
+                ExprKind::Ident(n) => Some(n.clone()),
+                ExprKind::Field(b, _) => match &b.kind { ExprKind::Ident(n) => Some(n.clone()), _ => None },
+                _ => None,
+            };
+            if let Some(n) = base {
+                if self.is_local_value(&n) {
+                    self.errf(line,
+                        "cannot return a borrow of local '{}' (would dangle)",
+                        "不能返回局部变量 '{}' 的借用（悬垂引用）", &n);
+                }
+            }
+        }
+    }
+
+    /// 是否是“局部值语义变量”（str/struct/array/closure/tuple，栈上分配，借用会悬垂）。
+    fn is_local_value(&self, name: &str) -> bool {
+        match self.types.get(name) {
+            Some(t) => matches!(t, Ty::Str | Ty::Struct(_) | Ty::Array(..) | Ty::Closure(..) | Ty::Tuple(_)),
+            None => false,
+        }
     }
 
     /// 若 `name`（或其字段）当前被借用，则禁止写它。
@@ -523,3 +551,4 @@ fn loans_conflict(a: &Loan, b: &Loan) -> bool {
         _ => false, // 不同字段，互不影响
     }
 }
+
