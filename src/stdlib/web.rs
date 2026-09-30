@@ -399,7 +399,10 @@ fn handle_conn(mut s: TcpStream, routes: String) {
 #[no_mangle]
 pub extern "C" fn py_serve(port: i64, routes: *const c_char) -> i64 {
     let r = unsafe { to_string(routes) };
-    let listener = match TcpListener::bind(("127.0.0.1", port as u16)) { Ok(l) => l, Err(_) => return -1 };
+    let listener = match TcpListener::bind(("127.0.0.1", port as u16)) {
+        Ok(l) => l,
+        Err(e) => { eprintln!("[web] 无法监听端口 {}：{}", port, e); return -1; }
+    };
     for stream in listener.incoming() {
         let s = match stream { Ok(s) => s, Err(_) => continue };
         let routes = r.clone();

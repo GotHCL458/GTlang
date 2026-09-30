@@ -57,6 +57,8 @@ struct Ctx {
     try_depth: usize,
     /// trait 名 → [(方法名, 参数类型, 返回类型)]
     trait_methods: HashMap<String, Vec<(String, Vec<Ty>, Ty)>>,
+    /// 已导入的内置标准库模块名（未导入则不能调用其函数）
+    imported_stdlib: Vec<String>,
 }
 
 pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
@@ -71,6 +73,7 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
         loop_depth: 0,
         try_depth: 0,
         trait_methods: HashMap::new(),
+        imported_stdlib: prog.imported_stdlib.clone(),
     };
 
     let mut errors: Vec<String> = Vec::new();
@@ -956,6 +959,12 @@ impl Ctx {
                 } else if let Some(r) = builtin_ret(&name, &arg_tys) {
                     r.map_err(|why| crate::lb!(e.line, "{}", "{}", why))?
                 } else if let Some(sf) = crate::types::stdlib_fn(&name) {
+                    // 标准库需先 import 对应模块
+                    if let Some(dll) = crate::stdlib::dll_of(&name) {
+                        if !self.imported_stdlib.iter().any(|m| m == dll) {
+                            return Err(crate::lb!(e.line, "module '{}' is not imported", "模块 '{}' 未导入（缺少 import）", dll));
+                        }
+                    }
                     // 标准库（libGT.dll）：检查元数，参数按需数值提升
                     if sf.params.len() != arg_tys.len() {
                         return Err(crate::error::msg::arity_mismatch(e.line, &name, sf.params.len(), arg_tys.len()).render());

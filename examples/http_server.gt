@@ -1,3 +1,6 @@
+import json
+import web
+
 // 一个功能完整的网页服务器（基于标准库 web 模块）
 // 运行： gtc --run examples/http_server.gt
 // 浏览器访问本地 8080 端口

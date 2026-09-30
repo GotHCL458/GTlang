@@ -1,6 +1,8 @@
 // 综合演示：import 模块 + 容器 + 泛型 + 闭包 + struct/impl/trait + match + elif + 嵌套函数 + extern C + mem + 标准库
 import geometry
 import collections
+import math
+import string
 
 trait 形状 {
     fn 面积(self) -> f64

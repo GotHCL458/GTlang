@@ -459,6 +459,8 @@ pub struct Program {
     pub items: Vec<Item>,
     /// 顶层 `import` 声明（方案 B：真模块，由加载器解析）。
     pub imports: Vec<Import>,
+    /// 已导入的内置标准库模块名（math/string/json/...）；调用标准库函数前须在此列。
+    pub imported_stdlib: Vec<String>,
     /// 内联 C 块（`C { ... }`）的源码，多个块按出现顺序拼接。
     /// 编译后端把它交给 clang，解释器后端交给 tcc。
     pub cblock: String,

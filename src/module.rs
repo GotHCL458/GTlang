@@ -69,6 +69,8 @@ pub struct Linker {
     c_header_alias: Vec<(String, String, Vec<Ty>, Ty)>,
     /// 非致命错误暂存（供多错误报告合并）
     pending: Vec<ModError>,
+    /// 已导入的内置标准库模块名（math/string/json/...）
+    imported_stdlib: Vec<String>,
 }
 
 impl Linker {
@@ -104,6 +106,7 @@ impl Linker {
             extra_roots,
             c_header_alias: Vec::new(),
             pending: Vec::new(),
+            imported_stdlib: Vec::new(),
         }
     }
 
@@ -216,8 +219,9 @@ impl Linker {
             let target = match self.resolve_import(&dir, imp) {
                 Some(t) => t,
                 None => {
-                    // 找不到文件时，若为内置标准库（math/string/std）则跳过（运行时提供）
-                    if imp.path.len() == 1 && matches!(imp.path[0].as_str(), "math" | "string" | "std") {
+                    // 找不到文件时，若为内置标准库（math/string/os/file/json/...）则跳过（运行时提供）
+                    if imp.path.len() == 1 && crate::stdlib::MODULES.iter().any(|m| m.dll == imp.path[0].as_str()) {
+                        self.imported_stdlib.push(imp.path[0].clone());
                         continue;
                     }
                     return Err(ModError::new(
@@ -429,6 +433,7 @@ impl Linker {
                 }
             }
         }
+        out.imported_stdlib = self.imported_stdlib.clone();
         out
     }
 }
