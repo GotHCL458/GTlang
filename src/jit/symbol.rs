@@ -127,6 +127,7 @@ pub(crate) const STDLIB_NAMES: &[&str] = &[
     // web
     "html_escape", "url_encode", "url_decode", "parse_query", "build_query", "html_page", "route_match", "query_get", "serve", "match_route",
     "json_dump", "json_load", "json_pretty", "json_minify", "json_valid",
+    "json_escape", "json_number", "json_number_f", "json_bool", "json_null", "json_array", "json_object", "json_unquote",
     // json
     "json_dumps", "json_loads",
     // toml

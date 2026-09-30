@@ -38,7 +38,10 @@ pub const MODULES: &[StdModule] = &[
     },
     StdModule {
         dll: "json",
-        funcs: &["dumps", "loads"],
+        funcs: &[
+            "dumps", "loads", "dump", "load", "pretty", "minify", "valid",
+            "escape", "number", "number_f", "bool", "null", "array", "object", "unquote",
+        ],
     },
     StdModule {
         dll: "toml",

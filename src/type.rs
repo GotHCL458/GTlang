@@ -905,6 +905,14 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "json_pretty" => f("py_json_pretty", Ty::Str, &[Ty::Str]),
         "json_minify" => f("py_json_minify", Ty::Str, &[Ty::Str]),
         "json_valid" => f("py_json_valid", Ty::Bool, &[Ty::Str]),
+        "json_escape" => f("py_json_escape", Ty::Str, &[Ty::Str]),
+        "json_number" => f("py_json_number", Ty::Str, &[Ty::I64]),
+        "json_number_f" => f("py_json_number_f", Ty::Str, &[Ty::F64]),
+        "json_bool" => f("py_json_bool", Ty::Str, &[Ty::I64]),
+        "json_null" => f("py_json_null", Ty::Str, &[]),
+        "json_array" => f("py_json_array", Ty::Str, &[Ty::Str]),
+        "json_object" => f("py_json_object", Ty::Str, &[Ty::Str]),
+        "json_unquote" => f("py_json_unquote", Ty::Str, &[Ty::Str]),
         // ---- toml ----
         "toml_loads" => f("py_toml_loads", Ty::Str, &[Ty::Str]),
         "toml_load" => f("py_toml_load", Ty::Str, &[Ty::Str]),
@@ -934,7 +942,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "mem_store_u8" | "mem_load_u8" | "mem_copy" | "mem_set"
         // 标准库（os / json / toml）
         | "getcwd" | "getenv" | "setenv" | "path_exists" | "mkdir" | "system"
-        | "json_dumps" | "json_loads" | "json_dump" | "json_load" | "json_pretty" | "json_minify" | "json_valid" | "toml_loads" | "toml_load" | "toml_dumps"
+        | "json_dumps" | "json_loads" | "json_dump" | "json_load" | "json_pretty" | "json_minify" | "json_valid" | "json_escape" | "json_number" | "json_number_f" | "json_bool" | "json_null" | "json_array" | "json_object" | "json_unquote" | "toml_loads" | "toml_load" | "toml_dumps"
         | "listdir" | "rmdir" | "basename" | "dirname" | "path_join" | "abspath" | "is_file" | "is_dir" | "getsize"
         | "read_text" | "write_text" | "append_text" | "read_lines" | "write_lines" | "file_exists" | "file_copy" | "file_size" | "file_rename" | "touch" | "args" | "exit" | "glob"
         | "strip" | "lstrip" | "rstrip" | "index" | "rindex" | "replace_all" | "join_list" | "split_str" | "format" | "isalnum" | "islower" | "isupper" | "partition" | "rpartition" | "contains" | "is_ascii" | "utf8_len"

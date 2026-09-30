@@ -166,3 +166,64 @@ pub extern "C" fn py_json_valid(s: *const c_char) -> std::os::raw::c_int {
     }
     if in_str || depth != 0 { 0 } else { 1 }
 }
+
+/// json.escape(s) -> str：转义为 JSON 字符串（带引号）
+#[no_mangle]
+pub extern "C" fn py_json_escape(s: *const c_char) -> *mut c_char {
+    py_json_dumps(s)
+}
+
+/// json.number(v) -> str：整数 → JSON
+#[no_mangle]
+pub extern "C" fn py_json_number(v: i64) -> *mut c_char {
+    ret_string(v.to_string())
+}
+
+/// json.number_f(v) -> str：浮点 → JSON
+#[no_mangle]
+pub extern "C" fn py_json_number_f(v: f64) -> *mut c_char {
+    ret_string(format!("{}", v))
+}
+
+/// json.bool(v) -> str
+#[no_mangle]
+pub extern "C" fn py_json_bool(v: i64) -> *mut c_char {
+    ret_string(if v != 0 { "true".to_string() } else { "false".to_string() })
+}
+
+/// json.null() -> str
+#[no_mangle]
+pub extern "C" fn py_json_null() -> *mut c_char {
+    ret_string("null".to_string())
+}
+
+/// json.array(items) -> str：items 以 "\n" 分隔，每个已是 JSON 元素 → "[e1,e2]"
+#[no_mangle]
+pub extern "C" fn py_json_array(items: *const c_char) -> *mut c_char {
+    let v = unsafe { to_string(items) };
+    let parts: Vec<&str> = v.split('\n').filter(|s| !s.is_empty()).collect();
+    ret_string(format!("[{}]", parts.join(",")))
+}
+
+/// json.object(kv) -> str：kv 以 "k=v;k=v" 分隔，v 已是 JSON 值 → {"k":v,...}
+#[no_mangle]
+pub extern "C" fn py_json_object(kv: *const c_char) -> *mut c_char {
+    let v = unsafe { to_string(kv) };
+    let mut parts: Vec<String> = Vec::new();
+    for pair in v.split(';') {
+        let pair = pair.trim();
+        if pair.is_empty() { continue; }
+        if let Some(eq) = pair.find('=') {
+            let k = &pair[..eq];
+            let val = &pair[eq+1..];
+            parts.push(format!("\"{}\":{}", k, val));
+        }
+    }
+    ret_string(format!("{{{}}}", parts.join(",")))
+}
+
+/// json.unquote(s) -> str：若 s 是 JSON 字符串（带引号），去引号 + 反转义
+#[no_mangle]
+pub extern "C" fn py_json_unquote(s: *const c_char) -> *mut c_char {
+    py_json_loads(s)
+}
