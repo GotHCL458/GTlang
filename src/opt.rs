@@ -826,10 +826,10 @@ pub fn expand_macros(prog: &mut Program) {
 const MACRO_MAX_DEPTH: usize = 64;
 
 fn macro_expand_block(b: &mut Block, macros: &std::collections::HashMap<String, (Vec<String>, Expr)>) {
-    for s in b.iter_mut() { macro_expand_stmt(s, macros, 0); }
+    for s in b.iter_mut() { macro_expand_stmt(s, macros); }
 }
 
-fn macro_expand_stmt(s: &mut Stmt, macros: &std::collections::HashMap<String, (Vec<String>, Expr)>, depth: usize) {
+fn macro_expand_stmt(s: &mut Stmt, macros: &std::collections::HashMap<String, (Vec<String>, Expr)>) {
     match s {
         Stmt::Let { value, .. } | Stmt::Const { value, .. } => macro_expand_expr(value, macros),
         Stmt::Assign { value, index, .. } => { macro_expand_expr(value, macros); if let Some(i) = index { macro_expand_expr(i, macros); } }
