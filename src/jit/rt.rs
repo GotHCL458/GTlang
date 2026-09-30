@@ -323,9 +323,11 @@ pub(crate) fn rt_list_new() -> *mut RtList {
 pub(crate) unsafe fn rt_list_grow(l: *mut RtList) {
     let l = &mut *l;
     if l.len >= l.cap {
-        l.cap *= 2;
-        let mut v = Vec::from_raw_parts(l.data, l.len as usize, l.len as usize);
-        v.reserve((l.cap - l.len) as usize);
+        let new_cap = if l.cap < 4 { 4 } else { l.cap * 2 };
+        // 以真实容量 cap 恢复 Vec，避免 from_raw_parts 容量与实际分配不一致
+        let mut v = Vec::from_raw_parts(l.data, l.len as usize, l.cap as usize);
+        v.reserve((new_cap - l.len) as usize);
+        l.cap = v.capacity() as i64;
         l.data = v.as_mut_ptr();
         std::mem::forget(v);
     }
