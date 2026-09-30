@@ -54,6 +54,7 @@ pub mod tcc;
 pub mod tmp;
 pub mod stdlib;
 pub mod unit;
+pub mod unify;
 
 #[path = "type.rs"]
 pub mod types;

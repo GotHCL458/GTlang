@@ -59,6 +59,8 @@ pub enum Ty {
     Ref(Box<Ty>),
     /// 独占借用 `&mut T`（与其他借用互斥）
     RefMut(Box<Ty>),
+    /// HM 类型变量（仅未标注参数/泛型体推断时出现；单态化/检查结束后应被解出）
+    Var(u32),
 }
 
 impl Ty {
@@ -89,8 +91,8 @@ impl Ty {
             Ty::F64 => "double".into(),
             Ty::Str | Ty::Array(..) | Ty::List(..) | Ty::Set(..) | Ty::Map(..) | Ty::Struct(_)
             | Ty::Result(..) | Ty::Option(_) | Ty::Tuple(_) | Ty::Enum(_) | Ty::Dyn(_) => "ptr".into(),
-            // 单态化前不应用；给出合理占位
-            Ty::Generic(_) => "i64".into(),
+            // 单态化/推断前不应用；给出合理占位
+            Ty::Generic(_) | Ty::Var(_) => "i64".into(),
             Ty::Closure(..) | Ty::Ref(_) | Ty::RefMut(_) => "ptr".into(),
         }
     }
@@ -128,6 +130,7 @@ impl fmt::Display for Ty {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Ty::Unknown => write!(f, "未推断"),
+            Ty::Var(id) => write!(f, "?{}", id),
             Ty::Void => write!(f, "空(void)"),
             Ty::Bool => write!(f, "布尔(bool)"),
             Ty::I64 => write!(f, "整数(i64)"),
