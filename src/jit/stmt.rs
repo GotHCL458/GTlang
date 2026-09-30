@@ -160,8 +160,9 @@ impl FnState {
                             _ => {
                                 let (elem, addr) = self.gen_elem_addr(jit, b, &base, &ty, idx, *line)?;
                                 let rhs = self.gen_expr(jit, b, value)?;
+                                let safe = self.range.as_ref().map(|ra| ra.is_stmt_safe(s)).unwrap_or(false);
                                 let res = match op {
-                                    Some(o) => { let cur = b.ins().load(cl_ty(&elem), MemFlags::new(), addr, 0); self.gen_binop(jit, b, *o, &(cur, elem.clone()), &rhs, *line)?.0 }
+                                    Some(o) => { let cur = b.ins().load(cl_ty(&elem), MemFlags::new(), addr, 0); self.gen_binop(jit, b, *o, &(cur, elem.clone()), &rhs, *line, safe)?.0 }
                                     None => self.convert(b, &rhs, &elem),
                                 };
                                 b.ins().store(MemFlags::new(), res, addr, 0);
@@ -180,7 +181,8 @@ impl FnState {
                         } else {
                             let cur = b.use_var(var);
                             let curv = (cur, ty.clone());
-                            let res = match op { Some(o) => self.gen_binop(jit, b, *o, &curv, &rhs, *line)?.0, None => self.convert(b, &rhs, &ty) };
+                            let safe = self.range.as_ref().map(|ra| ra.is_stmt_safe(s)).unwrap_or(false);
+                            let res = match op { Some(o) => self.gen_binop(jit, b, *o, &curv, &rhs, *line, safe)?.0, None => self.convert(b, &rhs, &ty) };
                             b.def_var(var, res);
                         }
                     }
@@ -195,8 +197,9 @@ impl FnState {
                 let fty = layout[idx].1.clone();
                 let addr = b.ins().iadd_imm(base, (idx * 8) as i64);
                 let rhs = self.gen_expr(jit, b, value)?;
+                let safe = self.range.as_ref().map(|ra| ra.is_stmt_safe(s)).unwrap_or(false);
                 let res = match op {
-                    Some(o) => { let cur = b.ins().load(cl_ty(&fty), MemFlags::new(), addr, 0); self.gen_binop(jit, b, *o, &(cur, fty.clone()), &rhs, *line)?.0 }
+                    Some(o) => { let cur = b.ins().load(cl_ty(&fty), MemFlags::new(), addr, 0); self.gen_binop(jit, b, *o, &(cur, fty.clone()), &rhs, *line, safe)?.0 }
                     None => self.convert(b, &rhs, &fty),
                 };
                 b.ins().store(MemFlags::new(), res, addr, 0);

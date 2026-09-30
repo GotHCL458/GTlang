@@ -1019,15 +1019,20 @@ fn rt_alloc_empty() -> i64 {
 }
 
 pub(crate) extern "C" fn rt_str_concat(a: i64, b: i64) -> i64 {
-    let sa = if a == 0 { String::new() } else { unsafe { std::ffi::CStr::from_ptr(a as *const i8).to_string_lossy().into_owned() } };
-    let sb = if b == 0 { String::new() } else { unsafe { std::ffi::CStr::from_ptr(b as *const i8).to_string_lossy().into_owned() } };
-    let mut out = sa;
-    out.push_str(&sb);
-    let bytes = out.into_bytes();
-    let p = unsafe { libc_malloc(bytes.len() + 1) };
+    let (pa, la) = if a == 0 { (std::ptr::null(), 0usize) } else { (a as *const u8, unsafe { libc_strlen(a as *const u8) }) };
+    let (pb, lb) = if b == 0 { (std::ptr::null(), 0usize) } else { (b as *const u8, unsafe { libc_strlen(b as *const u8) }) };
+    let total = la + lb;
+    let p = unsafe { libc_malloc(total + 1) };
     unsafe {
-        std::ptr::copy_nonoverlapping(bytes.as_ptr(), p, bytes.len());
-        *p.add(bytes.len()) = 0;
+        if la > 0 { std::ptr::copy_nonoverlapping(pa, p, la); }
+        if lb > 0 { std::ptr::copy_nonoverlapping(pb, p.add(la), lb); }
+        *p.add(total) = 0;
     }
     p as i64
+}
+
+unsafe fn libc_strlen(p: *const u8) -> usize {
+    let mut n = 0usize;
+    while *p.add(n) != 0 { n += 1; }
+    n
 }

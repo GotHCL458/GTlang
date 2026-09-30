@@ -66,6 +66,8 @@ pub struct Jit<'a> {
     traits: HashMap<String, Vec<String>>,
     /// (类型, trait) → 展平方法名列表
     trait_impls: HashMap<(String, String), Vec<String>>,
+    /// 整数范围分析（用于省略可证明安全的溢出检查；与 LLVM 后端一致）
+    range: Option<crate::range::Analysis>,
 }
 
 /// JIT 内部统一用 I64 / F64
@@ -123,6 +125,7 @@ pub fn run(prog: &Program, an: &Analysis, file: &str) -> Result<(), String> {
             jit.structs.insert(s.name.clone(), fields);
         }
     }
+    jit.range = Some(crate::range::analyze(prog));
     jit.declare_all(prog)?;
     jit.intern_all(prog)?;
 
@@ -337,6 +340,7 @@ impl<'a> Jit<'a> {
             enum_variants: HashMap::new(),
             traits: an.traits.clone(),
             trait_impls: an.trait_impls.clone(),
+            range: None,
         })
     }
 
@@ -623,7 +627,7 @@ impl<'a> Jit<'a> {
             let entry = b.create_block();
             b.append_block_params_for_function_params(entry);
             b.switch_to_block(entry);
-            let mut st = FnState::new(info_ret.clone());
+            let mut st = FnState::new(info_ret.clone(), self.range.clone());
             let mut idx = 0usize;
             for p in &f.params {
                 let pty = p.ty.clone().unwrap_or(Ty::I64);
@@ -675,11 +679,13 @@ pub(crate) struct FnState {
     /// 活跃的 `try` 故障处理栈：故障时跳转的块 + 故障码变量。
     /// （阶段 4C：仅在 `try` 块内，运行时故障可被捕获）
     pub(crate) fault_stack: Vec<(ClBlock, Variable)>,
+    /// 整数范围分析结果（省略可证明安全的溢出检查；与 LLVM 后端一致）
+    pub(crate) range: Option<crate::range::Analysis>,
 }
 
 impl FnState {
-    pub(crate) fn new(cur_ret: Ty) -> FnState {
-        FnState { var_count: 0, scopes: vec![Vec::new()], array_slots: HashMap::new(), loops: Vec::new(), cur_ret, terminated: false, bounded: HashMap::new(), fault_stack: Vec::new() }
+    pub(crate) fn new(cur_ret: Ty, range: Option<crate::range::Analysis>) -> FnState {
+        FnState { var_count: 0, scopes: vec![Vec::new()], array_slots: HashMap::new(), loops: Vec::new(), cur_ret, terminated: false, bounded: HashMap::new(), fault_stack: Vec::new(), range }
     }
     pub(crate) fn new_block(&mut self, b: &mut FunctionBuilder) -> ClBlock { b.create_block() }
     pub(crate) fn new_var(&mut self, b: &mut FunctionBuilder, ty: &Ty) -> Variable {

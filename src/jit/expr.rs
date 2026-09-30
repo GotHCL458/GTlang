@@ -95,7 +95,8 @@ impl FnState {
                 if op.is_logic() { return self.gen_logic(jit, b, *op, a, c); }
                 let av = self.gen_expr(jit, b, a)?;
                 let cv = self.gen_expr(jit, b, c)?;
-                self.gen_binop(jit, b, *op, &av, &cv, e.line)
+                let safe = self.range.as_ref().map(|ra| ra.is_safe(e)).unwrap_or(false);
+                self.gen_binop(jit, b, *op, &av, &cv, e.line, safe)
             }
             ExprKind::Call(name, args) => self.gen_call(jit, b, name, args, e.line, &e.ty),
             ExprKind::CallValue { callee, args } => self.gen_call_value(jit, b, callee, args, e),

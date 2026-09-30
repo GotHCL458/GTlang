@@ -384,7 +384,7 @@ impl FnState {
         }
     }
 
-    pub(crate) fn gen_binop(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, op: BinOp, a: &(Value, Ty), c: &(Value, Ty), line: usize) -> Result<(Value, Ty), String> {
+    pub(crate) fn gen_binop(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, op: BinOp, a: &(Value, Ty), c: &(Value, Ty), line: usize, safe: bool) -> Result<(Value, Ty), String> {
         // 字符串拼接：`str + str`
         if op == BinOp::Add && a.1 == Ty::Str && c.1 == Ty::Str {
             let f = self.rt_ref(jit, b, "str_concat")?;
@@ -421,9 +421,10 @@ impl FnState {
         } else {
             match op {
                 // 加/减/乘：检测有符号溢出，溢出则运行时终止（与编译器后端一致）
-                BinOp::Add => { let (r, o) = b.ins().sadd_overflow(x, y); self.gen_overflow_check(jit, b, o, line)?; Ok((r, Ty::I64)) }
-                BinOp::Sub => { let (r, o) = b.ins().ssub_overflow(x, y); self.gen_overflow_check(jit, b, o, line)?; Ok((r, Ty::I64)) }
-                BinOp::Mul => { let (r, o) = b.ins().smul_overflow(x, y); self.gen_overflow_check(jit, b, o, line)?; Ok((r, Ty::I64)) }
+                // safe=true：范围分析已证明不会溢出 → 用普通指令，省略检查
+                BinOp::Add => if safe { Ok((b.ins().iadd(x, y), Ty::I64)) } else { let (r, o) = b.ins().sadd_overflow(x, y); self.gen_overflow_check(jit, b, o, line)?; Ok((r, Ty::I64)) }
+                BinOp::Sub => if safe { Ok((b.ins().isub(x, y), Ty::I64)) } else { let (r, o) = b.ins().ssub_overflow(x, y); self.gen_overflow_check(jit, b, o, line)?; Ok((r, Ty::I64)) }
+                BinOp::Mul => if safe { Ok((b.ins().imul(x, y), Ty::I64)) } else { let (r, o) = b.ins().smul_overflow(x, y); self.gen_overflow_check(jit, b, o, line)?; Ok((r, Ty::I64)) }
                 BinOp::Div | BinOp::FloorDiv => Ok((b.ins().sdiv(x, y), Ty::I64)),
                 _ => Ok((b.ins().srem(x, y), Ty::I64)),
             }

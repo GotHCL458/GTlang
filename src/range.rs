@@ -36,6 +36,7 @@ impl Range {
 }
 
 /// 键用 (行号, 表达式地址)，codegen 与 range 遍历同一 AST，地址一致。
+#[derive(Clone)]
 pub struct Analysis { safe: HashSet<usize>, safe_stmt: HashSet<usize> }
 impl Analysis {
     pub fn is_safe(&self, e: &Expr) -> bool { self.safe.contains(&(e as *const Expr as usize)) }
