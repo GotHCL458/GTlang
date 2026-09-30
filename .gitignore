@@ -38,6 +38,7 @@ bench/_cl_win
 # Cuckoo Code (AI assistant)
 .cuckooCode/
 _cuckoo/
+.cuckoo/
 
 # Editor / OS
 .vscode/
