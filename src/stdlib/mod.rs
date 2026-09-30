@@ -22,6 +22,14 @@ pub const MODULES: &[StdModule] = &[
             "isnumeric", "isdigit", "capitalize", "reverse", "count",
             "startswith", "endswith", "center", "zfill", "ljust", "rjust",
             "title", "swapcase", "isalpha", "isspace",
+            "strip", "lstrip", "rstrip", "index", "rindex", "replace_all", "join_list", "split_str", "format", "isalnum", "islower", "isupper", "partition", "rpartition", "contains", "is_ascii", "utf8_len",
+        ],
+    },
+    StdModule {
+        dll: "net",
+        funcs: &[
+            "tcp_connect", "tcp_listen", "accept", "net_send", "net_recv",
+            "recv_all", "net_close", "close_listener", "peer_addr",
         ],
     },
     StdModule {

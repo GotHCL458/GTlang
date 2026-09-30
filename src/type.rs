@@ -758,6 +758,33 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "swapcase" => f("py_swapcase", Ty::Str, &[Ty::Str]),
         "isalpha" => f("py_isalpha", Ty::Bool, &[Ty::Str]),
         "isspace" => f("py_isspace", Ty::Bool, &[Ty::Str]),
+        "strip" => f("py_strip", Ty::Str, &[Ty::Str, Ty::Str]),
+        "lstrip" => f("py_lstrip", Ty::Str, &[Ty::Str, Ty::Str]),
+        "rstrip" => f("py_rstrip", Ty::Str, &[Ty::Str, Ty::Str]),
+        "index" => f("py_index", Ty::I64, &[Ty::Str, Ty::Str]),
+        "rindex" => f("py_rindex", Ty::I64, &[Ty::Str, Ty::Str]),
+        "replace_all" => f("py_replace_all", Ty::Str, &[Ty::Str, Ty::Str, Ty::Str]),
+        "join_list" => f("py_join_list", Ty::Str, &[Ty::Str, Ty::Str]),
+        "split_str" => f("py_split_str", Ty::Str, &[Ty::Str, Ty::Str]),
+        "format" => f("py_format", Ty::Str, &[Ty::Str, Ty::Str]),
+        "isalnum" => f("py_isalnum", Ty::Bool, &[Ty::Str]),
+        "islower" => f("py_islower", Ty::Bool, &[Ty::Str]),
+        "isupper" => f("py_isupper", Ty::Bool, &[Ty::Str]),
+        "partition" => f("py_partition", Ty::Str, &[Ty::Str, Ty::Str]),
+        "rpartition" => f("py_rpartition", Ty::Str, &[Ty::Str, Ty::Str]),
+        "contains" => f("py_contains", Ty::Bool, &[Ty::Str, Ty::Str]),
+        "is_ascii" => f("py_is_ascii", Ty::Bool, &[Ty::Str]),
+        "utf8_len" => f("py_utf8_len", Ty::I64, &[Ty::Str]),
+        // ---- net ----
+        "tcp_connect" => f("py_tcp_connect", Ty::I64, &[Ty::Str, Ty::I64]),
+        "tcp_listen" => f("py_tcp_listen", Ty::I64, &[Ty::I64]),
+        "accept" => f("py_accept", Ty::I64, &[Ty::I64]),
+        "net_send" => f("py_net_send", Ty::I64, &[Ty::I64, Ty::Str]),
+        "net_recv" => f("py_net_recv", Ty::Str, &[Ty::I64, Ty::I64]),
+        "recv_all" => f("py_recv_all", Ty::Str, &[Ty::I64]),
+        "net_close" => f("py_net_close", Ty::Void, &[Ty::I64]),
+        "close_listener" => f("py_close_listener", Ty::Void, &[Ty::I64]),
+        "peer_addr" => f("py_peer_addr", Ty::Str, &[Ty::I64]),
         // ---- os（环境 / 进程）----
         "getcwd" => f("py_getcwd", Ty::Str, &[]),
         "getenv" => f("py_getenv", Ty::Str, &[Ty::Str]),
@@ -910,6 +937,8 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "json_dumps" | "json_loads" | "json_dump" | "json_load" | "json_pretty" | "json_minify" | "json_valid" | "toml_loads" | "toml_load" | "toml_dumps"
         | "listdir" | "rmdir" | "basename" | "dirname" | "path_join" | "abspath" | "is_file" | "is_dir" | "getsize"
         | "read_text" | "write_text" | "append_text" | "read_lines" | "write_lines" | "file_exists" | "file_copy" | "file_size" | "file_rename" | "touch" | "args" | "exit" | "glob"
+        | "strip" | "lstrip" | "rstrip" | "index" | "rindex" | "replace_all" | "join_list" | "split_str" | "format" | "isalnum" | "islower" | "isupper" | "partition" | "rpartition" | "contains" | "is_ascii" | "utf8_len"
+        | "tcp_connect" | "tcp_listen" | "accept" | "net_send" | "net_recv" | "recv_all" | "net_close" | "close_listener" | "peer_addr"
         | "seed" | "random" | "randint" | "randrange" | "uniform" | "choice" | "shuffle" | "sample" | "gauss"
         | "ast_lit_int" | "ast_lit_float" | "ast_lit_str" | "ast_lit_char" | "ast_lit_bool"
         | "ast_id" | "ast_binary" | "ast_unary" | "ast_call" | "ast_add_arg"

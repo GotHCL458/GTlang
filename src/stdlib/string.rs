@@ -133,3 +133,166 @@ pub extern "C" fn py_isspace(s: *const c_char) -> i64 {
     if t.is_empty() { return 0; }
     if t.chars().all(|c| c.is_whitespace()) { 1 } else { 0 }
 }
+
+// ---------- Python 风格增强 ----------
+
+/// strip(s[, chars])：去两端空白（或指定字符集）
+#[no_mangle]
+pub extern "C" fn py_strip(s: *const c_char, chars: *const c_char) -> *mut c_char {
+    let v = unsafe { to_str(s) };
+    let c = unsafe { to_str(chars) };
+    let trimmed = if c.is_empty() { v.trim_matches(|x: char| x.is_whitespace()) } else { v.trim_matches(|x: char| c.contains(x)) };
+    out_string(trimmed.to_string())
+}
+
+/// lstrip
+#[no_mangle]
+pub extern "C" fn py_lstrip(s: *const c_char, chars: *const c_char) -> *mut c_char {
+    let v = unsafe { to_str(s) };
+    let c = unsafe { to_str(chars) };
+    let t = if c.is_empty() { v.trim_start_matches(|x: char| x.is_whitespace()) } else { v.trim_start_matches(|x: char| c.contains(x)) };
+    out_string(t.to_string())
+}
+
+/// rstrip
+#[no_mangle]
+pub extern "C" fn py_rstrip(s: *const c_char, chars: *const c_char) -> *mut c_char {
+    let v = unsafe { to_str(s) };
+    let c = unsafe { to_str(chars) };
+    let t = if c.is_empty() { v.trim_end_matches(|x: char| x.is_whitespace()) } else { v.trim_end_matches(|x: char| c.contains(x)) };
+    out_string(t.to_string())
+}
+
+/// index(s, sub) -> int（找不到 -1）
+#[no_mangle]
+pub extern "C" fn py_index(s: *const c_char, sub: *const c_char) -> i64 {
+    let v = unsafe { to_str(s) };
+    let n = unsafe { to_str(sub) };
+    match v.find(n) { Some(i) => i as i64, None => -1 }
+}
+
+/// rindex(s, sub) -> int（从右找）
+#[no_mangle]
+pub extern "C" fn py_rindex(s: *const c_char, sub: *const c_char) -> i64 {
+    let v = unsafe { to_str(s) };
+    let n = unsafe { to_str(sub) };
+    match v.rfind(n) { Some(i) => i as i64, None => -1 }
+}
+
+/// replace_all(s, from, to) -> str
+#[no_mangle]
+pub extern "C" fn py_replace_all(s: *const c_char, from: *const c_char, to: *const c_char) -> *mut c_char {
+    let v = unsafe { to_str(s) };
+    let f = unsafe { to_str(from) };
+    let t = unsafe { to_str(to) };
+    out_string(v.replace(f, t))
+}
+
+/// join_list(sep, s) -> str（s 以 "\n" 分隔）
+#[no_mangle]
+pub extern "C" fn py_join_list(sep: *const c_char, s: *const c_char) -> *mut c_char {
+    let sp = unsafe { to_str(sep) };
+    let v = unsafe { to_str(s) };
+    let parts: Vec<&str> = v.split('\n').collect();
+    out_string(parts.join(sp))
+}
+
+/// split_str(s, sep) -> str（"\n" 分隔）
+#[no_mangle]
+pub extern "C" fn py_split_str(s: *const c_char, sep: *const c_char) -> *mut c_char {
+    let v = unsafe { to_str(s) };
+    let sp = unsafe { to_str(sep) };
+    let parts: Vec<&str> = if sp.is_empty() { v.split_whitespace().collect() } else { v.split(sp).collect() };
+    out_string(parts.join("\n"))
+}
+
+/// format(tmpl, args)：tmpl 里的 "{}" 用 args（"\n" 分隔）依次替换
+#[no_mangle]
+pub extern "C" fn py_format(tmpl: *const c_char, args: *const c_char) -> *mut c_char {
+    let t = unsafe { to_str(tmpl) };
+    let a = unsafe { to_str(args) };
+    let mut out = String::with_capacity(t.len() + a.len());
+    let mut it = a.split('\n');
+    let mut rest = t;
+    while let Some(i) = rest.find("{}") {
+        out.push_str(&rest[..i]);
+        out.push_str(it.next().unwrap_or(""));
+        rest = &rest[i+2..];
+    }
+    out.push_str(rest);
+    out_string(out)
+}
+
+/// isdigit(s) -> bool
+#[no_mangle]
+pub extern "C" fn py_isdigit(s: *const c_char) -> i64 {
+    let v = unsafe { to_str(s) };
+    if v.is_empty() { return 0; }
+    if v.chars().all(|c| c.is_ascii_digit()) { 1 } else { 0 }
+}
+
+/// isalnum(s) -> bool
+#[no_mangle]
+pub extern "C" fn py_isalnum(s: *const c_char) -> i64 {
+    let v = unsafe { to_str(s) };
+    if v.is_empty() { return 0; }
+    if v.chars().all(|c| c.is_alphanumeric()) { 1 } else { 0 }
+}
+
+/// islower(s) / isupper(s)
+#[no_mangle]
+pub extern "C" fn py_islower(s: *const c_char) -> i64 {
+    let v = unsafe { to_str(s) };
+    if v.is_empty() { return 0; }
+    if v.chars().any(|c| c.is_lowercase()) && !v.chars().any(|c| c.is_uppercase()) { 1 } else { 0 }
+}
+#[no_mangle]
+pub extern "C" fn py_isupper(s: *const c_char) -> i64 {
+    let v = unsafe { to_str(s) };
+    if v.is_empty() { return 0; }
+    if v.chars().any(|c| c.is_uppercase()) && !v.chars().any(|c| c.is_lowercase()) { 1 } else { 0 }
+}
+
+/// partition(s, sep) -> str（"before\nsep\nafter"）
+#[no_mangle]
+pub extern "C" fn py_partition(s: *const c_char, sep: *const c_char) -> *mut c_char {
+    let v = unsafe { to_str(s) };
+    let sp = unsafe { to_str(sep) };
+    match v.find(sp) {
+        Some(i) => out_string(format!("{}\n{}\n{}", &v[..i], sp, &v[i+sp.len()..])),
+        None => out_string(format!("{}\n\n", v)),
+    }
+}
+
+/// rpartition(s, sep) -> str
+#[no_mangle]
+pub extern "C" fn py_rpartition(s: *const c_char, sep: *const c_char) -> *mut c_char {
+    let v = unsafe { to_str(s) };
+    let sp = unsafe { to_str(sep) };
+    match v.rfind(sp) {
+        Some(i) => out_string(format!("{}\n{}\n{}", &v[..i], sp, &v[i+sp.len()..])),
+        None => out_string(format!("\n\n{}", v)),
+    }
+}
+
+/// contains(s, sub) -> bool
+#[no_mangle]
+pub extern "C" fn py_contains(s: *const c_char, sub: *const c_char) -> i64 {
+    let v = unsafe { to_str(s) };
+    let n = unsafe { to_str(sub) };
+    if v.contains(n) { 1 } else { 0 }
+}
+
+/// is_ascii(s) -> bool
+#[no_mangle]
+pub extern "C" fn py_is_ascii(s: *const c_char) -> i64 {
+    let v = unsafe { to_str(s) };
+    if v.is_ascii() { 1 } else { 0 }
+}
+
+/// utf8_len(s) -> int（字符数，非字节数）
+#[no_mangle]
+pub extern "C" fn py_utf8_len(s: *const c_char) -> i64 {
+    let v = unsafe { to_str(s) };
+    v.chars().count() as i64
+}
