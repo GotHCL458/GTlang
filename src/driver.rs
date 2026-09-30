@@ -254,7 +254,7 @@ pub fn find_std_libs() -> Vec<PathBuf> {
             let d = match dir { Some(d) => d, None => break };
             for lib in crate::stdlib::MODULES {
                 let name = format!("{}.lib", lib.dll);
-                for cand in [d.join(&name), d.join("res").join("lib").join(&name), d.join("lib").join(&name)] {
+                for cand in [d.join(&name), d.join("res").join("lib").join(&name), d.join("res").join("lib").join(".lib").join(&name), d.join("lib").join(&name)] {
                     if cand.is_file() && !out.contains(&cand) {
                         out.push(cand);
                     }

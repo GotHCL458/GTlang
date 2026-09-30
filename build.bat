@@ -64,8 +64,6 @@ for %%F in ("%ROOT%src\stdlib\*.rs") do (
         echo [build] stdlib !MOD! (rust)
         rustc --edition 2021 --crate-type cdylib --crate-name !MOD! "%%~fF" -o "%STDOUT%\!MOD!.dll" -O
         if errorlevel 1 ( echo [ERROR] stdlib !MOD! failed. & exit /b 1 )
-        rustc --edition 2021 --crate-type staticlib --crate-name !MOD! "%%~fF" -o "%STDOUT%\!MOD!.lib" -O
-        if errorlevel 1 ( echo [ERROR] stdlib !MOD! failed. & exit /b 1 )
     )
 )
 REM C stdlib modules
@@ -77,7 +75,6 @@ for %%F in ("%ROOT%src\stdlib\*.c") do (
     "%GTC_CLANG%" -c -O2 -o "!COBJ!" "!CFILE!"
     if errorlevel 1 ( echo [ERROR] stdlib !MOD! ^(c^) compile failed. & exit /b 1 )
     "%GTC_CLANG%" -shared -O2 -o "%STDOUT%\!MOD!.dll" "!COBJ!"
-    if exist "%LLD_LINK%" "%LLD_LINK%" /lib /out:"%STDOUT%\!MOD!.lib" "!COBJ!" >nul 2>nul
     del /q "!COBJ!" 2>nul
 )
 
@@ -99,7 +96,8 @@ mkdir "%RES%\lib" 2>nul
 copy /Y "%ROOT%target\release\gtc.exe"   "%RES%\gtc.exe"   >nul || (echo [ERROR] gtc.exe missing & exit /b 1)
 copy /Y "%ROOT%target\release\gtfmt.exe" "%RES%\gtfmt.exe" >nul
 copy /Y "%STDOUT%\*.dll" "%RES%\lib\" >nul 2>nul
-copy /Y "%STDOUT%\*.lib" "%RES%\lib\" >nul 2>nul
+if not exist "%RES%\lib\.lib" mkdir "%RES%\lib\.lib" 2>nul
+copy /Y "%STDOUT%\*.lib" "%RES%\lib\.lib\" >nul 2>nul
 
 copy /Y "%GTC_CLANG%" "%RES%\llvm\bin\clang.exe" >nul
 if exist "%LLD_LINK%" copy /Y "%LLD_LINK%" "%RES%\llvm\bin\lld-link.exe" >nul
