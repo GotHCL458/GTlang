@@ -823,11 +823,13 @@ pub fn expand_macros(prog: &mut Program) {
     }
 }
 
+const MACRO_MAX_DEPTH: usize = 64;
+
 fn macro_expand_block(b: &mut Block, macros: &std::collections::HashMap<String, (Vec<String>, Expr)>) {
-    for s in b.iter_mut() { macro_expand_stmt(s, macros); }
+    for s in b.iter_mut() { macro_expand_stmt(s, macros, 0); }
 }
 
-fn macro_expand_stmt(s: &mut Stmt, macros: &std::collections::HashMap<String, (Vec<String>, Expr)>) {
+fn macro_expand_stmt(s: &mut Stmt, macros: &std::collections::HashMap<String, (Vec<String>, Expr)>, depth: usize) {
     match s {
         Stmt::Let { value, .. } | Stmt::Const { value, .. } => macro_expand_expr(value, macros),
         Stmt::Assign { value, index, .. } => { macro_expand_expr(value, macros); if let Some(i) = index { macro_expand_expr(i, macros); } }
@@ -849,7 +851,13 @@ fn macro_expand_stmt(s: &mut Stmt, macros: &std::collections::HashMap<String, (V
     }
 }
 
+thread_local! {
+    static MACRO_DEPTH: std::cell::Cell<usize> = std::cell::Cell::new(0);
+}
+
 fn macro_expand_expr(e: &mut Expr, macros: &std::collections::HashMap<String, (Vec<String>, Expr)>) {
+    // 展开深度保护（防止宏无限递归，借 Vix 的 64 上限）
+    if MACRO_DEPTH.with(|d| d.get()) >= MACRO_MAX_DEPTH { return; }
     // 先递归子表达式（宏可能嵌套）
     match &mut e.kind {
         ExprKind::Unary(_, a) => macro_expand_expr(a, macros),
@@ -892,6 +900,10 @@ fn macro_expand_expr(e: &mut Expr, macros: &std::collections::HashMap<String, (V
                 macro_subst(&mut expanded, &subst);
                 e.kind = expanded.kind;
                 e.ty = expanded.ty;
+                // 展开后再递归展开结果（深度 +1，超限即停）
+                MACRO_DEPTH.with(|d| d.set(d.get() + 1));
+                macro_expand_expr(e, macros);
+                MACRO_DEPTH.with(|d| d.set(d.get().saturating_sub(1)));
             }
         }
     }
