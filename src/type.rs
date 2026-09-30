@@ -806,6 +806,8 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "html_page" => f("py_html_page", Ty::Str, &[Ty::Str, Ty::Str]),
         "route_match" => f("py_route_match", Ty::Str, &[Ty::Str, Ty::Str]),
         "query_get" => f("py_query_get", Ty::Str, &[Ty::Str, Ty::Str]),
+        "serve" => f("py_serve", Ty::I64, &[Ty::I64, Ty::Str]),
+        "match_route" => f("py_match_route", Ty::Str, &[Ty::Str, Ty::Str, Ty::Str]),
         // ---- ast（纯 C，gto_ 前缀）----
         "ast_lit_int" => f("gto_ast_lit_int", Ty::I64, &[Ty::I64]),
         "ast_lit_float" => f("gto_ast_lit_float", Ty::I64, &[Ty::F64]),
@@ -920,7 +922,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "ast_sval" | "ast_name" | "ast_a" | "ast_b" | "ast_c" | "ast_d" | "ast_nkids" | "ast_kid"
         | "ast_type_name" | "ast_free" | "ast_dump" | "ast_str_free" | "ast_walk" | "ast_walk_next" | "ast_walk_free"
         | "http_get" | "http_post" | "http_put" | "http_delete" | "http_request" | "http_download" | "http_status"
-        | "html_escape" | "url_encode" | "url_decode" | "parse_query" | "build_query" | "html_page" | "route_match" | "query_get"
+        | "html_escape" | "url_encode" | "url_decode" | "parse_query" | "build_query" | "html_page" | "route_match" | "query_get" | "serve" | "match_route"
     ) || stdlib_fn(name).is_some()
 }
 

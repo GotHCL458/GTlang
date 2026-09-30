@@ -62,7 +62,7 @@ pub const MODULES: &[StdModule] = &[
         dll: "web",
         funcs: &[
             "html_escape", "url_encode", "url_decode", "parse_query", "build_query",
-            "html_page", "route_match", "query_get",
+            "html_page", "route_match", "query_get", "serve", "match_route",
         ],
     },
     StdModule {

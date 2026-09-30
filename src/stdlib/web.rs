@@ -6,6 +6,7 @@
 #![allow(clippy::missing_safety_doc)]
 
 use std::ffi::{CStr, CString};
+use std::io::BufRead;
 use std::os::raw::c_char;
 
 unsafe fn to_string(p: *const c_char) -> String {
@@ -132,4 +133,77 @@ pub extern "C" fn py_query_get(qs: *const c_char, key: *const c_char) -> *mut c_
         }
     }
     ret_string(String::new())
+}
+
+// ---------- 极简本地 HTTP 服务器 ----------
+
+use std::io::{BufReader, Write};
+use std::net::TcpListener;
+
+/// 读取一行（到 \r\n），返回内容（不含 CRLF）
+fn read_line(reader: &mut BufReader<std::net::TcpStream>) -> String {
+    let mut s = String::new();
+    let _ = reader.read_line(&mut s);
+    s.trim_end().to_string()
+}
+
+/// 解析路由文本：每行 "METHOD /path=Body" 或 "ANY /path=Body"
+fn match_route(routes: &str, method: &str, path: &str) -> Option<String> {
+    let path_only = path.split('?').next().unwrap_or(path);
+    for line in routes.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') { continue; }
+        if let Some(eq) = line.find('=') {
+            let lhs = line[..eq].trim();
+            let body = &line[eq+1..];
+            let mut it = lhs.splitn(2, ' ');
+            let m = it.next().unwrap_or("ANY").trim().to_uppercase();
+            let p = it.next().unwrap_or("/").trim();
+            if m != "ANY" && m != method { continue; }
+            // route_match 语义
+            let ps: Vec<&str> = p.trim_matches('/').split('/').collect();
+            let qs: Vec<&str> = path_only.trim_matches('/').split('/').collect();
+            if ps.len() == qs.len() && ps.iter().zip(qs.iter()).all(|(a,b)| a.starts_with(':') || a == b) {
+                return Some(body.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// web.serve(port, routes) -> int（阻塞；返回 0 或错误码）
+/// routes 每行 "METHOD /path=Response Body"；METHOD 可为 ANY。首行匹配优先。
+#[no_mangle]
+pub extern "C" fn py_serve(port: i64, routes: *const c_char) -> i64 {
+    let r = unsafe { to_string(routes) };
+    let listener = match TcpListener::bind(("127.0.0.1", port as u16)) { Ok(l) => l, Err(_) => return -1 };
+    for stream in listener.incoming() {
+        let mut s = match stream { Ok(s) => s, Err(_) => continue };
+        let mut reader = BufReader::new(s.try_clone().unwrap());
+        let req = read_line(&mut reader);
+        let parts: Vec<&str> = req.split(' ').collect();
+        let method = parts.get(0).copied().unwrap_or("GET");
+        let path = parts.get(1).copied().unwrap_or("/");
+        // 读完 headers
+        loop {
+            let l = read_line(&mut reader);
+            if l.is_empty() { break; }
+        }
+        let body = match_route(&r, method, path).unwrap_or_else(|| "Not Found".to_string());
+        let resp = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            body.as_bytes().len(), body
+        );
+        let _ = s.write_all(resp.as_bytes());
+    }
+    0
+}
+
+/// web.match_route(routes, method, path) -> str（纯函数，便于测试）
+#[no_mangle]
+pub extern "C" fn py_match_route(routes: *const c_char, method: *const c_char, path: *const c_char) -> *mut c_char {
+    let r = unsafe { to_string(routes) };
+    let m = unsafe { to_string(method) };
+    let p = unsafe { to_string(path) };
+    ret_string(match_route(&r, &m, &p).unwrap_or_default())
 }
