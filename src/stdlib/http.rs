@@ -57,6 +57,8 @@ fn http_request(method: &str, url: &str, body: &str) -> String {
 
 // ---------- WinHttp（Win7+ 内置）----------
 type HInternet = *mut core::ffi::c_void;
+
+#[link(name = "winhttp")]
 extern "system" {
     fn WinHttpOpen(agent: *const u16, access: u32, proxy: *const u16, bypass: *const u16, flags: u32) -> HInternet;
     fn WinHttpConnect(session: HInternet, server: *const u16, port: u16, reserved: u32) -> HInternet;
