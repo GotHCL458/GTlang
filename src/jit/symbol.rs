@@ -122,6 +122,10 @@ pub(crate) const STDLIB_NAMES: &[&str] = &[
     "ast_set_line", "ast_line", "ast_type", "ast_tag", "ast_ival", "ast_fval",
     "ast_sval", "ast_name", "ast_a", "ast_b", "ast_c", "ast_d", "ast_nkids", "ast_kid",
     "ast_type_name", "ast_free", "ast_dump", "ast_str_free", "ast_walk", "ast_walk_next", "ast_walk_free",
+    // http
+    "http_get", "http_post", "http_put", "http_delete", "http_request", "http_download", "http_status",
+    // web
+    "html_escape", "url_encode", "url_decode", "parse_query", "build_query", "html_page", "route_match", "query_get",
     "json_dump", "json_load", "json_pretty", "json_minify", "json_valid",
     // json
     "json_dumps", "json_loads",

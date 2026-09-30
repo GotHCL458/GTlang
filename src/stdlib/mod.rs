@@ -52,6 +52,20 @@ pub const MODULES: &[StdModule] = &[
         ],
     },
     StdModule {
+        dll: "http",
+        funcs: &[
+            "http_get", "http_post", "http_put", "http_delete", "http_request",
+            "http_download", "http_status",
+        ],
+    },
+    StdModule {
+        dll: "web",
+        funcs: &[
+            "html_escape", "url_encode", "url_decode", "parse_query", "build_query",
+            "html_page", "route_match", "query_get",
+        ],
+    },
+    StdModule {
         dll: "random",
         funcs: &[
             "seed", "random", "randint", "randrange", "uniform",

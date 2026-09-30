@@ -789,6 +789,23 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "file_rename" => f("py_file_rename", Ty::Bool, &[Ty::Str, Ty::Str]),
         "touch" => f("py_touch", Ty::Bool, &[Ty::Str]),
         "glob" => f("py_glob", Ty::Str, &[Ty::Str, Ty::Str]),
+        // ---- http ----
+        "http_get" => f("py_http_get", Ty::Str, &[Ty::Str]),
+        "http_post" => f("py_http_post", Ty::Str, &[Ty::Str, Ty::Str]),
+        "http_put" => f("py_http_put", Ty::Str, &[Ty::Str, Ty::Str]),
+        "http_delete" => f("py_http_delete", Ty::Str, &[Ty::Str]),
+        "http_request" => f("py_http_request", Ty::Str, &[Ty::Str, Ty::Str, Ty::Str]),
+        "http_download" => f("py_http_download", Ty::Bool, &[Ty::Str, Ty::Str]),
+        "http_status" => f("py_http_status", Ty::I64, &[Ty::Str]),
+        // ---- web ----
+        "html_escape" => f("py_html_escape", Ty::Str, &[Ty::Str]),
+        "url_encode" => f("py_url_encode", Ty::Str, &[Ty::Str]),
+        "url_decode" => f("py_url_decode", Ty::Str, &[Ty::Str]),
+        "parse_query" => f("py_parse_query", Ty::Str, &[Ty::Str]),
+        "build_query" => f("py_build_query", Ty::Str, &[Ty::Str]),
+        "html_page" => f("py_html_page", Ty::Str, &[Ty::Str, Ty::Str]),
+        "route_match" => f("py_route_match", Ty::Str, &[Ty::Str, Ty::Str]),
+        "query_get" => f("py_query_get", Ty::Str, &[Ty::Str, Ty::Str]),
         // ---- ast（纯 C，gto_ 前缀）----
         "ast_lit_int" => f("gto_ast_lit_int", Ty::I64, &[Ty::I64]),
         "ast_lit_float" => f("gto_ast_lit_float", Ty::I64, &[Ty::F64]),
@@ -902,6 +919,8 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "ast_set_line" | "ast_line" | "ast_type" | "ast_tag" | "ast_ival" | "ast_fval"
         | "ast_sval" | "ast_name" | "ast_a" | "ast_b" | "ast_c" | "ast_d" | "ast_nkids" | "ast_kid"
         | "ast_type_name" | "ast_free" | "ast_dump" | "ast_str_free" | "ast_walk" | "ast_walk_next" | "ast_walk_free"
+        | "http_get" | "http_post" | "http_put" | "http_delete" | "http_request" | "http_download" | "http_status"
+        | "html_escape" | "url_encode" | "url_decode" | "parse_query" | "build_query" | "html_page" | "route_match" | "query_get"
     ) || stdlib_fn(name).is_some()
 }
 
