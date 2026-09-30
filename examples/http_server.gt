@@ -1,0 +1,35 @@
+// 一个极简网页服务器（基于标准库 web 模块）
+// 运行： gtc --run examples/http_server.gt
+// 然后浏览器访问本地 8080 端口
+
+fn 首页() -> str {
+    body := "<h1>你好，GTLang！</h1>" +
+            "<p>这是一个用 GTLang 写的网页服务器。</p>" +
+            "<ul><li><a href=\"/about\">关于</a></li>" +
+            "<li><a href=\"/hello/世界\">动态路由</a></li>" +
+            "<li><a href=\"/api/time\">JSON 接口</a></li></ul>"
+    return html_page("GTLang 服务器", body)
+}
+
+fn 关于页() -> str {
+    return html_page("关于", "<h1>关于</h1><p>用 GTLang 标准库 web 模块搭建。</p>")
+}
+
+fn 问候页() -> str {
+    return html_page("问候", "<h1>你好！</h1><p>这是一个动态路由页面。</p>")
+}
+
+fn 接口() -> str {
+    // 返回一段 JSON
+    return json_object("ok=" + json_bool(1) + ";lang=" + json_escape("GTLang"))
+}
+
+fn main() {
+    routes := "GET / =" + 首页() + "\n" +
+              "GET /about =" + 关于页() + "\n" +
+              "GET /hello/:name =" + 问候页() + "\n" +
+              "GET /api/time =" + 接口() + "\n" +
+              "ANY / =未找到该页面"
+    put("服务器已启动，监听 8080 端口（Ctrl+C 停止）")
+    serve(8080, routes)
+}

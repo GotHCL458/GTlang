@@ -189,10 +189,13 @@ pub extern "C" fn py_serve(port: i64, routes: *const c_char) -> i64 {
             let l = read_line(&mut reader);
             if l.is_empty() { break; }
         }
-        let body = match_route(&r, method, path).unwrap_or_else(|| "Not Found".to_string());
+        let (status, body) = match match_route(&r, method, path) {
+            Some(b) => ("200 OK", b),
+            None => ("404 Not Found", "404 Not Found".to_string()),
+        };
         let resp = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-            body.as_bytes().len(), body
+            "HTTP/1.1 {}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            status, body.as_bytes().len(), body
         );
         let _ = s.write_all(resp.as_bytes());
     }
