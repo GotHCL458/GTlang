@@ -1,0 +1,13 @@
+n fruits: List of String
+    val is ["apple", "banana", "cherry"]
+
+adv listAll need: items
+    n output: String
+        val is ""
+    
+    for each item in items
+        output val is output plus item plus "\n"
+    
+    return output
+
+call listAll (fruits)

@@ -1,0 +1,49 @@
+fn take_array(xs: [i32]): i32
+{
+    return xs[0]
+}
+
+fn add_refs(a: ref i32, b: ref i32): i32
+{
+    return @a + @b
+}
+fn use_after_move(): i32
+{
+    let xs = [1, 2, 3]
+    let ys = xs
+    print(ys[0])
+    return xs[0]
+}
+fn duplicate_mut_borrow(): i32
+{
+    let mut value = 10
+    return add_refs(mut ref value, mut ref value)
+}
+fn dangling_local_ref(): ref i32
+{
+    let local = 99
+    return ref local
+}
+
+fn legal_last_use_move(): i32
+{
+    let xs = [4, 5]
+    let ys = xs
+    return take_array(ys)
+}
+
+fn legal_copy_and_shared_borrow(): i32
+{
+    let x = 7
+    let y = x
+    return add_refs(ref x, ref y)
+}
+
+fn main(): i32
+{
+    print(legal_last_use_move())
+    print(legal_copy_and_shared_borrow())
+    print(use_after_move())
+    print(duplicate_mut_borrow())
+    return 0
+}

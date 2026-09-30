@@ -1,0 +1,8 @@
+fn main(): i32 {
+    let mut count = 0
+    for (i in 5 .. 5) {
+        count += 1
+    }
+    print(count)
+    return 0
+}

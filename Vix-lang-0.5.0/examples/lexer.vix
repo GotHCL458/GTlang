@@ -1,0 +1,34 @@
+fn lexer(s: string): i32 {
+    for (i in 0 .. s.length) {
+        let c = s[i]
+        if (c == ' ') {
+            continue
+        }
+        elif (c >= '0' and c <= '9') {
+            print("Number")
+        }
+        elif (c == '+' or c == '-' or c == '*' or c == '/') {
+            print("Operator")
+        }
+        elif (c == '=') {
+            print("Equals")
+        }
+        elif ((c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z')) {
+            print("Identifier")
+        }
+        else {
+            print("Unknown")
+        }
+    }
+    return 0
+
+}
+fn sikp_ws(src:string,pos:i32): i32
+{
+	return 0
+}
+fn main(): i32 {
+    let s = "1+1+2=4"
+    lexer(s)
+    return 0
+}

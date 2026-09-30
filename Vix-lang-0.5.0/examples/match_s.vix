@@ -1,0 +1,21 @@
+fn main(): i32
+{
+
+    let nums = [10, 20, 30, 40, 50]
+
+    match nums {
+
+        [] ->
+            print("Empty")
+
+
+        [first, .., last] ->
+            print("First: ",first,"Last: ",last)
+            
+        _
+            ->
+            print("Other")
+    }
+    
+    return 0
+}

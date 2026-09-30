@@ -1,0 +1,56 @@
+extern "C"
+{
+    fn printf(fmt:string,...): i32
+}
+fn print_hex_to_ascii_and_very_pretty(s:string): i32
+{
+    for (i in 0 .. s.length)
+    {
+        printf("%02x ", s[i])
+        if (i % 16 == 15)
+        {
+            printf(" ")
+            for (j in (i - 15) .. i)
+            {
+                let c = s[j]
+                if (c >= ' ' and c <= '~')
+                {
+                    printf("%c", c)
+                }
+                else
+                {
+                    printf(".")
+                }
+            }
+            printf("\n")
+        }
+    }
+    if (s.length % 16 != 0)
+    {
+        let remaining = 16 - (s.length % 16)
+        for (_ in 0 .. remaining)
+        {
+            printf("   ")
+        }
+        printf(" ")
+        for (i in (s.length - (s.length % 16)) .. s.length)
+        {
+            let c = s[i]
+            if (c >= ' ' and c <= '~')
+            {
+                printf("%c", c)
+            }
+            else
+            {
+                printf(".")
+            }
+        }
+        printf("\n")
+    }
+    return 0
+}
+fn main(argc:i32,argv:ptr): i32
+{
+    print_hex_to_ascii_and_very_pretty(argv[1])
+    return 0
+}

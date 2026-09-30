@@ -1,0 +1,15 @@
+fn apply(f: ptr, x: i32): i32 {
+    return f(x)
+}
+
+fn double(x: i32): i32 {
+    return x * 2
+}
+
+fn main(): i32 {
+    let nums = [1, 2, 3]
+    for (i in 0 .. 3) {
+        print(apply(double, nums[i]))
+    }
+    return 0
+}

@@ -1,0 +1,10 @@
+let counter = 42
+let message: string = "Hello World"
+let pi: f64 = 3.14159
+
+fn main(): i32 {
+    print(counter)
+    print(message)
+    print(pi)
+    return 0
+}

@@ -1,0 +1,7 @@
+fn main(): i32 {
+    let n = 42
+    print(n)
+    let f = 3.14
+    print(f)
+    return 0
+}

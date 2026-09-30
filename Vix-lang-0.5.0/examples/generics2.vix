@@ -1,0 +1,82 @@
+extern "C"
+{
+	fn printf(format: ptr, ...): i32
+}
+type Box:[T] = struct
+{
+	value: T
+}
+
+fn id:[T](value: T): T
+{
+	return value
+}
+
+fn add:[T](a: T, b: T): T
+{
+	return a + b
+}
+
+type Flag:[T] = On | Off
+
+fn main(): i32
+{
+	let b = Box:[i32]{ value: 10 }
+	let x = id:[i32](b.value)
+    let y = add:[i32](4,6)
+	let z = add:[f64](2.5, 3.5)
+	let y2 = add:[i32](-4, 9)
+	let z2 = add:[f64](-2.25, 0.75)
+    printf("b = %d\n", b.value)
+    printf("x = %d\n", x)
+	printf("y = %d\n", y)
+	printf("z = %f\n", z)
+	printf("y2 = %d\n", y2)
+	printf("z2 = %f\n", z2)
+
+	if (y != 10) {
+		printf("FAIL: add i32 basic\n")
+		return 1
+	}
+
+	if (y2 != 5) {
+		printf("FAIL: add i32 negative\n")
+		return 1
+	}
+
+	if (z < 5.999 or z > 6.001) {
+		printf("FAIL: add f64 basic\n")
+		return 1
+	}
+	if (z2 < -1.501 or z2 > -1.499) {
+		printf("FAIL: add f64 negative\n")
+		return 1
+	}
+
+    match x
+    {
+        10 ->
+        {
+            printf("OK\n")
+        }
+        _ ->
+        {
+            printf("FAIL\n")
+            return 1
+        }
+    }
+	let state = On
+	match state
+	{
+		On ->
+		{
+			printf("OK\n")
+		}
+		Off ->
+		{
+			printf("FAIL\n")
+			return 1
+		}
+	}
+	return 0
+}

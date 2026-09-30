@@ -129,6 +129,7 @@ pub fn compile_ll(
     out: &Path,
     opt: u8,
     cblock: &str,
+    needed: &[&'static str],
 ) -> Result<(), String> {
     // 1) 运行时：优先用**预编译静态库** gt_rt.lib（build.bat 产出，放 res/lib 或 toolchain）；
     //    找不到时回退到按内容哈希缓存的对象（首次编译后复用）。
@@ -146,7 +147,7 @@ pub fn compile_ll(
         srcs.push(cfile);
     }
 
-    link(clang, &rt, &srcs, ll, out, opt)
+    link(clang, &rt, &srcs, ll, out, opt, needed)
 }
 
 /// 运行时的两种输入形式：预编译静态库（优先）或按需编译的对象文件。
@@ -241,7 +242,7 @@ fn runtime_object(clang: &Path, opt: u8) -> Result<PathBuf, String> {
 
 /// 查找标准库静态库（math.lib / string.lib）：exe 同目录 → res/lib → cwd 逐级向上。
 /// 返回找到的全部（编译器按需链接；纯 GTLang 程序不依赖也可）。
-pub fn find_std_libs() -> Vec<PathBuf> {
+pub fn find_std_libs_for(needed: &[&'static str]) -> Vec<PathBuf> {
     let mut starts: Vec<PathBuf> = Vec::new();
     if let Ok(exe) = std::env::current_exe() {
         if let Some(d) = exe.parent() { starts.push(d.to_path_buf()); }
@@ -253,16 +254,22 @@ pub fn find_std_libs() -> Vec<PathBuf> {
         for _ in 0..8 {
             let d = match dir { Some(d) => d, None => break };
             for lib in crate::stdlib::MODULES {
+                if !needed.is_empty() && !needed.contains(&lib.dll) { continue; }
                 let name = format!("{}.lib", lib.dll);
                 let name_dll = format!("{}.dll.lib", lib.dll);
+                let name_static = format!("{}_static.lib", lib.dll);
                 for cand in [
+                    // 优先静态库（无运行时 dll 依赖）
+                    d.join(&name_static), d.join("res").join("lib").join(&name_static),
+                    d.join("res").join("lib").join(".lib").join(&name_static), d.join("lib").join(&name_static),
                     d.join(&name), d.join(&name_dll),
                     d.join("res").join("lib").join(&name), d.join("res").join("lib").join(&name_dll),
                     d.join("res").join("lib").join(".lib").join(&name), d.join("res").join("lib").join(".lib").join(&name_dll),
                     d.join("lib").join(&name), d.join("lib").join(&name_dll),
                 ] {
-                    if cand.is_file() && !out.contains(&cand) {
-                        out.push(cand);
+                    if cand.is_file() {
+                        if !out.contains(&cand) { out.push(cand); }
+                        break; // 每个模块只用第一个命中的库
                     }
                 }
             }
@@ -272,11 +279,11 @@ pub fn find_std_libs() -> Vec<PathBuf> {
     out
 }
 
-fn link(clang: &Path, rt: &RtInput, srcs: &[PathBuf], ll: &Path, out: &Path, opt: u8) -> Result<(), String> {
+fn link(clang: &Path, rt: &RtInput, srcs: &[PathBuf], ll: &Path, out: &Path, opt: u8, needed: &[&'static str]) -> Result<(), String> {
     // 首次带上 lld（LLVM 自带，通常位于 clang 同目录）；失败则退回默认链接器
     let attempts: Vec<Vec<String>> = vec![vec!["-fuse-ld=lld".into()], vec![]];
-    // 标准库静态库（math.lib / string.lib）：按需一并链接
-    let std_libs = find_std_libs();
+    // 标准库静态库：只链接"用到的"模块
+    let std_libs = find_std_libs_for(needed);
 
     let mut last = String::new();
     for extra in attempts {

@@ -1,0 +1,7 @@
+fn main(argc: i32, argv: ptr): i32 {
+    for (i in  0 ..  argc) {
+        print(argv[i])
+    }
+    print("Hello World")
+    return  0
+}

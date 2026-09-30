@@ -1,0 +1,11 @@
+fn main(): i32 {
+    let arr = [1, 2, 3, 4, 5]
+    let a = arr[0]
+    let b = arr[2]
+    print(a)
+    print(b)
+    print(arr.length)
+    arr[1] = 10
+    print(arr[1])
+    return 0
+}

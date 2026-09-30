@@ -63,7 +63,9 @@ for %%F in ("%ROOT%src\stdlib\*.rs") do (
     if not "!MOD!"=="mod" (
         echo [build] stdlib !MOD! (rust)
         rustc --edition 2021 --crate-type cdylib --crate-name !MOD! "%%~fF" -o "%STDOUT%\!MOD!.dll" -O
-        if errorlevel 1 ( echo [ERROR] stdlib !MOD! failed. & exit /b 1 )
+        if errorlevel 1 ( echo [ERROR] stdlib !MOD! dll failed. & exit /b 1 )
+        rustc --edition 2021 --crate-type staticlib --crate-name !MOD! "%%~fF" -o "%STDOUT%\!MOD!_static.lib" -O
+        if errorlevel 1 ( echo [ERROR] stdlib !MOD! static failed. & exit /b 1 )
     )
 )
 REM C stdlib modules

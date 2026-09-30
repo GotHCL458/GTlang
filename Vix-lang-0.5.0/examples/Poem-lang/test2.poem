@@ -1,0 +1,18 @@
+adj isEven need: number
+    return name result,
+        type is Bool
+            val is number mod 2 equals 0
+
+adv greet need: name, and time
+    n greeting: String
+    
+    cond time is "morning"
+        greeting val is "hello " plus name
+    cond time is "evening"
+        greeting val is "hello2, " plus name
+    else
+        greeting val is "Hello, " plus name
+    
+    return greeting
+
+call greet ("sth", and "morning")

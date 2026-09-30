@@ -1,0 +1,12 @@
+let a = 10
+let b = 20
+
+fn main(): i32 {
+    if (a == 10 or  b == 20) {
+        print("a is 10 or b is 20")
+    }
+    if (a == 10 and  b == 20) {
+        print("a is 10 and b is 20")
+    }
+    return 0
+}

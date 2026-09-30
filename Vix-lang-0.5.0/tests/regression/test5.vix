@@ -1,0 +1,5 @@
+fn main(): i32
+{
+    let f = fn(): i32 { 42 }
+    return 0
+}

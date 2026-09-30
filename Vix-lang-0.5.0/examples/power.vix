@@ -1,0 +1,27 @@
+fn main(): i32
+{
+    print("Powers of 2:")
+    for (i in 0 .. 11)
+    {
+        print(2 ** i)
+    }
+
+    print("---")
+    print("Powers of 3:")
+    for (i in 0 .. 6)
+    {
+        print(3 ** i)
+    }
+
+    print("---")
+    let x = 2 ** 3 + 3 ** 2
+    print(x)
+
+    print("squ:")
+    for (i in 1 .. 11)
+    {
+        print(i ** 2)
+    }
+
+    return 0
+}

@@ -1,0 +1,16 @@
+fn fib(n: i32): i32
+{
+    let mut a = 0
+    let mut b = 1
+    for (i in 1 .. n) {
+        let c = a + b
+        a = b
+        b = c
+    }
+    return b
+}
+fn main(): i32
+{
+    print(fib(40))
+    return 0
+}

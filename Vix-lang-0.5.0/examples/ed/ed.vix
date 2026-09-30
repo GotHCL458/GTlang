@@ -1,0 +1,633 @@
+extern "C"
+{
+    fn system(cmd: ptr): i32
+    fn printf(fmt: ptr, ...): i32
+    fn getchar(): i32
+    fn putchar(c: i32): i32
+    fn fopen(filename: ptr, mode: ptr): ptr
+    fn fclose(file: ptr): i32
+    fn fread(buf: ptr, size: i64, count: i64, file: ptr): i64
+    fn fwrite(buf: ptr, size: i64, count: i64, file: ptr): i64
+    fn fseek(file: ptr, offset: i64, whence: i32): i32
+    fn ftell(file: ptr): i64
+    fn fflush(file: ptr): i32
+    fn malloc(size: usize): string
+    fn free(ptr: ptr): void
+    fn exit(status: i32): void
+}
+
+type Editor = struct {
+    lines: [string],
+    filename: string,
+    cx: i32,
+    cy: i32,
+    mode: i32,
+    running: i32,
+    rows: i32,
+    cols: i32,
+    status: string,
+    cmd: string,
+    in_cmd: i32
+}
+
+let MODE_NORMAL = 0
+let MODE_INSERT = 1
+
+fn char_to_str(c: i8): string
+{
+    let s = malloc(2)
+    s[0] = c
+    s[1] = 0
+    return s
+}
+
+fn read_file(path: ptr): string
+{
+    let file = fopen(path, "r")
+    if (file == 0)
+    {
+        return ""
+    }
+    fseek(file, 0, 2)
+    let size = ftell(file)
+    fseek(file, 0, 0)
+    let buf = malloc(size + 1)
+    let n = fread(buf, 1, size, file)
+    buf[n] = 0
+    fclose(file)
+    return buf
+}
+
+fn split_lines(text: string): [string]
+{
+    let mut lines: [string] = []
+    let mut start = 0
+    let len = text.length
+    for (i in 0 .. len)
+    {
+        if (text[i] == '\n')
+        {
+            let line_len = i - start
+            let line = malloc(line_len + 1)
+            for (j in 0 .. line_len)
+            {
+                line[j] = text[start + j]
+            }
+            line[line_len] = 0
+            lines.push(line)
+            start = i + 1
+        }
+    }
+    if (start < len)
+    {
+        let line_len = len - start
+        let line = malloc(line_len + 1)
+        for (j in 0 .. line_len)
+        {
+            line[j] = text[start + j]
+        }
+        line[line_len] = 0
+        lines.push(line)
+    }
+    if (lines.length == 0)
+    {
+        lines.push("")
+    }
+    return lines
+}
+
+fn save_file(ed: &Editor): i32
+{
+    let file = fopen(ed.filename, "w")
+    if (file == 0)
+    {
+        return 1
+    }
+    for (i in 0 .. ed.lines.length)
+    {
+        let line = ed.lines[i]
+        fwrite(line, 1, line.length, file)
+        if (i < ed.lines.length - 1)
+        {
+            fwrite("\n", 1, 1, file)
+        }
+    }
+    fclose(file)
+    return 0
+}
+
+fn str_insert(s: string, pos: i32, ch: i8): string
+{
+    let len = s.length
+    let buf = malloc(len + 2)
+    for (i in 0 .. pos)
+    {
+        buf[i] = s[i]
+    }
+    buf[pos] = ch
+    for (i in pos .. len)
+    {
+        buf[i + 1] = s[i]
+    }
+    buf[len + 1] = 0
+    return buf
+}
+
+fn str_delete(s: string, pos: i32): string
+{
+    let len = s.length
+    if (len <= 0 or pos < 0 or pos >= len)
+    {
+        return s
+    }
+    let buf = malloc(len)
+    for (i in 0 .. pos)
+    {
+        buf[i] = s[i]
+    }
+    for (i in (pos + 1) .. len)
+    {
+        buf[i - 1] = s[i]
+    }
+    buf[len - 1] = 0
+    return buf
+}
+fn clear_screen()
+{
+    printf("\033[2J\033[H")
+    fflush(0)
+}
+
+fn draw_editor(ed: &Editor)
+{
+    clear_screen()
+    let screen_rows = ed.rows - 2
+    for (y in 0 .. screen_rows)
+    {
+        let line_idx = y
+        if (line_idx < ed.lines.length)
+        {
+            let line = ed.lines[line_idx]
+            let mut line_len = line.length
+            if (line_len > ed.cols)
+            {
+                line_len = ed.cols
+            }
+            for (x in 0 .. line_len)
+            {
+                putchar(line[x])
+            }
+        }
+        printf("\r\n")
+    }
+    printf("\033[7m")
+    let mode_str = if (ed.mode == MODE_NORMAL) { "NORMAL" } else { "INSERT" }
+    printf(" %s | %s | %d:%d ", mode_str, ed.filename, ed.cy + 1, ed.cx + 1)
+    let status_pad = ed.cols - 30
+    if (status_pad > 0)
+    {
+        for (i in 0 .. status_pad)
+        {
+            putchar(' ')
+        }
+    }
+    printf("\033[0m\r\n")
+    if (ed.in_cmd == 1)
+    {
+        printf(":%s", ed.cmd)
+    }
+    else
+    {
+        printf("%s", ed.status)
+    }
+    move_cursor_to(ed.cx, ed.cy)
+    printf("\033[?25h")
+    fflush(0)
+}
+
+fn move_cursor_to(cx: i32, cy: i32)
+{
+    printf("\033[%d;%dH", cy + 1, cx + 1)
+    fflush(0)
+}
+
+fn debug_cursor(cx: i32, cy: i32)
+{
+    printf("\033[s")
+    printf("\033[1;1H")
+    printf("\033[K")
+    printf("DEBUG: cx=%d, cy=%d", cx, cy)
+    printf("\033[u")
+    fflush(0)
+}
+
+fn editor_scroll(ed: &Editor)
+{
+    if (ed.cy < 0) { ed.cy = 0 }
+    if (ed.cy >= ed.lines.length) { ed.cy = ed.lines.length - 1 }
+    let line_len = ed.lines[ed.cy].length
+    if (ed.cx < 0) { ed.cx = 0 }
+    if (ed.cx > line_len) { ed.cx = line_len }
+}
+
+fn editor_insert_char(ed: &Editor, c: i8)
+{
+    let line = ed.lines[ed.cy]
+    let new_line = str_insert(line, ed.cx, c)
+    let mut new_lines: [string] = []
+    for (i in 0 .. ed.lines.length)
+    {
+        if (i == ed.cy)
+        {
+            new_lines.push(new_line)
+        }
+        else
+        {
+            
+            new_lines.push(ed.lines[i])
+        }
+    }
+    ed.lines = new_lines
+    ed.cx = ed.cx + 1
+}
+
+fn editor_delete_char(ed: &Editor)
+{
+    let line = ed.lines[ed.cy]
+    if (ed.cx > 0)
+    {
+        let new_line = str_delete(line, ed.cx - 1)
+        let mut new_lines: [string] = []
+        for (i in 0 .. ed.lines.length)
+        {
+            if (i == ed.cy)
+            {
+                new_lines.push(new_line)
+            }
+            else
+            {
+                new_lines.push(ed.lines[i])
+            }
+        }
+        ed.lines = new_lines
+        ed.cx = ed.cx - 1
+    }
+    elif (ed.cy > 0)
+    {
+        let prev_len = ed.lines[ed.cy - 1].length
+        let new_line = ed.lines[ed.cy - 1] + ed.lines[ed.cy]
+        let mut new_lines: [string] = []
+        for (i in 0 .. ed.lines.length)
+        {
+            if (i == ed.cy - 1)
+            {
+                new_lines.push(new_line)
+            }
+            elif (i != ed.cy)
+            {
+                new_lines.push(ed.lines[i])
+            }
+        }
+        ed.lines = new_lines
+        ed.cy = ed.cy - 1
+        ed.cx = prev_len
+    }
+}
+
+fn editor_newline(ed: &Editor)
+{
+    if (ed.cy < 0 or ed.cy >= ed.lines.length)
+    {
+        return
+    }
+    let line = ed.lines[ed.cy]
+    let len = line.length
+    if (ed.cx > len) { ed.cx = len }
+    let left = malloc(ed.cx + 1)
+    for (i in 0 .. ed.cx)
+    {
+        left[i] = line[i]
+    }
+    left[ed.cx] = 0
+    let right_len = len - ed.cx
+    let right = malloc(right_len + 1)
+    for (i in 0 .. right_len)
+    {
+        right[i] = line[ed.cx + i]
+    }
+    right[right_len] = 0
+    let mut new_lines: [string] = []
+    for (i in 0 .. ed.lines.length)
+    {
+        if (i == ed.cy)
+        {
+            new_lines.push(left)
+            new_lines.push(right)
+        }
+        else
+        {
+            new_lines.push(ed.lines[i])
+        }
+    }
+    ed.lines = new_lines
+    ed.cy = ed.cy + 1
+    ed.cx = 0
+}
+
+fn editor_delete_line(ed: &Editor)
+{
+    if (ed.lines.length <= 1)
+    {
+        ed.lines = [""]
+        ed.cx = 0
+        return
+    }
+    let mut new_lines: [string] = []
+    for (i in 0 .. ed.lines.length)
+    {
+        if (i != ed.cy)
+        {
+            new_lines.push(ed.lines[i])
+        }
+    }
+    ed.lines = new_lines
+    if (ed.cy >= ed.lines.length)
+    {
+        ed.cy = ed.lines.length - 1
+    }
+    let line_len = ed.lines[ed.cy].length
+    if (ed.cx > line_len)
+    {
+        ed.cx = line_len
+    }
+}
+
+fn editor_open_below(ed: &Editor)
+{
+    let mut new_lines: [string] = []
+    for (i in 0 .. ed.lines.length)
+    {
+        new_lines.push(ed.lines[i])
+        if (i == ed.cy)
+        {
+            new_lines.push("")
+        }
+    }
+    ed.lines = new_lines
+    ed.cy = ed.cy + 1
+    ed.cx = 0
+}
+
+fn editor_open_above(ed: &Editor)
+{
+    let mut new_lines: [string] = []
+    for (i in 0 .. ed.lines.length)
+    {
+        if (i == ed.cy)
+        {
+            new_lines.push("")
+        }
+        new_lines.push(ed.lines[i])
+    }
+    ed.lines = new_lines
+    ed.cx = 0
+}
+
+fn process_command(ed: &Editor)
+{
+    if (ed.cmd == "w")
+    {
+        let r = save_file(ed)
+        if (r == 0)
+        {
+            ed.status = "Saved"
+        }
+        else
+        {
+            ed.status = "Save failed"
+        }
+    }
+    elif (ed.cmd == "q")
+    {
+        ed.running = 0
+    }
+    elif (ed.cmd == "wq")
+    {
+        let r = save_file(ed)
+        ed.running = 0
+    }
+    elif (ed.cmd == "q!")
+    {
+        ed.running = 0
+    }
+    else
+    {
+        ed.status = "Unknown command"
+    }
+    ed.cmd = ""
+    ed.in_cmd = 0
+}
+
+fn process_normal(ed: &Editor, c: i8)
+{
+    if (ed.in_cmd == 1)
+    {
+        if (c == '\r' or c == '\n')
+        {
+            process_command(ed)
+        }
+        elif (c == 127 or c == 8)
+        {
+            let cmd_len = ed.cmd.length
+            if (cmd_len > 0)
+            {
+                ed.cmd = str_delete(ed.cmd, cmd_len - 1)
+            }
+        }
+        else
+        {
+            ed.cmd = ed.cmd + char_to_str(c)
+        }
+        return
+    }
+    if (c == 'h')
+    {
+        ed.cx = ed.cx - 1
+    }
+    elif (c == 'j')
+    {
+        ed.cy = ed.cy + 1
+    }
+    elif (c == 'k')
+    {
+        ed.cy = ed.cy - 1
+    }
+    elif (c == 'l')
+    {
+        ed.cx = ed.cx + 1
+    }
+    elif (c == 'i')
+    {
+        ed.mode = MODE_INSERT
+    }
+    elif (c == 'a')
+    {
+        ed.cx = ed.cx + 1
+        ed.mode = MODE_INSERT
+    }
+    elif (c == 'x')
+    {
+        let line = ed.lines[ed.cy]
+        if (ed.cx < line.length)
+        {
+            let new_line = str_delete(line, ed.cx)
+            let mut new_lines: [string] = []
+            for (i in 0 .. ed.lines.length)
+            {
+                if (i == ed.cy)
+                {
+                    new_lines.push(new_line)
+                }
+                else
+                {
+                    new_lines.push(ed.lines[i])
+                }
+            }
+            ed.lines = new_lines
+        }
+    }
+    elif (c == 'o')
+    {
+        editor_open_below(ed)
+        ed.mode = MODE_INSERT
+    }
+    elif (c == 'O')
+    {
+        editor_open_above(ed)
+        ed.mode = MODE_INSERT
+    }
+    elif (c == ':')
+    {
+        ed.in_cmd = 1
+        ed.cmd = ""
+    }
+    elif (c == 'd')
+    {
+        editor_delete_line(ed)
+    }
+    editor_scroll(ed)
+}
+
+fn process_insert(ed: &Editor, c: i8)
+{
+    if (c == 27)
+    {
+        ed.mode = MODE_NORMAL
+        if (ed.cx > 0)
+        {
+            ed.cx = ed.cx - 1
+        }
+    }
+    elif (c == '\r' or c == '\n')
+    {
+        editor_newline(ed)
+    }
+    elif (c == 127 or c == 8)
+    {
+        editor_delete_char(ed)
+    }
+    else
+    {
+        editor_insert_char(ed, c)
+    }
+    editor_scroll(ed)
+}
+
+fn main(argc: i32, argv: ptr): i32
+{
+    let mut ed = Editor {
+        lines: [""],
+        filename: "untitled.txt",
+        cx: 0,
+        cy: 0,
+        mode: MODE_NORMAL,
+        running: 1,
+        rows: 50,
+        cols: 105,
+        status: "",
+        cmd: "",
+        in_cmd: 0
+    }
+    if (argc > 1)
+    {
+        ed.filename = argv[1]
+        let text = read_file(ed.filename)
+        if (text.length > 0)
+        {
+            ed.lines = split_lines(text)
+        }
+    }
+    clear_screen()
+    system("stty raw -echo")
+    while (ed.running == 1)
+    {
+        draw_editor(&ed)
+        let c = getchar()
+        if (c == -1)
+        {
+            break
+        }
+        if (c == 27)
+        {
+            let c2 = getchar()
+            if (c2 == '[')
+            {
+                let c3 = getchar()
+                if (c3 == 'A')
+                {
+                    ed.cy = ed.cy - 1
+                    editor_scroll(&ed)
+                }
+                elif (c3 == 'B')
+                {
+                    ed.cy = ed.cy + 1
+                    editor_scroll(&ed)
+                }
+                elif (c3 == 'C')
+                {
+                    ed.cx = ed.cx + 1
+                    editor_scroll(&ed)
+                }
+                elif (c3 == 'D')
+                {
+                    ed.cx = ed.cx - 1
+                    editor_scroll(&ed)
+                }
+            }
+            else
+            {
+                if (ed.mode == MODE_NORMAL)
+                {
+                    process_normal(&ed, c)
+                    process_normal(&ed, c2)
+                }
+                else
+                {
+                    process_insert(&ed, c)
+                    process_insert(&ed, c2)
+                }
+            }
+        }
+        elif (ed.mode == MODE_NORMAL)
+        {
+            process_normal(&ed, c)
+        }
+        else
+        {
+            process_insert(&ed, c)
+        }
+    }
+    clear_screen()
+    system("stty cooked echo")
+    return 0
+}

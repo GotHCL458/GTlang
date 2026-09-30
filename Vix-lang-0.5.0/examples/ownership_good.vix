@@ -1,0 +1,251 @@
+// Comprehensive Ownership Test Suite — GOOD cases (should pass)
+// Covers: field-level borrows, NLL, mutable pointer write, combined patterns
+
+type Point = struct { x: i32, y: i32 }
+type Pair = struct { a: i32, b: i32 }
+
+// ────────────────────────────────────────────
+//  FIELD-LEVEL BORROW PRECISION
+// ────────────────────────────────────────────
+
+// Borrow p.x, read p.y (immutable)
+fn field_shared_borrow_other_field_readable(): i32
+{
+    let p = Point { x: 10, y: 20 }
+    let r = ref p.x
+    print(p.y)       // OK: other field not locked
+    @r
+    return 0
+}
+
+// Borrow p.x mutably, write p.y (immutable)
+fn field_mut_borrow_other_field_writable(): i32
+{
+    let mut p = Point { x: 10, y: 20 }
+    let r = mut ref p.x
+    p.y = 30         // OK: p.y is not borrowed
+    print(@r)
+    return 0
+}
+
+// Borrow p.x shared, borrow p.y shared — independent fields
+fn field_two_shared_borrows_on_different_fields(): i32
+{
+    let p = Point { x: 10, y: 20 }
+    let rx = ref p.x
+    let ry = ref p.y    // OK: different field
+    print(@rx + @ry)
+    return 0
+}
+
+// Borrow p.x shared, borrow whole p shared — overlap but both shared
+fn field_shared_borrow_plus_whole_shared_borrow(): i32
+{
+    let p = Point { x: 10, y: 20 }
+    let rf = ref p.x
+    let rp = ref p       // OK: whole-struct shared borrow coexists
+    print(@rf + @rp.y)
+    return 0
+}
+
+// Borrow p.x mutably, read p.y (field-level precision with mutable)
+fn field_mut_borrow_one_field_other_readable(): i32
+{
+    let mut p = Point { x: 10, y: 20 }
+    let mut r = mut ref p.x
+    print(p.y)       // OK: p.y not borrowed
+    @r = 99
+    return 0
+}
+
+// ────────────────────────────────────────────
+//  NLL (NON-LEXICAL LIFETIMES)
+// ────────────────────────────────────────────
+
+// Shared borrow: use after borrower's last use
+fn nll_shared_borrow_read_after(): i32
+{
+    let x = 42
+    let r = ref x
+    print(@r)            // last use of r
+    print(x)             // OK: r dead, borrow released
+    return 0
+}
+
+// Mutable borrow: assign after borrower's last use
+fn nll_mut_borrow_assign_after(): i32
+{
+    let mut x = 10
+    let r = mut ref x
+    print(@r)            // last use of r
+    x = 30               // OK: r dead, mutable borrow released
+    print(x)
+    return 0
+}
+
+// Field borrow: use field after borrower's last use
+fn nll_field_borrow_use_after(): i32
+{
+    let mut p = Point { x: 1, y: 2 }
+    let r = ref p.x
+    print(@r)            // last use of r
+    p.x = 42             // OK: r dead, field borrow released
+    p.y = 99             // OK: r dead + field-level precision
+    print(p.x + p.y)
+    return 0
+}
+
+// NLL + if/else: borrow released after last use inside branch
+fn nll_after_if_else(): i32
+{
+    let mut x = 10
+    let r = ref x
+    print(@r)            // last use of r before if
+    if (1 < 2) {
+        x = 20           // OK: r dead
+    } else {
+        x = 30
+    }
+    print(x)
+    return 0
+}
+
+// NLL: multiple borrowers, one dies early
+fn nll_two_borrowers_one_dies_early(): i32
+{
+    let mut x = 10
+    let r1 = ref x
+    print(@r1)           // last use of r1 → r1 dead
+    x = 20               // OK: r1 dead, x writable again
+    let r2 = ref x       // fresh borrow
+    print(@r2)
+    return 0
+}
+
+// ────────────────────────────────────────────
+//  MUTABLE BORROW + POINTER WRITE
+// ────────────────────────────────────────────
+
+// Write through mutable borrow
+fn mut_ptr_write_simple(): i32
+{
+    let mut x = 10
+    let mut ptr = mut ref x
+    @ptr = 20             // OK: writing through mutable borrow
+    return @ptr
+}
+
+// Write through mutable borrow, then re-borrow
+fn mut_ptr_write_then_reread(): i32
+{
+    let mut x = 10
+    let mut ptr = mut ref x
+    @ptr = 99
+    print(@ptr)
+    // ptr's last use — borrow released
+    x = 100               // OK: direct write after ptr dead
+    return x
+}
+
+// ────────────────────────────────────────────
+//  MOVE / COPY SEMANTICS
+// ────────────────────────────────────────────
+
+// Copy type: i32 not moved
+fn copy_type_not_moved(): i32
+{
+    let x = 10
+    let y = x             // x is i32, copy type
+    print(x + y)          // OK: both usable
+    return 0
+}
+
+// Move then reinitialize
+fn move_then_reinit(): i32
+{
+    let mut s = [1, 2, 3]
+    let t = s             // s moved
+    print(t[0])
+    s = [4, 5]        // OK: re-initialization (reassign)
+    print(s[0])
+    return 0
+}
+
+// ────────────────────────────────────────────
+//  COMBINED PATTERNS
+// ────────────────────────────────────────────
+
+// Field borrow + NLL + pointer write combined
+fn combined_field_nll_ptr(): i32
+{
+    let mut p = Point { x: 1, y: 2 }
+    let r = ref p.x
+    print(@r)              // last use of r
+    p.y = 99               // OK: NLL + field-level
+    return 0
+}
+
+// While loop with inner borrow (borrow released each iteration)
+fn while_loop_inner_borrow(): i32
+{
+    let mut sum = 0
+    let mut i = 0
+    while (i < 3) {
+        let r = ref sum    // borrow inside loop scope
+        print(@r)
+        i = i + 1
+    }
+    print(sum)             // OK: borrow released
+    return 0
+}
+
+// If/else with field borrow merge
+fn if_else_field_borrow_merge(): i32
+{
+    let mut p = Point { x: 1, y: 2 }
+    let cond = 1 < 2
+    if (cond) {
+        let r = ref p.x
+        print(@r)
+    } else {
+        let r = ref p.y
+        print(@r)
+    }
+    p.x = 10               // OK: borrows released in both branches
+    p.y = 20
+    print(p.x + p.y)
+    return 0
+}
+
+// Struct literal with borrow sources propagation
+fn struct_literal_with_borrow(): i32
+{
+    let y = 10
+    let p = Point { x: 5, y: y }
+    let r = ref p.x
+    print(@r + p.y)
+    return 0
+}
+
+fn main(): i32
+{
+    field_shared_borrow_other_field_readable()
+    field_mut_borrow_other_field_writable()
+    field_two_shared_borrows_on_different_fields()
+    field_shared_borrow_plus_whole_shared_borrow()
+    field_mut_borrow_one_field_other_readable()
+    nll_shared_borrow_read_after()
+    nll_mut_borrow_assign_after()
+    nll_field_borrow_use_after()
+    nll_after_if_else()
+    nll_two_borrowers_one_dies_early()
+    mut_ptr_write_simple()
+    mut_ptr_write_then_reread()
+    copy_type_not_moved()
+    move_then_reinit()
+    combined_field_nll_ptr()
+    while_loop_inner_borrow()
+    if_else_field_borrow_merge()
+    struct_literal_with_borrow()
+    return 0
+}

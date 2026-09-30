@@ -1,0 +1,18 @@
+fn test_1() {
+    for (i;
+    1 .. 5) {
+        print(i)
+    }
+}
+fn test_2() {
+    for (i in  1 .. 5) {
+        print(i)
+    }
+}
+fn main(): i32 {
+    print("Testing:")
+    test_1()
+    print("Testing:")
+    test_2()
+    return  0
+}

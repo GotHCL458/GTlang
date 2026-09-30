@@ -1,0 +1,10 @@
+fn main(): i32
+{
+    let x = 5
+    fn inner(): i32
+    {
+        return x
+    }
+    print(inner())
+    return 0
+}

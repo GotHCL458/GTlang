@@ -1,0 +1,6 @@
+fn main(): i32
+{
+	let mut p = &10
+	@p = 20
+	return 0
+}

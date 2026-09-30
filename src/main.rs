@@ -309,8 +309,6 @@ fn drive(
     }
 
     let exe = unit.compile_to_ex(&target, opt, keep_tmp)?;
-    // 若 exe 旁缺少 stdlib dll，从 res/lib 复制（便携发布）
-    copy_stdlib_dlls(&exe);
     if lang::is_zh() {
         println!("编译成功：{}", exe.display());
         if keep_tmp {
@@ -552,33 +550,3 @@ fn strip_main(src: &str) -> String {
 }
 
 
-/// 把 res/lib 下的 stdlib dll 复制到 exe 同目录（若缺失）。
-fn copy_stdlib_dlls(exe: &Path) {
-    let out_dir = match exe.parent() { Some(d) => d, None => return };
-    // 找 res/lib
-    let mut candidates: Vec<PathBuf> = Vec::new();
-    if let Ok(cur) = std::env::current_exe() {
-        if let Some(d) = cur.parent() { candidates.push(d.join("lib")); candidates.push(d.join("res").join("lib")); }
-    }
-    if let Ok(cwd) = std::env::current_dir() {
-        candidates.push(cwd.join("res").join("lib"));
-        candidates.push(cwd.join("lib"));
-    }
-    for src_dir in candidates {
-        if !src_dir.is_dir() { continue; }
-        if let Ok(rd) = std::fs::read_dir(&src_dir) {
-            for e in rd.flatten() {
-                let p = e.path();
-                if p.extension().map(|x| x == "dll").unwrap_or(false) {
-                    if let Some(name) = p.file_name() {
-                        let dst = out_dir.join(name);
-                        if !dst.exists() {
-                            let _ = std::fs::copy(&p, &dst);
-                        }
-                    }
-                }
-            }
-        }
-        break;
-    }
-}

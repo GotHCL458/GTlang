@@ -58,6 +58,23 @@ impl Unit {
     }
 
     /// 同 `compile_to`，`keep_tmp` 为真时保留临时目录（排查问题用）
+    /// 扫描 LLVM IR，返回用到的 stdlib dll 名（去重排序）。
+    pub fn used_stdlib_dlls_of(ir: &str) -> Vec<&'static str> {
+        let ir = ir;
+        let mut set: std::collections::HashSet<&'static str> = std::collections::HashSet::new();
+        for m in crate::stdlib::MODULES {
+            // 该模块的符号前缀 py_ 不统一（py_/gto_/gt_），改为按函数名查
+            for f in m.funcs {
+                if let Some(sf) = crate::types::stdlib_fn(f) {
+                    if ir.contains(sf.symbol) { set.insert(m.dll); }
+                }
+            }
+        }
+        let mut v: Vec<&'static str> = set.into_iter().collect();
+        v.sort();
+        v
+    }
+
     pub fn compile_to_ex(&self, out: &Path, opt: u8, keep_tmp: bool) -> Result<PathBuf, String> {
         let ir = self.emit_llvm()?;
         let exe = abs_of(out);
@@ -81,7 +98,8 @@ impl Unit {
              例如：set GTC_CLANG=D:\\LLVM\\bin\\clang.exe"
                 .to_string()
         })?;
-        driver::compile_ll(&clang, &tmp, &ll, &exe, opt, &self.c_source())?;
+        let needed = Self::used_stdlib_dlls_of(&ir);
+        driver::compile_ll(&clang, &tmp, &ll, &exe, opt, &self.c_source(), &needed)?;
         Ok(exe)
     }
 

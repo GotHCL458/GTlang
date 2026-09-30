@@ -1,0 +1,31 @@
+type Expr = Num(i32) | Nil
+
+fn eval(e: Expr): i32
+{
+    match e
+    {
+        Num(n) -> { return n }
+        Nil -> { return 0 }
+    }
+    return 0
+}
+
+fn main(): i32
+{
+    let x = Num(100)
+    let z = Nil
+
+    let vx = eval(x)
+    let vz = eval(z)
+
+    print(vx)
+    print(vz)
+
+    match x
+    {
+        Num(n) -> { print(n) }
+        Nil -> { print(-2) }
+    }
+
+    return 0
+}

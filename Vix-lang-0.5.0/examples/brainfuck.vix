@@ -1,0 +1,233 @@
+extern "C"
+{
+    fn printf(format: ptr, ...): i32
+    fn getchar(): i32
+    fn putchar(c: i32): i32
+}
+
+type BrainfuckState = struct {
+    tape: [i32],
+    data_ptr: i32
+}
+
+fn usage(): i32
+{
+    printf("usage: brainfuck PROGRAM\n")
+    printf("example: brainfuck \"++++++++[>++++++++<-]>+.\"\n")
+    return 2
+}
+
+fn init_state(): BrainfuckState
+{
+    let mut tape: [i32] = []
+    for (i in 0 .. 30000)
+    {
+        tape.push(0)
+    }
+    return BrainfuckState{ tape: tape, data_ptr: 0 }
+}
+
+fn grow_tape(state: &BrainfuckState, min_size: i32): ?i32
+{
+    while (state.tape.length <= min_size)
+    {
+        state.tape.push(0)
+    }
+    return Some(0)
+}
+
+fn move_right(state: &BrainfuckState): ?i32
+{
+    state.data_ptr = state.data_ptr + 1
+    if (state.data_ptr >= state.tape.length)
+    {
+        return grow_tape(state, state.data_ptr)
+    }
+    return Some(0)
+}
+
+fn move_left(state: &BrainfuckState): ?i32
+{
+    if (state.data_ptr == 0)
+    {
+        printf("brainfuck: tape pointer moved before cell 0\n")
+        return None
+    }
+    state.data_ptr = state.data_ptr - 1
+    return Some(0)
+}
+
+fn inc_cell(state: &BrainfuckState)
+{
+    let v = state.tape[state.data_ptr]
+    state.tape[state.data_ptr] = (v + 1) & 255
+}
+
+fn dec_cell(state: &BrainfuckState)
+{
+    let v = state.tape[state.data_ptr]
+    state.tape[state.data_ptr] = (v - 1) & 255
+}
+
+fn read_cell(state: &BrainfuckState)
+{
+    let c = getchar()
+    if (c < 0)
+    {
+        state.tape[state.data_ptr] = 0
+    }
+    else
+    {
+        state.tape[state.data_ptr] = c & 255
+    }
+}
+
+fn find_forward(program: ptr, pc: i32): ?i32
+{
+    let mut depth = 1
+    let mut i = pc + 1
+    while (program[i] != 0)
+    {
+        if (program[i] == '[')
+        {
+            depth = depth + 1
+        }
+        elif (program[i] == ']')
+        {
+            depth = depth - 1
+            if (depth == 0)
+            {
+                return Some(i)
+            }
+        }
+        i = i + 1
+    }
+    return None
+}
+
+fn find_backward(program: ptr, pc: i32): ?i32
+{
+    let mut depth = 1
+    let mut i = pc - 1
+    while (i >= 0)
+    {
+        if (program[i] == ']')
+        {
+            depth = depth + 1
+        }
+        elif (program[i] == '[')
+        {
+            depth = depth - 1
+            if (depth == 0)
+            {
+                return Some(i)
+            }
+        }
+        i = i - 1
+    }
+    return None
+}
+
+fn validate_brackets(program: ptr): ?i32
+{
+    let mut depth = 0
+    let mut i = 0
+    while (program[i] != 0)
+    {
+        if (program[i] == '[')
+        {
+            depth = depth + 1
+        }
+        elif (program[i] == ']')
+        {
+            if (depth == 0)
+            {
+                printf("brainfuck: unmatched ']' at %d\n", i)
+                return None
+            }
+            depth = depth - 1
+        }
+        i = i + 1
+    }
+
+    if (depth != 0)
+    {
+        printf("brainfuck: unmatched '['\n")
+        return None
+    }
+    return Some(0)
+}
+
+fn run_brainfuck(program: ptr): i32
+{
+    match validate_brackets(program)
+    {
+        Some(_) -> {}
+        None -> return 1
+    }
+
+    let mut state = init_state()
+
+    let mut pc = 0
+    while (program[pc] != 0)
+    {
+        let op = program[pc]
+        match op
+        {
+            '>' -> match move_right(&state)
+            {
+                Some(_) -> {}
+                None -> return 1
+            }
+            '<' -> match move_left(&state)
+            {
+                Some(_) -> {}
+                None -> return 1
+            }
+            '+' -> inc_cell(&state)
+            '-' -> dec_cell(&state)
+            '.' -> putchar(state.tape[state.data_ptr])
+            ',' -> read_cell(&state)
+            '[' ->
+            {
+                if (state.tape[state.data_ptr] == 0)
+                {
+                    match find_forward(program, pc)
+                    {
+                        Some(jump) -> pc = jump
+                        None -> {
+                            printf("brainfuck: unmatched '[' at %d\n", pc)
+                            return 1
+                        }
+                    }
+                }
+            }
+            ']' -> {
+                if (state.tape[state.data_ptr] != 0)
+                {
+                    match find_backward(program, pc)
+                    {
+                        Some(jump) -> pc = jump
+                        None -> {
+                            printf("brainfuck: unmatched ']' at %d\n", pc)
+                            return 1
+                        }
+                    }
+                }
+            }
+            _ -> {}
+        }
+        pc = pc + 1
+    }
+
+    return 0
+}
+
+fn main(argc: i32, argv: &string): i32
+{
+    if (argc < 2)
+    {
+        return usage()
+    }
+    return run_brainfuck(argv[1])
+}

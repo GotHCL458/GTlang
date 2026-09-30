@@ -1,0 +1,9 @@
+fn main(): i32
+{
+    let p:  ref i32 =  nil
+    if (p ==  nil)
+    {
+        print("nil is working...")
+    }
+    return 0
+}

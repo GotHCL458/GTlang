@@ -1,0 +1,9 @@
+import "../std/String.vix"
+
+fn main(): i32
+{
+    let s = "Hello, World!"
+    let len = s.length()
+    print(len)
+    return 0
+}

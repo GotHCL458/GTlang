@@ -1,0 +1,40 @@
+fn partition(arr: &[i32], low: i32, high: i32): i32
+{
+    let pivot = arr[high]
+    let mut i = low - 1
+    for (j in low .. high)
+    {
+        if (arr[j] <= pivot)
+        {
+            i = i + 1
+            let temp = arr[i]
+            arr[i] = arr[j]
+            arr[j] = temp
+        }
+    }
+    i = i + 1
+    let temp = arr[i]
+    arr[i] = arr[high]
+    arr[high] = temp
+    return i
+}
+
+fn quicksort(arr: &[i32], low: i32, high: i32)
+{
+    if (low < high)
+    {
+        let pi = partition(arr, low, high)
+        quicksort(arr, low, pi - 1)
+        quicksort(arr, pi + 1, high)
+    }
+}
+
+fn main(): i32
+{
+    let arr = [10, 7, 8, 9, 1, 5]
+    quicksort(ref arr, 0, 5)
+    for (i in 0 .. 6) {
+        print(arr[i])
+    }
+    return 0
+}

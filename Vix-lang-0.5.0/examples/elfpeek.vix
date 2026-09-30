@@ -1,0 +1,288 @@
+extern "C"
+{
+    fn printf(format: ptr, ...): i32
+    fn fopen(filename: ptr, mode: ptr): ptr
+    fn fclose(file: ptr): i32
+    fn fread(buf: ptr, size: i64, count: i64, file: ptr): i64
+    fn fseek(file: ptr, offset: i64, whence: i32): i32
+    fn ftell(file: ptr): i64
+    fn malloc(size: usize): string
+    fn free(ptr: ptr): void
+}
+
+fn read_file(path: ptr): string
+{
+    let file = fopen(path, "rb")
+    if (file == 0)
+    {
+        return ""
+    }
+
+    fseek(file, 0, 2)
+    let size = ftell(file)
+    fseek(file, 0, 0)
+
+    let buf = malloc(size + 1)
+    if (buf == 0)
+    {
+        fclose(file)
+        return ""
+    }
+
+    buf[fread(buf, 1, size, file)] = 0
+    fclose(file)
+    return buf
+}
+
+fn u8(buf: string, off: i32): i32
+{
+    return buf[off] & 255
+}
+
+fn u16le(buf: string, off: i32): i32
+{
+    return u8(buf, off) | (u8(buf, off + 1) << 8)
+}
+
+fn u32le(buf: string, off: i32): i32
+{
+    return u8(buf, off) | (u8(buf, off + 1) << 8) | (u8(buf, off + 2) << 16) | (u8(buf, off + 3) << 24)
+}
+
+fn print_u64le_hex(buf: string, off: i32)
+{
+    let lo = u32le(buf, off)
+    let hi = u32le(buf, off + 4)
+    if (hi == 0)
+    {
+        printf("0x%x", lo)
+    }
+    else
+    {
+        printf("0x%x%08x", hi, lo)
+    }
+}
+
+fn elf_type_name(t: i32): ptr
+{
+    if (t == 0) { return "NONE" }
+    if (t == 1) { return "REL" }
+    if (t == 2) { return "EXEC" }
+    if (t == 3) { return "DYN" }
+    if (t == 4) { return "CORE" }
+    return "UNKNOWN"
+}
+
+fn machine_name(m: i32): ptr
+{
+    if (m == 3) { return "x86" }
+    if (m == 40) { return "ARM" }
+    if (m == 62) { return "x86-64" }
+    if (m == 183) { return "AArch64" }
+    if (m == 243) { return "RISC-V" }
+    return "unknown"
+}
+
+fn ph_type_name(t: i32): ptr
+{
+    if (t == 0) { return "NULL" }
+    if (t == 1) { return "LOAD" }
+    if (t == 2) { return "DYNAMIC" }
+    if (t == 3) { return "INTERP" }
+    if (t == 4) { return "NOTE" }
+    if (t == 5) { return "SHLIB" }
+    if (t == 6) { return "PHDR" }
+    if (t == 7) { return "TLS" }
+    return "OTHER"
+}
+
+fn sh_type_name(t: i32): ptr
+{
+    if (t == 0) { return "NULL" }
+    if (t == 1) { return "PROGBITS" }
+    if (t == 2) { return "SYMTAB" }
+    if (t == 3) { return "STRTAB" }
+    if (t == 4) { return "RELA" }
+    if (t == 8) { return "NOBITS" }
+    if (t == 9) { return "REL" }
+    if (t == 11) { return "DYNSYM" }
+    return "OTHER"
+}
+
+fn print_cstr_at(buf: string, off: i32)
+{
+    if (off == 0)
+    {
+        printf("<none>")
+        return
+    }
+
+    let mut i = off
+    while (buf[i] != 0)
+    {
+        printf("%c", buf[i])
+        i = i + 1
+    }
+}
+
+fn print_program_headers(buf: string, is64: i32, phoff: i32, phentsize: i32, phnum: i32)
+{
+    printf("\nProgram headers: %d\n", phnum)
+    let mut i = 0
+    while (i < phnum)
+    {
+        let base = phoff + (i * phentsize)
+        let p_type = u32le(buf, base)
+        printf("  [%2d] %-8s", i, ph_type_name(p_type))
+        if (is64 == 1)
+        {
+            printf(" off 0x%x vaddr ", u32le(buf, base + 8))
+            print_u64le_hex(buf, base + 16)
+            printf(" filesz ")
+            print_u64le_hex(buf, base + 32)
+            printf(" memsz ")
+            print_u64le_hex(buf, base + 40)
+            printf(" flags 0x%x\n", u32le(buf, base + 4))
+        }
+        else
+        {
+            printf(" off 0x%x vaddr 0x%x filesz 0x%x memsz 0x%x flags 0x%x\n",
+                u32le(buf, base + 4), u32le(buf, base + 8), u32le(buf, base + 16),
+                u32le(buf, base + 20), u32le(buf, base + 24))
+        }
+        i = i + 1
+    }
+}
+
+fn section_name_base(buf: string, is64: i32, shoff: i32, shentsize: i32, shstrndx: i32): i32
+{
+    if (shstrndx == 0)
+    {
+        return 0
+    }
+
+    let base = shoff + (shstrndx * shentsize)
+    if (is64 == 1)
+    {
+        return u32le(buf, base + 24)
+    }
+    return u32le(buf, base + 16)
+}
+
+fn print_section_headers(buf: string, is64: i32, shoff: i32, shentsize: i32, shnum: i32, shstrndx: i32)
+{
+    let names = section_name_base(buf, is64, shoff, shentsize, shstrndx)
+    printf("\nSection headers: %d\n", shnum)
+
+    let mut i = 0
+    while (i < shnum)
+    {
+        let base = shoff + (i * shentsize)
+        let name_off = u32le(buf, base)
+        let sh_type = u32le(buf, base + 4)
+        printf("  [%2d] ", i)
+        print_cstr_at(buf, names + name_off)
+        if (is64 == 1)
+        {
+            printf(" %-8s addr ", sh_type_name(sh_type))
+            print_u64le_hex(buf, base + 16)
+            printf(" off 0x%x size ", u32le(buf, base + 24))
+            print_u64le_hex(buf, base + 32)
+            printf("\n")
+        }
+        else
+        {
+            printf(" %-8s addr 0x%x off 0x%x size 0x%x\n",
+                sh_type_name(sh_type), u32le(buf, base + 12), u32le(buf, base + 16), u32le(buf, base + 20))
+        }
+        i = i + 1
+    }
+}
+
+fn elfpeek(path: ptr): i32
+{
+    let buf = read_file(path)
+    if (buf == "")
+    {
+        printf("elfpeek: cannot read %s\n", path)
+        return 1
+    }
+
+    if (u8(buf, 0) != 127 or buf[1] != 'E' or buf[2] != 'L' or buf[3] != 'F')
+    {
+        printf("elfpeek: %s is not an ELF file\n", path)
+        free(buf)
+        return 1
+    }
+
+    let class = u8(buf, 4)
+    let data = u8(buf, 5)
+    if (data != 1)
+    {
+        printf("elfpeek: only little-endian ELF files are supported\n")
+        free(buf)
+        return 1
+    }
+
+    let mut is64 = 0
+    if (class == 2)
+    {
+        is64 = 1
+    }
+    let e_type = u16le(buf, 16)
+    let machine = u16le(buf, 18)
+    let mut phoff = u32le(buf, 32)
+    let mut shoff = u32le(buf, 40)
+    let mut ehsize_off = 52
+    let mut phentsize_off = 54
+    let mut phnum_off = 56
+    let mut shentsize_off = 58
+    let mut shnum_off = 60
+    let mut shstrndx_off = 62
+
+    if (is64 == 0)
+    {
+        phoff = u32le(buf, 28)
+        shoff = u32le(buf, 32)
+        ehsize_off = 40
+        phentsize_off = 42
+        phnum_off = 44
+        shentsize_off = 46
+        shnum_off = 48
+        shstrndx_off = 50
+    }
+
+    printf("File: %s\n", path)
+    if (is64 == 1)
+    {
+        printf("Class: ELF64\n")
+        printf("Entry: ")
+        print_u64le_hex(buf, 24)
+        printf("\n")
+    }
+    else
+    {
+        printf("Class: ELF32\n")
+        printf("Entry: 0x%x\n", u32le(buf, 24))
+    }
+    printf("Endian: little\n")
+    printf("Type: %s (%d)\n", elf_type_name(e_type), e_type)
+    printf("Machine: %s (%d)\n", machine_name(machine), machine)
+    printf("ELF header size: %d\n", u16le(buf, ehsize_off))
+
+    print_program_headers(buf, is64, phoff, u16le(buf, phentsize_off), u16le(buf, phnum_off))
+    print_section_headers(buf, is64, shoff, u16le(buf, shentsize_off), u16le(buf, shnum_off), u16le(buf, shstrndx_off))
+
+    free(buf)
+    return 0
+}
+
+fn main(argc: i32, argv: &string): i32
+{
+    if (argc < 2)
+    {
+        printf("usage: elfpeek FILE\n")
+        return 2
+    }
+    return elfpeek(argv[1])
+}

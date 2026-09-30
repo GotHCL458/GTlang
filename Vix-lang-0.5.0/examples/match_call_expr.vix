@@ -1,0 +1,25 @@
+fn choose(flag: i32): ?string
+{
+    if (flag == 0)
+    {
+        return None
+    }
+    return Some("hello")
+}
+
+fn main(): i32
+{
+    match choose(1)
+    {
+        Some(v) -> print(v)
+        None -> print("none")
+    }
+
+    match choose(0)
+    {
+        Some(v) -> print(v)
+        None -> print("none")
+    }
+
+    return 0
+}
