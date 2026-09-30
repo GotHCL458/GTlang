@@ -1,0 +1,13 @@
+fn main(): i32
+{
+	let a = "hello"
+	let b = "hello"
+	let c = "world"
+	if (a == b) {
+		print("same")
+	}
+	if (a != c) {
+		print("different")
+	}
+	return 0
+}

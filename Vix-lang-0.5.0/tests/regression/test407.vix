@@ -1,0 +1,21 @@
+fn add(value: i32, amount: i32): i32
+{
+    return value + amount
+}
+
+fn double(value: i32): i32
+{
+    return value * 2
+}
+
+fn main(): i32
+{
+    let piped = 3 |> add(4) |> double
+    print(piped)
+
+    let text = "abcdef"
+    print(text[1..4])
+    print(text[0 .. text.length])
+    print(text[4 .. 99])
+    return 0
+}

@@ -1,0 +1,27 @@
+extern "C"
+{
+    fn printf(fmt:string, ...):i32
+
+}
+macro $make_add(x: ident)
+{
+    fn $x(a: i32, b: i32): i32 {
+        return a + b
+    }
+}
+macro $vec[elems: expr*]
+{
+    [$(elems),*]
+}
+fn main(): i32
+{
+    $make_add(my_add)
+    let result = my_add(10, 20)
+    print(result)
+    let arr = $vec[1, 2, 3, 4]
+    for(i in 0 .. arr.length)
+    {
+        printf("%d ",arr[i])
+    }
+    return 0
+}

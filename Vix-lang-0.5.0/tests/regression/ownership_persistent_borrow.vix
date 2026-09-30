@@ -1,0 +1,7 @@
+fn main(): i32 {
+    let mut x = 1
+    let r = mut &x
+    x = 2
+    print(@r)
+    return 0
+}

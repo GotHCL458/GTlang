@@ -1,0 +1,12 @@
+type Person = struct {
+    name: string,
+    age: i32
+}
+fn main(): i32 {
+    let p = Person {
+        name: "John", age: 20
+    }
+    print(p.name)
+    print(p.age)
+    return 0
+}

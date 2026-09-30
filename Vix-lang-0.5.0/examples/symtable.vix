@@ -1,0 +1,49 @@
+struct SymbolTable:[T]
+{
+    scopes: [ [ (string, T) ] ]
+}
+
+fn new_table:[T](): SymbolTable:[T]
+{
+    SymbolTable:[T]{ scopes: [ [] ] }
+}
+
+fn declare:[T](table: SymbolTable:[T], name: string, val: T)
+{
+    table.scopes[table.scopes.length - 1].push((name, val))
+}
+
+fn lookup:[T](table: SymbolTable:[T], name: string): ?T
+{
+    for (scope in table.scopes)
+    {
+        for (pair in scope)
+        {
+            if (pair.0 == name)
+            {
+                return Some(pair.1)
+            }
+        }
+    }
+    return None
+}
+
+struct Type
+{
+    name: string
+}
+
+fn main(): i32
+{
+    let tab = new_table:[Type]()
+    declare:[Type](tab, "i32", Type{ name: "i32" })
+
+    let found = lookup:[Type](tab, "i32")
+    match found
+    {
+        Some(v) -> print(v.name)
+        None -> print("not found")
+    }
+
+    return 0
+}

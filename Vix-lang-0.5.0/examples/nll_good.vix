@@ -1,0 +1,51 @@
+// NLL (Non-Lexical Lifetimes) test
+// Verifies: borrows end automatically after the last use of the borrow variable
+
+type Point = struct { x: i32, y: i32 }
+
+fn test_nll_shared_borrow(): i32
+{
+    let x = 42
+
+    let r = ref x        // Shared borrow of x
+    print(@r)            // Last use of r
+
+    // NLL: r is no longer used, the borrow should be released
+    print(x)             // OK: x should be readable again
+    return 0
+}
+
+fn test_nll_mut_borrow(): i32
+{
+    let mut x = 10
+
+    let r = mut ref x    // Mutable borrow of x
+    print(@r)            // Last use of r
+
+    // NLL: r is no longer used, the mutable borrow should be released
+    x = 30               // OK: should be assignable again
+    print(x)
+    return 0
+}
+
+fn test_nll_field_borrow(): i32
+{
+    let mut p = Point { x: 1, y: 2 }
+
+    let r = ref p.x      // Borrow p.x
+    print(@r)            // Last use of r
+
+    // NLL + field-level precision: borrow released, both fields accessible
+    p.x = p.x + 1
+    p.y = p.y + 1
+    print(p.x + p.y)
+    return 0
+}
+
+fn main(): i32
+{
+    test_nll_shared_borrow()
+    test_nll_mut_borrow()
+    test_nll_field_borrow()
+    return 0
+}

@@ -1,0 +1,15 @@
+fn swap(mut a: &i32, mut b: &i32) 
+{
+    let temp = @a
+    @a = @b
+    @b = temp
+}
+fn main(): i32
+{
+    let a = 10
+    let b = 20
+    swap(&a, &b)
+    print(a)
+    print(b)
+    return 0
+}

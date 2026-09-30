@@ -1,0 +1,56 @@
+// Field-level borrow precision test
+// Verifies: borrowing p.x should NOT lock the entire struct p
+
+type Point = struct { x: i32, y: i32 }
+
+fn test_field_shared_borrow(): i32
+{
+    let mut p = Point { x: 10, y: 20 }
+
+    // Only borrow p.x
+    let r = ref p.x
+
+    // p.y should still be accessible (field-level precision)
+    p.y = p.y + 1
+    print(p.y)          // OK: p.y is not borrowed
+
+    print(@r)            // OK: use the borrow
+    return 0
+}
+
+fn test_field_mut_borrow(): i32
+{
+    let mut p = Point { x: 10, y: 20 }
+
+    // Mutable borrow of p.x
+    let r = mut ref p.x
+
+    // p.y should still be accessible
+    p.y = 30
+    print(p.y)          // OK: p.y is not borrowed
+
+    print(@r)            // OK: use the borrow
+    return 0
+}
+
+// Verifies: borrowing the whole struct still locks all fields
+fn test_whole_struct_borrow_locks_all_fields(): i32
+{
+    let mut p = Point { x: 10, y: 20 }
+
+    let r = ref p        // Borrow the whole struct
+
+    print(p.y)           // OK: reading is allowed under shared borrow
+    // p.y = 30          // Would error: cannot assign while shared-borrowed
+
+    print(@r)
+    return 0
+}
+
+fn main(): i32
+{
+    test_field_shared_borrow()
+    test_field_mut_borrow()
+    test_whole_struct_borrow_locks_all_fields()
+    return 0
+}

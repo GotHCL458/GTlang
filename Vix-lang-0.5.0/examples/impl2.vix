@@ -1,0 +1,33 @@
+extern "C"
+{
+    fn sqrt(x: f64): f64
+}
+type Point = struct
+{
+    x: i32,
+    y: i32
+}
+impl Point
+{
+    fn length(self: &Point): f64
+    {
+        return sqrt(self.x * self.x + self.y * self.y)
+    }
+    fn move(mut self: &Point, dx: i32, dy: i32)
+    {
+        self.x = self.x + dx
+        self.y = self.y + dy
+    }
+    fn new(x: i32, y: i32): Point 
+    {
+        return Point{ x: x, y: y }
+    }
+}
+fn main(): i32
+{
+    let mut p = Point{ x: 3, y: 4 }
+    print(p.length())  // 5.0
+    p.move(1, 1)       // (4, 5)
+    print(p.length())  // 6.403124
+    return 0
+}

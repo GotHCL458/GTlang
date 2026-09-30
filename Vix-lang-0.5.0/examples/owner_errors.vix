@@ -1,0 +1,45 @@
+// Ownership error detection tests (all errors enabled)
+
+fn double_ref(a: ref i32, b: ref i32): i32
+{
+    @a + @b
+}
+
+fn bad_dangling(): ref i32 { let z = 1; return ref z }
+
+fn main(): i32
+{
+    // ── Error 1: Use of moved value ──
+    let s = [1, 2, 3]
+    let t = s
+    print(s[0])          // error: use of moved value 's'
+
+    // ── Error 2: Two mutable borrows conflict ──
+    let mut v = 10
+    let r1 = mut ref v
+    let r2 = mut ref v   // error: cannot mutably borrow more than once
+    print(@r1)
+
+    // ── Error 3: Assignment during mutable borrow ──
+    let mut x = 10
+    let r = mut ref x
+    x = 20               // error: cannot assign while borrowed
+    print(@r)
+
+    // ── Error 4: Move during borrow ──
+    let a = [1, 2]
+    let ra = ref a[0]
+    // let b = a           // error: cannot move while borrowed
+    print(@ra)
+
+    // ── Error 5: Returning local reference ──
+    print(bad_dangling()) // error: cannot return reference to local variable
+
+    // ── Error 6: Mixed borrow conflict ──
+    let y = 99
+    let ry = mut ref y
+    let ry2 = ref y      // error: cannot immutably borrow while mutably borrowed
+    print(@ry)
+
+    return 0
+}

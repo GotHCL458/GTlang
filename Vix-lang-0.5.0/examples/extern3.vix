@@ -1,0 +1,21 @@
+extern "C"
+{
+    fn printf(format: ptr, ...): i32
+    fn malloc(size: i32): ptr
+    fn free(ptr: ptr): i32
+}
+fn main(): i32
+{
+    let a = malloc(10)
+    for (i in 0 .. 10)
+    {
+        a[i] = i * i
+    }
+    for (i in 0 .. 10)
+    {
+        printf("%d ", a[i])
+    }
+    printf("\n")
+    free(a)
+    return 0
+}

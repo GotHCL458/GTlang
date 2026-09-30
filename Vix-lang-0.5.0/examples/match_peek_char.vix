@@ -1,0 +1,24 @@
+fn peek_char(src: string, pos: i32): ?i8
+{
+    if (pos < 0 or pos >= src.length)
+    {
+        return None
+    }
+    return Some(src[pos])
+}
+
+fn print_peek(src: string, pos: i32)
+{
+    match peek_char(src, pos)
+    {
+        Some(c) -> print(c)
+        None -> print("none")
+    }
+}
+
+fn main(): i32
+{
+    print_peek("abc", 1)
+    print_peek("abc", 10)
+    return 0
+}

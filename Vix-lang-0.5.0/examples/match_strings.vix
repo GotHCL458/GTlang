@@ -1,0 +1,41 @@
+fn classify_fruit(name: string): i32
+{
+    match name
+    {
+        "apple" -> { return 1 }
+        "banana" -> { return 2 }
+        "cherry" -> { return 3 }
+        "date" -> { return 4 }
+        _ -> { return 0 }
+    }
+    return 0
+}
+
+fn main(): i32 {
+    let fruits = ["apple", "banana", "cherry", "date", "elderberry"]
+    for (i in 0 .. 5)
+    {
+        let result = classify_fruit(fruits[i])
+        if (result == 0)
+        {
+            print("unknown fruit")
+        } 
+        elif (result == 1)
+        {
+            print("apple detected")
+        } 
+        elif (result == 2)
+        {
+            print("banana detected")
+        } 
+        elif (result == 3)
+        {
+            print("cherry detected")
+        } 
+        else
+        {
+            print("date detected")
+        }
+    }
+    return 0
+}

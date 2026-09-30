@@ -1,0 +1,54 @@
+type Person = struct {
+    name: string,
+    age: i32,
+    height: f64
+}
+type Book = struct {
+    title: string,
+    author: string,
+    year: i32
+}
+type juxing = struct {
+    width: f64,
+    height: f64
+}
+type Address = struct {
+    street: string,
+    city: string,
+    zip: string
+}
+
+fn main(): i32 {
+    let mut p1 = Person {
+        name: "Alice", age: 25, height: 5.7
+    }
+    let p2 = Person {
+        name: "Bob", age: 30, height: 6.0
+    }
+    let book1 = Book {
+        title: "How to coding", author: "Vix Dev Team", year: 2026
+    }
+    print("Person 1 Name: ", p1.name)
+    print("Person 1 Age: ", p1.age)
+    print("Person 1 Height: ", p1.height)
+    print("Person 2 Name: ", p2.name)
+    print("Person 2 Age: ", p2.age)
+    print("Person 2 Height: ", p2.height)
+    print("Book Title: ", book1.title)
+    print("Book Author: ", book1.author)
+    print("Book Year: ", book1.year)
+    p1 = Person { name: p1.name, age: 26, height: p1.height }
+    print("Update p1 age: ", p1.age)
+    let age_diff = p2.age - p1.age
+    print("Age difference: ", age_diff)
+    let rect = juxing {
+        width: 10.5, height: 8.2
+    }
+    let area = rect.width * rect.height
+    print("juxing area: ", area)
+    let addr = Address {
+        street: "123 Main St", city: "Anytown", zip: "12345"
+    }
+    print("Address: ", addr.street, ", ", addr.city, ", ", addr.zip)
+    return 0
+}

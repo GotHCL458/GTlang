@@ -1,0 +1,6 @@
+adv finds need: book that has "Poem" in title
+    return database search title contains "Poem"
+
+adv runs need: task that is urgent
+    task priority val is 10
+    return task

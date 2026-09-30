@@ -1,0 +1,18 @@
+adv gives need: sb, sth
+    return sb name plus " gives " plus sth
+adv puts need: sb, sth, swh
+    return sb name plus " puts " plus sth plus " at " plus swh
+adv tells need: sb, sth, to sb
+    return sb name plus " tells " plus sth plus " to " plus to name
+
+n alice: Person
+    name val is "p1"
+
+n book: Thing
+    name val is "a book"
+
+n library: Place
+    name val is "the library"
+call gives (p1, and book)
+call puts (p1, book, and library)
+call tells (p1, "the secret", and bob)

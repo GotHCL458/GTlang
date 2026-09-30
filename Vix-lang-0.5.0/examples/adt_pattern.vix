@@ -1,0 +1,43 @@
+fn safe_divide(a: i32, b: i32)
+{
+    if (b == 0)
+    {
+        let result = Err("cannot divide by zero")
+        match result
+        {
+            Ok(v) -> { print(v) }
+            Err(e) -> { print(-1) }
+        }
+    } 
+    else
+    {
+        let result = Ok(a / b)
+        match result
+        {
+            Ok(v) -> { print(v) }
+            Err(e) -> { print(-1) }
+        }
+    }
+}
+
+fn main(): i32 
+{
+    let x = Some(42)
+    match x {
+        Some(v) -> { print(v) }
+        None -> { print(0) }
+    }
+
+    let y = None
+    match y
+    {
+        Some(v) -> { print(v) }
+        None -> { print(0) }
+    }
+    print("---")
+    safe_divide(10, 2)
+    safe_divide(10, 0)
+    safe_divide(100, 7)
+
+    return 0
+}

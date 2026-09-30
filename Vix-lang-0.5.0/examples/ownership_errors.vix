@@ -1,0 +1,197 @@
+// Comprehensive Ownership Test Suite — ERROR cases (should be rejected)
+// Covers: field-level borrow violations, NLL misuse, move/borrow conflicts
+
+type Point = struct { x: i32, y: i32 }
+
+// Top-level function for ownership transfer test
+fn take(xs: [i32]): i32 { xs[0] }
+
+// ────────────────────────────────────────────
+//  USE AFTER MOVE
+// ────────────────────────────────────────────
+
+fn err_use_after_move_simple(): i32
+{
+    let s = [1, 2, 3]
+    let t = s
+    print(s[0])          // error: use of moved value 's'
+    return 0
+}
+
+fn err_use_after_move_call(): i32
+{
+    let arr = [1, 2, 3]
+    take(arr)
+    print(arr[0])        // error: use of moved value 'arr'
+    return 0
+}
+
+// ────────────────────────────────────────────
+//  MUTABLE BORROW CONFLICTS
+// ────────────────────────────────────────────
+
+fn err_mut_borrow_twice(): i32
+{
+    let mut v = 10
+    let r1 = mut ref v
+    let r2 = mut ref v   // error: cannot mutably borrow more than once
+    print(@r1)
+    return 0
+}
+
+fn err_imm_borrow_while_mut(): i32
+{
+    let mut y = 99
+    let ry = mut ref y
+    let ry2 = ref y      // error: cannot immutably borrow while mutably borrowed
+    print(@ry)
+    return 0
+}
+
+fn err_assign_while_mut_borrowed(): i32
+{
+    let mut x = 10
+    let r = mut ref x
+    x = 20               // error: cannot assign while mutably borrowed
+    print(@r)
+    return 0
+}
+
+// ────────────────────────────────────────────
+//  MOVE WHILE BORROWED
+// ────────────────────────────────────────────
+
+fn err_move_while_shared_borrowed(): i32
+{
+    let s = [1, 2, 3]
+    let r = ref s[0]
+    let t = s            // error: cannot move while borrowed
+    print(@r)
+    return 0
+}
+
+fn err_move_while_mut_borrowed(): i32
+{
+    let mut s = [1, 2, 3]
+    let r = mut ref s
+    let t = s            // error: cannot move while mutably borrowed
+    print(@r)
+    return 0
+}
+
+// ────────────────────────────────────────────
+//  DANGLING REFERENCE
+// ────────────────────────────────────────────
+
+fn err_return_local_ref(): ref i32
+{
+    let z = 1
+    return ref z         // error: cannot return reference to local variable
+}
+
+// ────────────────────────────────────────────
+//  BORROW MOVED VALUE
+// ────────────────────────────────────────────
+
+fn err_borrow_moved_value(): i32
+{
+    let s = [1, 2, 3]
+    let t = s
+    let r = ref s        // error: cannot borrow moved value 's'
+    print(@r)
+    return 0
+}
+
+// ────────────────────────────────────────────
+//  FIELD-LEVEL BORROW VIOLATIONS
+// ────────────────────────────────────────────
+
+fn err_use_mut_borrowed_field(): i32
+{
+    let mut p = Point { x: 10, y: 20 }
+    let r = mut ref p.x
+    print(p.x)           // error: p.x is mutably borrowed, cannot use
+    @r
+    return 0
+}
+
+fn err_assign_to_mut_borrowed_field(): i32
+{
+    let mut p = Point { x: 10, y: 20 }
+    let r = mut ref p.x
+    p.x = 30             // error: cannot assign to mutably borrowed field
+    @r
+    return 0
+}
+
+fn err_assign_to_shared_borrowed_field(): i32
+{
+    let mut p = Point { x: 10, y: 20 }
+    let r = ref p.x
+    p.x = 30             // error: cannot assign to shared-borrowed field
+    @r
+    return 0
+}
+
+fn err_move_while_field_borrowed(): i32
+{
+    let p = Point { x: 10, y: 20 }
+    let r = ref p.x
+    let q = p            // error: cannot move 'p' while its fields are borrowed
+    print(@r)
+    return 0
+}
+
+fn err_use_whole_struct_while_fields_borrowed(): i32
+{
+    let p = Point { x: 1, y: 2 }
+    let r = ref p.x
+    print(p)             // error: cannot use 'p' while its fields are borrowed
+    @r
+    return 0
+}
+
+// ────────────────────────────────────────────
+//  NLL EDGE CASES
+// ────────────────────────────────────────────
+
+// Borrow still alive: using x while r is still used later
+fn err_use_while_borrow_still_alive(): i32
+{
+    let x = 42
+    let r = ref x
+    print(x)             // error: cannot use x while r (used below) is alive
+    print(@r)            // r is used here!
+    return 0
+}
+
+// Multiple overlapping field mutable borrows conflict
+fn err_overlapping_field_mut_borrows(): i32
+{
+    let mut p = Point { x: 1, y: 2 }
+    let rx = mut ref p.x
+    let rx2 = mut ref p.x // error: cannot mutably borrow field twice
+    print(@rx)
+    return 0
+}
+
+fn main(): i32
+{
+    err_use_after_move_simple()
+    err_use_after_move_call()
+    err_mut_borrow_twice()
+    err_imm_borrow_while_mut()
+    err_assign_while_mut_borrowed()
+    err_move_while_shared_borrowed()
+    err_move_while_mut_borrowed()
+    err_return_local_ref()
+    err_borrow_moved_value()
+    err_use_mut_borrowed_field()
+    err_assign_to_mut_borrowed_field()
+    err_assign_to_shared_borrowed_field()
+    err_move_while_field_borrowed()
+    err_use_whole_struct_while_fields_borrowed()
+    err_use_while_borrow_still_alive()
+    err_overlapping_field_mut_borrows()
+    return 0
+}

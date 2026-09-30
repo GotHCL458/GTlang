@@ -1,0 +1,7 @@
+fn main(): i32 {
+    let a = 10
+    let b: i64 = 20
+    print(a)
+    print(b)
+    return 0
+}

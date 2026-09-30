@@ -1,0 +1,6 @@
+fn main(): i32
+{
+	let c = 0
+	print(c)
+	return 0
+}

@@ -1,0 +1,43 @@
+fn classify(tag: string): string
+{
+    return match tag
+    {
+        "int" | "bool" | "string" -> "Literal"
+        "ident" -> "Identifier"
+        "binop" -> "BinaryExpression"
+        "unaryop" -> "UnaryExpression"
+        "call" -> "CallExpression"
+        "option" -> "OptionExpression"
+        _ -> "Unknown"
+    }
+}
+
+type AstExpr = struct
+{
+    tag: string,
+    text: string,
+    value: i32
+}
+
+fn expr_debug(expr: AstExpr): string
+{
+    return match expr.tag
+    {
+        "int" -> "int"
+        "bool" -> "bool"
+        "string" -> "string"
+        _ -> "other"
+    }
+}
+
+fn main(): i32
+{
+    let result = classify("bool")
+    print(result)
+
+    let expr = AstExpr{ tag: "int", text: "", value: 42 }
+    let desc = expr_debug(expr)
+    print(desc)
+
+    return 0
+}

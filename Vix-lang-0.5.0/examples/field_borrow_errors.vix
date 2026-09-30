@@ -1,0 +1,42 @@
+// Field-level borrow: error detection tests
+// Verifies correct rejection of illegal field borrows
+
+type Point = struct { x: i32, y: i32 }
+
+// Error: using a field while it is mutably borrowed
+fn test_use_mut_borrowed_field(): i32
+{
+    let mut p = Point { x: 10, y: 20 }
+    let r = mut ref p.x
+    print(p.x)           // error: p.x is mutably borrowed, cannot use
+    @r
+    return 0
+}
+
+// Error: assigning to a field while it is mutably borrowed
+fn test_assign_to_mut_borrowed_field(): i32
+{
+    let mut p = Point { x: 10, y: 20 }
+    let r = mut ref p.x
+    p.x = 30             // error: p.x is mutably borrowed, cannot assign
+    @r
+    return 0
+}
+
+// Error: assigning to a field while it is shared-borrowed
+fn test_assign_to_shared_borrowed_field(): i32
+{
+    let mut p = Point { x: 10, y: 20 }
+    let r = ref p.x
+    p.x = 30             // error: p.x is shared-borrowed, cannot assign
+    @r
+    return 0
+}
+
+fn main(): i32
+{
+    test_use_mut_borrowed_field()
+    test_assign_to_mut_borrowed_field()
+    test_assign_to_shared_borrowed_field()
+    return 0
+}

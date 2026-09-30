@@ -1,0 +1,61 @@
+// Ownership test: should compile and run successfully
+
+fn add_refs(a: ref i32, b: ref i32): i32
+{
+    @a + @b
+}
+
+fn take_array(xs: [i32]): i32
+{
+    xs[0]
+}
+
+// Top-level struct definition
+type Point = struct { x: i32, y: i32 }
+
+fn main(): i32
+{
+    // ── Test 1: Copy type (i32) move semantics ──
+    let x = 10
+    let y = x          // x is i32, copy type
+    print(x + y)       // OK: both x and y are usable
+
+    // ── Test 2: Multiple shared borrows ──
+    let val = 42
+    let r1 = ref val
+    let r2 = ref val
+    print(@r1 + @r2)
+
+    // ── Test 3: Struct field borrow ──
+    let p = Point { x: 5, y: 10 }
+    let r = ref p.x
+    print(@r + p.y)
+
+    // ── Test 4: Function parameter borrow ──
+    let a = 100
+    let b = 200
+    print(add_refs(ref a, ref b))
+
+    // ── Test 5: Function parameter move ──
+    let arr = [1, 2, 3]
+    print(take_array(arr))
+    // arr cannot be used after this
+
+    // ── Test 6: Last-use move ──
+    let xs = [4, 5, 6]
+    let ys = xs          // xs is moved
+    print(ys[0])         // ys is usable
+
+    // ── Test 7: if/else branches ──
+    let msg = if (1 < 2) { "yes" } else { "no" }
+    print(msg)
+
+    // ── Test 8: while loop ──
+    let mut i = 0
+    while (i < 3) {
+        i = i + 1
+    }
+    print(i)
+
+    return 0
+}

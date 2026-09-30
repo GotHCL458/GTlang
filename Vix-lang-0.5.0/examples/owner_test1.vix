@@ -1,0 +1,134 @@
+// ── Test 1: Basic move semantics ──
+fn test_move(): i32
+{
+    let s = [1, 2, 3]
+    let t = s          // s is moved to t
+    return t[0]         // OK: t is still valid
+    // s[0]  // Would error: use of moved value 's'
+}
+
+// ── Test 2: Copy types (i32) are not moved ──
+fn test_copy_type(): i32
+{
+    let x = 42
+    let y = x          // x is i32 (copy type), not moved
+    return x + y       // OK: both x and y are usable
+}
+
+// ── Test 3: Shared borrow (multiple shared borrows of the same variable) ──
+fn test_shared_borrow(): i32
+{
+    let x = 10
+    let r1 = ref x
+    let r2 = ref x     // OK: multiple shared borrows are allowed
+    @r1 + @r2
+}
+
+// ── Test 4: Using a variable during a shared borrow ──
+fn test_use_during_shared_borrow(): i32
+{
+    let x = 10
+    let r = ref x
+    // The original variable can be read during a shared borrow
+    x + @r
+}
+
+// ── Test 5: Cannot assign during a mutable borrow ──
+fn test_mut_borrow_conflict(): i32
+{
+    let mut x = 10
+    let r = mut ref x   // Mutable borrow
+    x = 20              // Error: cannot assign while mutably borrowed
+    @r
+}
+
+// ── Test 6: Cannot move after borrow ──
+fn test_move_after_borrow(): i32
+{
+    let s = [1, 2, 3]
+    let r = ref s[0]
+    let t = s           // Error: cannot move 's' while it is borrowed
+    @r
+}
+
+// ── Test 7: Struct field borrow ──
+type Point = struct { x: i32, y: i32 }
+
+fn test_struct_field_borrow(): i32
+{
+    let p = Point { x: 10, y: 20 }
+    let r = ref p.x
+    // p.x is borrowed, but p.y can still be read
+    p.y + @r
+}
+
+// ── Test 8: Move in if/else branches ──
+fn test_if_else_move(cond: bool): [i32]
+{
+    let a = [1, 2]
+    if (cond) {
+        let b = [3, 4]
+        return b        // b is moved out
+    } else {
+        let c = [5, 6]
+        return c        // c is moved out
+    }
+    // a is unaffected
+    return a
+}
+
+// ── Test 9: Move in one branch but not the other ──
+fn test_if_move_in_one_branch(cond: bool): [i32]
+{
+    let a = [1, 2]
+    if (cond) {
+        let b = a       // a is moved into this branch
+        return b
+    }
+    // Since there is no else branch, a may not be moved
+    return a
+}
+
+// ── Test 10: Passing ownership between functions ──
+fn take_ownership(xs: [i32]): i32
+{
+    xs[0]
+}
+
+fn test_pass_ownership(): i32
+{
+    let arr = [1, 2, 3]
+    take_ownership(arr)  // arr is moved into the function
+    // arr[0]  // Would error: use of moved value 'arr'
+    0
+}
+
+// ── Test 11: Global variables ──
+let global_counter = 0
+
+fn test_global(): i32
+{
+    global_counter       // Global variables are accessible
+}
+
+// ── Test 12: Borrow in while loops ──
+fn test_while_borrow(): i32
+{
+    let mut sum = 0
+    let mut i = 0
+    while (i < 5)
+    {
+        let r = ref sum
+        // sum is borrowed inside the loop scope, borrow ends on scope exit
+        i = 1
+    }
+    sum  // OK: borrow has ended
+}
+
+fn main(): i32
+{
+    print(test_copy_type())
+    print(test_shared_borrow())
+    print(test_pass_ownership())
+    0
+}

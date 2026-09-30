@@ -1,0 +1,32 @@
+// Mutable borrow through pointer: write tests
+// Verifies: writing through a mutable borrow is the EXERCISE of the exclusive access
+//
+// NOTE on Vix syntax:
+//   @ptr.x is parsed as @(ptr.x) — dereference of ptr's field x.
+//   Since ptr is a pointer, ptr.x is invalid. Only simple @ptr is used here.
+
+type Point = struct { x: i32, y: i32 }
+
+// Test 1: Write through a mutable borrow (simple deref)
+fn test_mut_borrow_write(): i32
+{
+    let mut x = 10
+    let mut ptr = mut ref x   // Mutable borrow + mutable pointer binding
+    @ptr = 20                  // Write through the mutable borrow
+    return @ptr                 // Read back: should be 20
+}
+
+// Test 2: Read through a shared borrow is OK
+fn test_shared_borrow_read(): i32
+{
+    let x = 42
+    let ptr = ref x            // Shared borrow
+    return @ptr                 // Read through shared borrow: OK
+}
+
+fn main(): i32
+{
+    print(test_mut_borrow_write())
+    print(test_shared_borrow_read())
+    return 0
+}

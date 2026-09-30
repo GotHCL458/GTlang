@@ -1,0 +1,9 @@
+fn main(): i32
+{
+	let mut x = 10
+	let mut ptr = &x
+	@ptr = 20
+	print(x)
+	print(@ptr)
+	return 0
+}
