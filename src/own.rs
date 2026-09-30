@@ -1,4 +1,4 @@
-﻿//! 所有权与借用检查（**流敏感**，NLL 风格）。
+//! 所有权与借用检查（**流敏感**，NLL 风格）。
 //!
 //! 与"实用子集"的区别：
 //!   - **流敏感**：沿控制流传播「移动状态」与「活跃借用」，合并点保守取交集；
@@ -72,6 +72,8 @@ impl State {
 struct Ctx<'a> {
     /// 变量类型表（名字 → Ty），由 sema 回填 + 参数收集
     types: &'a HashMap<String, Ty>,
+    /// 当前函数内 let/:= 声明的局部名（用于“返回局部借用”检查）
+    locals: HashSet<String>,
     errors: Vec<String>,
 }
 
@@ -91,7 +93,7 @@ pub fn check(prog: &Program) -> Vec<String> {
     for item in &prog.items {
         match item {
             Item::Fn(f) => {
-                let mut ctx = Ctx { types: &types, errors: Vec::new() };
+                let mut ctx = Ctx { types: &types, locals: HashSet::new(), errors: Vec::new() };
                 ctx.check_block(&f.body, &State::empty(), 0);
                 errors.extend(ctx.errors.drain(..));
             }
@@ -101,7 +103,7 @@ pub fn check(prog: &Program) -> Vec<String> {
                     for p in &m.params {
                         local.insert(p.name.clone(), p.ty.clone().unwrap_or(Ty::Unknown));
                     }
-                    let mut ctx = Ctx { types: &local, errors: Vec::new() };
+                    let mut ctx = Ctx { types: &local, locals: HashSet::new(), errors: Vec::new() };
                     ctx.check_block(&m.body, &State::empty(), 0);
                     errors.extend(ctx.errors.drain(..));
                 }
@@ -173,6 +175,7 @@ impl<'a> Ctx<'a> {
                 cur = after;
             }
             Stmt::Let { name, value, .. } | Stmt::Const { name, value, .. } => {
+                self.locals.insert(name.clone());
                 self.use_expr(value, &cur, depth);
                 cur = self.after_value_use(value, &cur);
                 // `r := &x`：把新创建的借用绑定到持有者 r
@@ -282,10 +285,8 @@ impl<'a> Ctx<'a> {
 
     /// 是否是“局部值语义变量”（str/struct/array/closure/tuple，栈上分配，借用会悬垂）。
     fn is_local_value(&self, name: &str) -> bool {
-        match self.types.get(name) {
-            Some(t) => matches!(t, Ty::Str | Ty::Struct(_) | Ty::Array(..) | Ty::Closure(..) | Ty::Tuple(_)),
-            None => false,
-        }
+        // 只对“本函数内 let/:= 声明的局部”判定
+        self.locals.contains(name)
     }
 
     /// 若 `name`（或其字段）当前被借用，则禁止写它。
