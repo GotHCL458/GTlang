@@ -45,7 +45,7 @@ fn main() {
         "POST /api/create ={201}{Content-Type: application/json}" + 创建页() + "\n" +
         "GET /headers =" + 请求头页() + "\n" +
         "GET /count =" + 计数页() + "\n" +
-        "GET /static/* =@dir:examples/static\n" +
+        "GET /static/* =@dir:static\n" +
         "ANY / =未找到该页面"
     put("服务器已启动，监听 8080 端口（Ctrl+C 停止）")
     put("请访问 http://127.0.0.1:8080/static/index.html")

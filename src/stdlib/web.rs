@@ -249,10 +249,26 @@ fn build_hit(rhs: &str, path_rel: &str, req_body: &str, headers: &[(String, Stri
         }
         rest = rest[close+1..].trim();
     }
+    // 相对路径解析：先按 cwd，找不到再回退到入口文件所在目录（GT_ENTRY_DIR）
+    fn read_with_fallback(rel: &str) -> Option<(String, Vec<u8>)> {
+        if std::path::Path::new(rel).is_absolute() {
+            return std::fs::read(rel).ok().map(|b| (rel.to_string(), b));
+        }
+        // 相对路径：优先相对入口文件所在目录（与 import 语义一致），再相对 cwd。
+        // 用 PathBuf::join 处理分隔符与 Windows \\?\ 扩展前缀。
+        if let Ok(base) = std::env::var("GT_ENTRY_DIR") {
+            let base = base.strip_prefix("\\\\?\\").unwrap_or(&base);
+            let cand = std::path::Path::new(base).join(rel);
+            if let Ok(bytes) = std::fs::read(&cand) {
+                return Some((cand.to_string_lossy().into_owned(), bytes));
+            }
+        }
+        std::fs::read(rel).ok().map(|b| (rel.to_string(), b))
+    }
     if let Some(f) = rest.strip_prefix("@file:") {
         let fp = f.trim();
-        if let Ok(bytes) = std::fs::read(fp) {
-            let ct = guess_ct(fp);
+        if let Some((path, bytes)) = read_with_fallback(fp) {
+            let ct = guess_ct(&path);
             return RouteHit { status, content_type: ct, body: String::from_utf8_lossy(&bytes).into_owned() };
         }
         return RouteHit { status: 404, content_type: "text/plain; charset=utf-8".into(), body: "404 file not found".into() };
@@ -264,8 +280,8 @@ fn build_hit(rhs: &str, path_rel: &str, req_body: &str, headers: &[(String, Stri
             return RouteHit { status: 404, content_type: "text/plain; charset=utf-8".into(), body: "404".into() };
         }
         let fp = format!("{}/{}", base.trim_end_matches('/'), rel);
-        if let Ok(bytes) = std::fs::read(&fp) {
-            let ct = guess_ct(&fp);
+        if let Some((path, bytes)) = read_with_fallback(&fp) {
+            let ct = guess_ct(&path);
             return RouteHit { status, content_type: ct, body: String::from_utf8_lossy(&bytes).into_owned() };
         }
         return RouteHit { status: 404, content_type: "text/plain; charset=utf-8".into(), body: "404 file not found".into() };

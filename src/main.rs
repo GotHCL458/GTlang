@@ -182,6 +182,20 @@ fn main() -> ExitCode {
         return ExitCode::from(1);
     }
 
+    // 记录入口文件所在目录：web.serve 的 @file/@dir 相对路径找不到时会回退到此目录，
+    // 这样从任意 cwd 运行都能正确解析示例里的相对静态目录。
+    if let Some(dir) = sources[0].parent() {
+        let abs = if dir.as_os_str().is_empty() {
+            std::env::current_dir().unwrap_or_default()
+        } else {
+            std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf())
+        };
+        // 去掉 Windows \\?\ 扩展前缀，便于后续用普通分隔符拼接
+        let s = abs.to_string_lossy();
+        let s = s.strip_prefix("\\\\?\\").unwrap_or(&s).to_string();
+        std::env::set_var("GT_ENTRY_DIR", s);
+    }
+
     if watch {
         // --watch：轮询 mtime，变更即重跑（Ctrl-C 退出）
         if lang::is_zh() {
