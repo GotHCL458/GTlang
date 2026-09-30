@@ -3,21 +3,19 @@
 // 浏览器访问本地 8080 端口
 
 fn 首页() -> str {
-    // 静态页面由 @dir 提供；根路径直接重定向到首页文件
     return "<h1>GTLang 服务器</h1><p>请访问 <a href=\"/static/index.html\">/static/index.html</a></p>"
 }
 
 fn 接口() -> str {
-    return json_object("ok=" + json_bool(1) + ";lang=" + json_escape("GTLang") + ";server=" + json_escape("gtc/web"))
+    return json_object("ok=" + json_bool(1) + ";lang=" + json_escape("GTLang"))
 }
 
 fn 问候页() -> str {
-    return html_page("问候", "<h1>你好！</h1><p>这是一个动态路由页面。</p>")
+    return html_page("问候", "<h1>你好，{{param:name}}！</h1><p>这是动态路由注入的参数。</p>")
 }
 
 fn 回显页() -> str {
-    // {{body}} → POST 请求体
-    return html_page("回显", "<h1>收到请求体</h1><pre>{{body}}</pre><p><a href=\"/static/index.html\">返回</a></p>")
+    return html_page("回显", "<h1>收到请求体</h1><pre>{{body}}</pre>")
 }
 
 fn 创建页() -> str {
@@ -25,17 +23,14 @@ fn 创建页() -> str {
 }
 
 fn 请求头页() -> str {
-    // {{header:Name}} → 请求头值
     body := "<h1>请求头</h1><ul>" +
             "<li>User-Agent: {{header:User-Agent}}</li>" +
-            "<li>Host: {{header:Host}}</li>" +
-            "<li>Accept: {{header:Accept}}</li></ul>"
+            "<li>Host: {{header:Host}}</li></ul>"
     return html_page("请求头", body)
 }
 
 fn 计数页() -> str {
-    // {{cookie:n}} → Cookie 值（首次为空）
-    return html_page("Cookie 计数", "<h1>Cookie 演示</h1><p>上次计数：{{cookie:count}}</p><p><a href=\"/count?n=1\">+1</a></p>")
+    return html_page("Cookie 计数", "<h1>Cookie 演示</h1><p>上次计数：{{cookie:count}}</p>")
 }
 
 fn main() {

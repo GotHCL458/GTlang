@@ -202,22 +202,35 @@ fn resolve(routes: &str, method: &str, path: &str, req_body: &str, headers: &[(S
         let m = it.next().unwrap_or("ANY").trim().to_uppercase();
         let p = it.next().unwrap_or("/").trim();
         if m != "ANY" && m != method { continue; }
+        let mut params: Vec<(String, String)> = Vec::new();
         let (matched, dir_rel) = if let Some(prefix) = p.strip_suffix("/*") {
             let ok = path_only.starts_with(prefix);
             (ok, path_only.trim_start_matches(prefix).trim_start_matches('/').to_string())
         } else {
             let ps: Vec<&str> = p.trim_matches('/').split('/').collect();
             let qs: Vec<&str> = path_only.trim_matches('/').split('/').collect();
-            (ps.len() == qs.len() && ps.iter().zip(qs.iter()).all(|(a,b)| a.starts_with(':') || a == b), path_only.trim_start_matches('/').to_string())
+            if ps.len() == qs.len() {
+                let mut ok = true;
+                for (a, b) in ps.iter().zip(qs.iter()) {
+                    if let Some(name) = a.strip_prefix(':') {
+                        params.push((name.to_string(), b.to_string()));
+                    } else if a != b {
+                        ok = false; break;
+                    }
+                }
+                (ok, path_only.trim_start_matches('/').to_string())
+            } else {
+                (false, String::new())
+            }
         };
         if !matched { continue; }
-        return Some(build_hit(rhs, &dir_rel, req_body, headers));
+        return Some(build_hit(rhs, &dir_rel, req_body, headers, &params));
     }
     None
 }
 
 /// 依据"响应描述"构造实际响应
-fn build_hit(rhs: &str, path_rel: &str, req_body: &str, headers: &[(String, String)]) -> RouteHit {
+fn build_hit(rhs: &str, path_rel: &str, req_body: &str, headers: &[(String, String)], params: &[(String, String)]) -> RouteHit {
     let mut rest = rhs.trim();
     let mut status = 200u16;
     let mut content_type = String::from("text/html; charset=utf-8");
@@ -285,6 +298,22 @@ fn build_hit(rhs: &str, path_rel: &str, req_body: &str, headers: &[(String, Stri
             if let Some(j) = s.find("}}") {
                 let name = s[..j].trim();
                 let val = cookie_hdr.split(';').map(|p| p.trim()).find_map(|p| p.split_once('=').filter(|(k, _)| *k == name).map(|(_, v)| v)).unwrap_or("");
+                out.push_str(val);
+                s = &s[j + 2..];
+            } else { out.push_str(s); s = ""; }
+        }
+        out.push_str(s);
+        body = out;
+    }
+    if body.contains("{{param:") {
+        let mut out = String::with_capacity(body.len());
+        let mut s = body.as_str();
+        while let Some(i) = s.find("{{param:") {
+            out.push_str(&s[..i]);
+            s = &s[i + 8..];
+            if let Some(j) = s.find("}}") {
+                let name = s[..j].trim();
+                let val = params.iter().find(|(k, _)| k == name).map(|(_, v)| v.as_str()).unwrap_or("");
                 out.push_str(val);
                 s = &s[j + 2..];
             } else { out.push_str(s); s = ""; }
