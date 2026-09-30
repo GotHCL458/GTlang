@@ -137,76 +137,178 @@ pub extern "C" fn py_query_get(qs: *const c_char, key: *const c_char) -> *mut c_
 
 // ---------- 极简本地 HTTP 服务器 ----------
 
-use std::io::{BufReader, Write};
-use std::net::TcpListener;
+use std::io::{BufReader, Read, Write};
+use std::net::{TcpListener, TcpStream};
 
-/// 读取一行（到 \r\n），返回内容（不含 CRLF）
-fn read_line(reader: &mut BufReader<std::net::TcpStream>) -> String {
+/// 读取一行（到 \n），返回内容（去掉尾部 CRLF）
+fn read_line(reader: &mut BufReader<TcpStream>) -> String {
     let mut s = String::new();
     let _ = reader.read_line(&mut s);
     s.trim_end().to_string()
 }
 
-/// 解析路由文本：每行 "METHOD /path=Body" 或 "ANY /path=Body"
-fn match_route(routes: &str, method: &str, path: &str) -> Option<String> {
+/// 路由匹配结果
+struct RouteHit {
+    status: u16,
+    content_type: String,
+    body: String,
+}
+
+/// 解析路由文本，返回匹配项。
+/// 行格式：\`METHOD /path = 响应\`
+/// 响应可以是：
+///   纯文本（默认 text/html；含 \`$body\` 会被替换为请求体）
+///   \`{status}\` 前缀指定状态码，如 \`{201}\`
+///   \`{Header: value}\` 前缀添加响应头
+///   \`@file:路径\` 返回文件内容（按扩展名猜 Content-Type）
+///   \`@dir:目录\`  返回该目录下的静态文件（按 URL 路径）
+fn resolve(routes: &str, method: &str, path: &str, req_body: &str) -> Option<RouteHit> {
     let path_only = path.split('?').next().unwrap_or(path);
     for line in routes.lines() {
         let line = line.trim();
         if line.is_empty() || line.starts_with('#') { continue; }
-        if let Some(eq) = line.find('=') {
-            let lhs = line[..eq].trim();
-            let body = &line[eq+1..];
-            let mut it = lhs.splitn(2, ' ');
-            let m = it.next().unwrap_or("ANY").trim().to_uppercase();
-            let p = it.next().unwrap_or("/").trim();
-            if m != "ANY" && m != method { continue; }
-            // route_match 语义
+        let eq = match line.find('=') { Some(i) => i, None => continue };
+        let lhs = line[..eq].trim();
+        let rhs = line[eq+1..].trim();
+        let mut it = lhs.splitn(2, ' ');
+        let m = it.next().unwrap_or("ANY").trim().to_uppercase();
+        let p = it.next().unwrap_or("/").trim();
+        if m != "ANY" && m != method { continue; }
+        let (matched, dir_rel) = if let Some(prefix) = p.strip_suffix("/*") {
+            let ok = path_only.starts_with(prefix);
+            (ok, path_only.trim_start_matches(prefix).trim_start_matches('/').to_string())
+        } else {
             let ps: Vec<&str> = p.trim_matches('/').split('/').collect();
             let qs: Vec<&str> = path_only.trim_matches('/').split('/').collect();
-            if ps.len() == qs.len() && ps.iter().zip(qs.iter()).all(|(a,b)| a.starts_with(':') || a == b) {
-                return Some(body.to_string());
-            }
-        }
+            (ps.len() == qs.len() && ps.iter().zip(qs.iter()).all(|(a,b)| a.starts_with(':') || a == b), path_only.trim_start_matches('/').to_string())
+        };
+        if !matched { continue; }
+        return Some(build_hit(rhs, &dir_rel, req_body));
     }
     None
 }
 
-/// web.serve(port, routes) -> int（阻塞；返回 0 或错误码）
-/// routes 每行 "METHOD /path=Response Body"；METHOD 可为 ANY。首行匹配优先。
+/// 依据"响应描述"构造实际响应
+fn build_hit(rhs: &str, path_rel: &str, req_body: &str) -> RouteHit {
+    let mut rest = rhs.trim();
+    let mut status = 200u16;
+    let mut content_type = String::from("text/html; charset=utf-8");
+    loop {
+        if !rest.starts_with('{') { break; }
+        let close = match rest.find('}') { Some(i) => i, None => break };
+        let inner = &rest[1..close];
+        if let Ok(code) = inner.trim().parse::<u16>() {
+            status = code;
+        } else if let Some(colon) = inner.find(':') {
+            let h = inner[..colon].trim().to_lowercase();
+            let v = inner[colon+1..].trim().to_string();
+            if h == "content-type" { content_type = v; }
+        } else {
+            break;
+        }
+        rest = rest[close+1..].trim();
+    }
+    if let Some(f) = rest.strip_prefix("@file:") {
+        let fp = f.trim();
+        if let Ok(bytes) = std::fs::read(fp) {
+            let ct = guess_ct(fp);
+            return RouteHit { status, content_type: ct, body: String::from_utf8_lossy(&bytes).into_owned() };
+        }
+        return RouteHit { status: 404, content_type: "text/plain; charset=utf-8".into(), body: "404 file not found".into() };
+    }
+    if let Some(d) = rest.strip_prefix("@dir:") {
+        let base = d.trim();
+        let rel = path_rel.trim_start_matches('/');
+        if rel.is_empty() || rel.contains("..") {
+            return RouteHit { status: 404, content_type: "text/plain; charset=utf-8".into(), body: "404".into() };
+        }
+        let fp = format!("{}/{}", base.trim_end_matches('/'), rel);
+        if let Ok(bytes) = std::fs::read(&fp) {
+            let ct = guess_ct(&fp);
+            return RouteHit { status, content_type: ct, body: String::from_utf8_lossy(&bytes).into_owned() };
+        }
+        return RouteHit { status: 404, content_type: "text/plain; charset=utf-8".into(), body: "404 file not found".into() };
+    }
+    let body = rest.replace("{{body}}", req_body);
+    RouteHit { status, content_type, body }
+}
+
+/// 由扩展名猜 Content-Type
+fn guess_ct(path: &str) -> String {
+    let lower = path.to_lowercase();
+    let ext = lower.rsplit('.').next().unwrap_or("");
+    let ct = match ext {
+        "html" | "htm" => "text/html; charset=utf-8",
+        "css" => "text/css; charset=utf-8",
+        "js" => "application/javascript; charset=utf-8",
+        "json" => "application/json; charset=utf-8",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "svg" => "image/svg+xml",
+        "txt" | "md" => "text/plain; charset=utf-8",
+        _ => "application/octet-stream",
+    };
+    ct.to_string()
+}
+
+/// 处理单个连接（读请求 → 匹配 → 写响应）
+fn handle_conn(mut s: TcpStream, routes: String) {
+    let mut reader = match s.try_clone() { Ok(r) => BufReader::new(r), Err(_) => return };
+    let req = read_line(&mut reader);
+    let parts: Vec<&str> = req.split(' ').collect();
+    let method = parts.get(0).copied().unwrap_or("GET");
+    let path = parts.get(1).copied().unwrap_or("/");
+    let mut content_len = 0usize;
+    loop {
+        let l = read_line(&mut reader);
+        if l.is_empty() { break; }
+        if let Some((k, v)) = l.split_once(':') {
+            if k.trim().eq_ignore_ascii_case("content-length") {
+                content_len = v.trim().parse::<usize>().unwrap_or(0);
+            }
+        }
+    }
+    let mut body_buf = vec![0u8; content_len];
+    if content_len > 0 {
+        let _ = reader.read_exact(&mut body_buf);
+    }
+    let req_body = String::from_utf8_lossy(&body_buf).into_owned();
+
+    let hit = match resolve(&routes, method, path, &req_body) {
+        Some(h) => h,
+        None => RouteHit { status: 404, content_type: "text/html; charset=utf-8".into(), body: "404 Not Found".into() },
+    };
+    let reason = match hit.status {
+        200 => "OK", 201 => "Created", 204 => "No Content", 301 => "Moved Permanently",
+        302 => "Found", 400 => "Bad Request", 403 => "Forbidden", 404 => "Not Found",
+        405 => "Method Not Allowed", 500 => "Internal Server Error", _ => "OK",
+    };
+    let resp = format!(
+        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        hit.status, reason, hit.content_type, hit.body.as_bytes().len(), hit.body
+    );
+    let _ = s.write_all(resp.as_bytes());
+}
+
+/// web.serve(port, routes) -> int（阻塞；并发处理每个连接）
 #[no_mangle]
 pub extern "C" fn py_serve(port: i64, routes: *const c_char) -> i64 {
     let r = unsafe { to_string(routes) };
     let listener = match TcpListener::bind(("127.0.0.1", port as u16)) { Ok(l) => l, Err(_) => return -1 };
     for stream in listener.incoming() {
-        let mut s = match stream { Ok(s) => s, Err(_) => continue };
-        let mut reader = BufReader::new(s.try_clone().unwrap());
-        let req = read_line(&mut reader);
-        let parts: Vec<&str> = req.split(' ').collect();
-        let method = parts.get(0).copied().unwrap_or("GET");
-        let path = parts.get(1).copied().unwrap_or("/");
-        // 读完 headers
-        loop {
-            let l = read_line(&mut reader);
-            if l.is_empty() { break; }
-        }
-        let (status, body) = match match_route(&r, method, path) {
-            Some(b) => ("200 OK", b),
-            None => ("404 Not Found", "404 Not Found".to_string()),
-        };
-        let resp = format!(
-            "HTTP/1.1 {}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-            status, body.as_bytes().len(), body
-        );
-        let _ = s.write_all(resp.as_bytes());
+        let s = match stream { Ok(s) => s, Err(_) => continue };
+        let routes = r.clone();
+        std::thread::spawn(move || handle_conn(s, routes));
     }
     0
 }
 
-/// web.match_route(routes, method, path) -> str（纯函数，便于测试）
+/// web.match_route(routes, method, path) -> str（纯函数；返回响应体）
 #[no_mangle]
 pub extern "C" fn py_match_route(routes: *const c_char, method: *const c_char, path: *const c_char) -> *mut c_char {
     let r = unsafe { to_string(routes) };
     let m = unsafe { to_string(method) };
     let p = unsafe { to_string(path) };
-    ret_string(match_route(&r, &m, &p).unwrap_or_default())
+    ret_string(resolve(&r, &m, &p, "").map(|h| h.body).unwrap_or_default())
 }

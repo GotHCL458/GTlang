@@ -1,18 +1,23 @@
-// 一个极简网页服务器（基于标准库 web 模块）
+// 一个功能更完整的网页服务器（基于标准库 web 模块）
 // 运行： gtc --run examples/http_server.gt
-// 然后浏览器访问本地 8080 端口
+// 浏览器访问本地 8080 端口
 
 fn 首页() -> str {
     body := "<h1>你好，GTLang！</h1>" +
-            "<p>这是一个用 GTLang 写的网页服务器。</p>" +
-            "<ul><li><a href=\"/about\">关于</a></li>" +
+            "<p>功能演示：</p><ul>" +
+            "<li><a href=\"/about\">静态页面</a></li>" +
             "<li><a href=\"/hello/世界\">动态路由</a></li>" +
-            "<li><a href=\"/api/time\">JSON 接口</a></li></ul>"
+            "<li><a href=\"/api/time\">JSON 接口</a></li>" +
+            "<li><a href=\"/static/index.html\">静态文件服务</a></li>" +
+            "</ul>" +
+            "<form method=\"post\" action=\"/echo\">" +
+            "<input name=\"msg\" value=\"你好\">" +
+            "<button type=\"submit\">POST 回显</button></form>"
     return html_page("GTLang 服务器", body)
 }
 
 fn 关于页() -> str {
-    return html_page("关于", "<h1>关于</h1><p>用 GTLang 标准库 web 模块搭建。</p>")
+    return html_page("关于", "<h1>关于</h1><p>用 GTLang 标准库 web 模块搭建，支持 POST、静态文件、自定义状态码。</p>")
 }
 
 fn 问候页() -> str {
@@ -20,16 +25,29 @@ fn 问候页() -> str {
 }
 
 fn 接口() -> str {
-    // 返回一段 JSON
     return json_object("ok=" + json_bool(1) + ";lang=" + json_escape("GTLang"))
 }
 
+fn 回显页() -> str {
+    // $body 会被替换为 POST 请求体
+    return html_page("回显", "<h1>收到请求体：</h1><pre>{{body}}</pre>")
+}
+
+fn 创建页() -> str {
+    // {201} 自定义状态码
+    return json_object("created=" + json_bool(1))
+}
+
 fn main() {
-    routes := "GET / =" + 首页() + "\n" +
-              "GET /about =" + 关于页() + "\n" +
-              "GET /hello/:name =" + 问候页() + "\n" +
-              "GET /api/time =" + 接口() + "\n" +
-              "ANY / =未找到该页面"
+    routes :=
+        "GET / =" + 首页() + "\n" +
+        "GET /about =" + 关于页() + "\n" +
+        "GET /hello/:name =" + 问候页() + "\n" +
+        "GET /api/time =" + 接口() + "\n" +
+        "POST /echo =" + 回显页() + "\n" +
+        "POST /api/create ={201}{Content-Type: application/json}" + 创建页() + "\n" +
+        "GET /static/* =@dir:examples/static\n" +
+        "ANY / =未找到该页面"
     put("服务器已启动，监听 8080 端口（Ctrl+C 停止）")
     serve(8080, routes)
 }
