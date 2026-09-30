@@ -300,6 +300,11 @@ pub fn binary_result(op: BinOp, a: &Ty, b: &Ty) -> Result<Ty, String> {
         return Ok(Ty::Unknown);
     }
 
+    // 字符串拼接：`+` 连接两个字符串（也允许 str + 非str？此处只做 str+str）
+    if op == BinOp::Add && *a == Ty::Str && *b == Ty::Str {
+        return Ok(Ty::Str);
+    }
+
     if op.is_cmp() {
         // 字符串只支持 == / !=：放在前端拦下，两个后端才能给出同一条诊断
         if *a == Ty::Str && *b == Ty::Str {

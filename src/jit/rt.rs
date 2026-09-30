@@ -1017,3 +1017,17 @@ fn rt_alloc_empty() -> i64 {
     unsafe { *p = 0; }
     p as i64
 }
+
+pub(crate) extern "C" fn rt_str_concat(a: i64, b: i64) -> i64 {
+    let sa = if a == 0 { String::new() } else { unsafe { std::ffi::CStr::from_ptr(a as *const i8).to_string_lossy().into_owned() } };
+    let sb = if b == 0 { String::new() } else { unsafe { std::ffi::CStr::from_ptr(b as *const i8).to_string_lossy().into_owned() } };
+    let mut out = sa;
+    out.push_str(&sb);
+    let bytes = out.into_bytes();
+    let p = unsafe { libc_malloc(bytes.len() + 1) };
+    unsafe {
+        std::ptr::copy_nonoverlapping(bytes.as_ptr(), p, bytes.len());
+        *p.add(bytes.len()) = 0;
+    }
+    p as i64
+}

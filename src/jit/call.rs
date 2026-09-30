@@ -385,6 +385,12 @@ impl FnState {
     }
 
     pub(crate) fn gen_binop(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, op: BinOp, a: &(Value, Ty), c: &(Value, Ty), line: usize) -> Result<(Value, Ty), String> {
+        // 字符串拼接：`str + str`
+        if op == BinOp::Add && a.1 == Ty::Str && c.1 == Ty::Str {
+            let f = self.rt_ref(jit, b, "str_concat")?;
+            let call = b.ins().call(f, &[a.0, c.0]);
+            return Ok((b.inst_results(call)[0], Ty::Str));
+        }
         if op.is_cmp() && (a.1 == Ty::Str || c.1 == Ty::Str) {
             let eq = self.gen_eq(jit, b, a, c)?;
             let r = b.ins().uextend(types::I64, eq);

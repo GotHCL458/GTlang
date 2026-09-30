@@ -229,6 +229,7 @@ impl<'a> Jit<'a> {
         let mut jb = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
         jb.symbol("rt_write", rt_write as *const u8);
         jb.symbol("rt_read_line", rt_read_line as *const u8);
+        jb.symbol("rt_str_concat", rt_str_concat as *const u8);
         jb.symbol("rt_str_char_at", rt_str_char_at as *const u8);
         jb.symbol("rt_str_char_len", rt_str_char_len as *const u8);
         jb.symbol("rt_set_at", rt_set_at as *const u8);
@@ -442,6 +443,7 @@ impl<'a> Jit<'a> {
             ("thread_spawn", "rt_thread_spawn", vec![i64v, i64v, i64v], None),
             ("sleep", "rt_sleep", vec![i64v], None),
             ("read_line", "rt_read_line", vec![], Some(i64v)),
+            ("str_concat", "rt_str_concat", vec![i64v, i64v], Some(i64v)),
             ("str_char_at", "rt_str_char_at", vec![i64v, i64v], Some(i64v)),
             ("str_char_len", "rt_str_char_len", vec![i64v], Some(i64v)),
             ("set_at", "rt_set_at", vec![i64v, i64v], Some(i64v)),

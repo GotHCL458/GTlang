@@ -684,6 +684,13 @@ impl<'a> Codegen<'a> {
         }
 
         if a.ty == Ty::Str && b.ty == Ty::Str {
+            if op == BinOp::Add {
+                // 字符串拼接：调用运行时 gt_str_concat(a, b)
+                self.declare("declare ptr @gt_str_concat(ptr, ptr)");
+                let r = self.new_reg();
+                self.body.push_str(&format!("  {} = call ptr @gt_str_concat(ptr {}, ptr {})\n", r, a.s, b.s));
+                return Ok(Val::new(&Ty::Str, r));
+            }
             if matches!(op, BinOp::Eq | BinOp::Ne) {
                 self.declare("declare i32 @strcmp(ptr, ptr)");
                 let r = self.new_reg();

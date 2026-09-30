@@ -875,3 +875,16 @@ long long gt_map_key_at(GtMap *m, long long i) {
     if (!m || i < 0 || i >= m->len) return 0;
     return m->keys[i];
 }
+
+/* 字符串拼接：返回新分配的 NUL 结尾字符串 */
+char *gt_str_concat(const char *a, const char *b) {
+    if (!a) a = "";
+    if (!b) b = "";
+    size_t la = strlen(a), lb = strlen(b);
+    char *out = (char *)malloc(la + lb + 1);
+    if (!out) return NULL;
+    memcpy(out, a, la);
+    memcpy(out + la, b, lb);
+    out[la + lb] = '\0';
+    return out;
+}
