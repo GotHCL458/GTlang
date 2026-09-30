@@ -1,6 +1,0 @@
-import "std/io.vix"
-
-fn main(): i32 {
-    puts("Import test passed!")
-    return 0
-}
