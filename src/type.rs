@@ -953,7 +953,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "json_dumps" | "json_loads" | "json_dump" | "json_load" | "json_pretty" | "json_minify" | "json_valid" | "json_escape" | "json_number" | "json_number_f" | "json_bool" | "json_null" | "json_array" | "json_object" | "json_unquote" | "toml_loads" | "toml_load" | "toml_dumps"
         | "listdir" | "rmdir" | "basename" | "dirname" | "path_join" | "abspath" | "is_file" | "is_dir" | "getsize"
         | "read_text" | "write_text" | "append_text" | "read_lines" | "write_lines" | "file_exists" | "file_copy" | "file_size" | "file_rename" | "touch" | "args" | "exit" | "glob"
-        | "strip" | "lstrip" | "rstrip" | "index" | "rindex" | "replace_all" | "join_list" | "split_str" | "format" | "isalnum" | "islower" | "isupper" | "partition" | "rpartition" | "contains" | "is_ascii" | "utf8_len"
+        | "strip" | "lstrip" | "rstrip" | "index" | "rindex" | "replace_all" | "join_list" | "split_str" | "format" | "isalnum" | "islower" | "isupper" | "partition" | "rpartition" | "is_ascii" | "utf8_len"
         | "tcp_connect" | "tcp_listen" | "accept" | "net_send" | "net_recv" | "recv_all" | "net_close" | "close_listener" | "peer_addr"
         | "seed" | "random" | "randint" | "randrange" | "uniform" | "choice" | "shuffle" | "sample" | "gauss"
         | "ast_lit_int" | "ast_lit_float" | "ast_lit_str" | "ast_lit_char" | "ast_lit_bool"
