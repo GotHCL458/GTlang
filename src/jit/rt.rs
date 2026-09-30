@@ -402,68 +402,76 @@ pub(crate) extern "C" fn rt_list_remove(l: *mut RtList, i: i64) {
 // ---------- set ----------
 #[repr(C)]
 pub(crate) struct RtSet {
-    data: *mut i64,
-    len: i64,
-    cap: i64,
+    data: Vec<i64>,   // 插入顺序数组（for 遍历按此顺序）
+    ht: Vec<i64>,     // 开放寻址哈希桶：存 data 下标，-1 空；长度 hcap 为 2 的幂
+}
+
+fn rt_set_rehash(s: &mut RtSet, newcap: usize) {
+    let mut ht: Vec<i64> = vec![-1i64; newcap];
+    let mask = (newcap - 1) as u64;
+    for i in 0..s.data.len() {
+        let v = s.data[i];
+        let mut h = (hash64(v as u64) & mask) as usize;
+        while ht[h] != -1 { h = ((h as u64 + 1) & mask) as usize; }
+        ht[h] = i as i64;
+    }
+    s.ht = ht;
+}
+
+unsafe fn rt_set_find(s: *mut RtSet, v: i64) -> i64 {
+    let s = &*s;
+    if s.ht.is_empty() { return -1; }
+    let mask = (s.ht.len() - 1) as u64;
+    let mut h = (hash64(v as u64) & mask) as usize;
+    loop {
+        let idx = s.ht[h];
+        if idx == -1 { return -1; }
+        if s.data[idx as usize] == v { return idx; }
+        h = ((h as u64 + 1) & mask) as usize;
+    }
 }
 
 pub(crate) fn rt_set_new() -> *mut RtSet {
-    let mut v: Vec<i64> = Vec::with_capacity(4);
-    let data = v.as_mut_ptr();
-    std::mem::forget(v);
-    Box::into_raw(Box::new(RtSet { data, len: 0, cap: 4 }))
+    Box::into_raw(Box::new(RtSet { data: Vec::new(), ht: vec![-1i64; 8] }))
 }
 
 pub(crate) extern "C" fn rt_set_insert(s: *mut RtSet, v: i64) {
     if s.is_null() { return; }
     unsafe {
         let s = &mut *s;
-        for i in 0..s.len {
-            if *s.data.add(i as usize) == v { return; }
+        if rt_set_find(s, v) >= 0 { return; }
+        if (s.data.len() + 1) * 10 >= s.ht.len() * 7 {
+            let nc = s.ht.len() * 2;
+            rt_set_rehash(s, nc);
         }
-        if s.len >= s.cap {
-            s.cap *= 2;
-            let mut vec = Vec::from_raw_parts(s.data, s.len as usize, s.len as usize);
-            vec.reserve((s.cap - s.len) as usize);
-            s.data = vec.as_mut_ptr();
-            std::mem::forget(vec);
-        }
-        *s.data.add(s.len as usize) = v;
-        s.len += 1;
+        let idx = s.data.len() as i64;
+        s.data.push(v);
+        let mask = (s.ht.len() - 1) as u64;
+        let mut h = (hash64(v as u64) & mask) as usize;
+        while s.ht[h] != -1 { h = ((h as u64 + 1) & mask) as usize; }
+        s.ht[h] = idx;
     }
 }
 
 pub(crate) extern "C" fn rt_set_has(s: *mut RtSet, v: i64) -> i64 {
     if s.is_null() { return 0; }
-    unsafe {
-        let s = &*s;
-        for i in 0..s.len {
-            if *s.data.add(i as usize) == v { return 1; }
-        }
-        0
-    }
+    unsafe { if rt_set_find(s, v) >= 0 { 1 } else { 0 } }
 }
 
 pub(crate) extern "C" fn rt_set_remove(s: *mut RtSet, v: i64) {
     if s.is_null() { return; }
     unsafe {
         let s = &mut *s;
-        for i in 0..s.len {
-            if *s.data.add(i as usize) == v {
-                let mut k = i;
-                while k + 1 < s.len {
-                    *s.data.add(k as usize) = *s.data.add((k + 1) as usize);
-                    k += 1;
-                }
-                s.len -= 1;
-                return;
-            }
-        }
+        let i = rt_set_find(s, v);
+        if i < 0 { return; }
+        s.data.remove(i as usize);
+        let hcap = s.ht.len();
+        rt_set_rehash(s, hcap);
     }
 }
 
 pub(crate) extern "C" fn rt_set_len(s: *mut RtSet) -> i64 {
-    if s.is_null() { 0 } else { unsafe { (*s).len } }
+    if s.is_null() { 0 } else { unsafe { (*s).data.len() as i64 } }
 }
 
 // ---------- map ----------
@@ -1027,7 +1035,7 @@ pub(crate) extern "C" fn rt_str_char_len(s: i64) -> i64 {
 pub(crate) extern "C" fn rt_set_at(p: i64, i: i64) -> i64 {
     unsafe {
         let s = &*(p as *const RtSet);
-        *s.data.add(i as usize)
+        s.data[i as usize]
     }
 }
 pub(crate) extern "C" fn rt_map_key_at(p: i64, i: i64) -> i64 {

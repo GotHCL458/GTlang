@@ -222,7 +222,14 @@ void gt_flush(void) {
  * ============================================================ */
 
 typedef struct { long long rc; long long *data; long long len; long long cap; } GtList;
-typedef struct { long long rc; long long *data; long long len; long long cap; } GtSet;
+typedef struct {
+    long long rc;
+    long long *data;   /* 插入顺序数组（for 遍历按此顺序） */
+    long long len;
+    long long cap;
+    long long *ht;     /* 开放寻址哈希桶：存 data 下标，-1 表示空；hcap 为 2 的幂 */
+    long long hcap;
+} GtSet;
 typedef struct {
     long long *keys;   /* 插入顺序数组（keys/vals/for 遍历按此顺序） */
     long long *vals;
@@ -316,40 +323,70 @@ void gt_list_remove(GtList *l, long long i) {
 }
 
 /* ---------- set ---------- */
+/* set 哈希：复用 gt_hash64；桶存 data 下标，-1 空 */
+static void gt_set_rehash(GtSet *s, long long newcap) {
+    free(s->ht);
+    s->hcap = newcap;
+    s->ht = (long long *)malloc(sizeof(long long) * (size_t)newcap);
+    for (long long i = 0; i < newcap; i++) s->ht[i] = -1;
+    for (long long i = 0; i < s->len; i++) {
+        unsigned long long mask = (unsigned long long)(newcap - 1);
+        unsigned long long h = gt_hash64((unsigned long long)s->data[i]) & mask;
+        while (s->ht[h] != -1) h = (h + 1) & mask;
+        s->ht[h] = i;
+    }
+}
+static long long gt_set_find(GtSet *s, long long v) {
+    if (s->hcap == 0) return -1;
+    unsigned long long mask = (unsigned long long)(s->hcap - 1);
+    unsigned long long h = gt_hash64((unsigned long long)v) & mask;
+    while (s->ht[h] != -1) {
+        long long idx = s->ht[h];
+        if (s->data[idx] == v) return idx;
+        h = (h + 1) & mask;
+    }
+    return -1;
+}
+
 GtSet *gt_set_new(void) {
     GtSet *s = (GtSet *)malloc(sizeof(GtSet));
     s->cap = 4;
     s->len = 0;
     s->data = (long long *)malloc(sizeof(long long) * (size_t)s->cap);
+    s->hcap = 8;
+    s->ht = (long long *)malloc(sizeof(long long) * (size_t)s->hcap);
+    for (long long i = 0; i < s->hcap; i++) s->ht[i] = -1;
     return s;
 }
 
 void gt_set_insert(GtSet *s, long long v) {
-    for (long long i = 0; i < s->len; i++) {
-        if (s->data[i] == v) return; /* 已存在 */
+    if (gt_set_find(s, v) >= 0) return; /* 已存在 */
+    if ((s->len + 1) * 10 >= s->hcap * 7) {
+        gt_set_rehash(s, s->hcap * 2);
     }
     if (s->len >= s->cap) {
         s->cap *= 2;
         s->data = (long long *)realloc(s->data, sizeof(long long) * (size_t)s->cap);
     }
-    s->data[s->len++] = v;
+    long long idx = s->len;
+    s->data[idx] = v;
+    s->len++;
+    unsigned long long mask = (unsigned long long)(s->hcap - 1);
+    unsigned long long h = gt_hash64((unsigned long long)v) & mask;
+    while (s->ht[h] != -1) h = (h + 1) & mask;
+    s->ht[h] = idx;
 }
 
 long long gt_set_has(GtSet *s, long long v) {
-    for (long long i = 0; i < s->len; i++) {
-        if (s->data[i] == v) return 1;
-    }
-    return 0;
+    return gt_set_find(s, v) >= 0 ? 1 : 0;
 }
 
 void gt_set_remove(GtSet *s, long long v) {
-    for (long long i = 0; i < s->len; i++) {
-        if (s->data[i] == v) {
-            for (long long k = i; k + 1 < s->len; k++) s->data[k] = s->data[k + 1];
-            s->len--;
-            return;
-        }
-    }
+    long long i = gt_set_find(s, v);
+    if (i < 0) return;
+    for (long long k = i; k + 1 < s->len; k++) s->data[k] = s->data[k + 1];
+    s->len--;
+    gt_set_rehash(s, s->hcap); /* 下标全变，重建哈希 */
 }
 
 long long gt_set_len(GtSet *s) { return s ? s->len : 0; }
