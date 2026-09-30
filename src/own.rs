@@ -32,6 +32,8 @@ fn is_copy(t: &Ty) -> bool {
 struct Loan {
     /// 被借用的变量
     var: String,
+    /// 借用的具体字段（`&p.x` 的 `x`）；None 表示整个变量
+    field: Option<String>,
     /// 是否 `&mut`（独占）
     mutable: bool,
     /// 触发点（源码行，用于诊断）
@@ -59,7 +61,7 @@ impl State {
         moved.extend(other.moved.iter().cloned());
         let mut loans = self.loans.clone();
         for l in &other.loans {
-            if !loans.iter().any(|x| x.var == l.var && x.mutable == l.mutable) {
+            if !loans.iter().any(|x| x.var == l.var && x.field == l.field && x.mutable == l.mutable) {
                 loans.push(l.clone());
             }
         }
@@ -175,8 +177,16 @@ impl<'a> Ctx<'a> {
                 cur = self.after_value_use(value, &cur);
                 // `r := &x`：把新创建的借用绑定到持有者 r
                 if let ExprKind::Borrow { mutable, inner } = &value.kind {
-                    if let ExprKind::Ident(v) = &inner.kind {
-                        cur.loans.push(Loan { var: v.clone(), mutable: *mutable, line: value.line, holder: Some(name.clone()) });
+                    match &inner.kind {
+                        ExprKind::Ident(v) => {
+                            cur.loans.push(Loan { var: v.clone(), field: None, mutable: *mutable, line: value.line, holder: Some(name.clone()) });
+                        }
+                        ExprKind::Field(base, fname) => {
+                            if let ExprKind::Ident(v) = &base.kind {
+                                cur.loans.push(Loan { var: v.clone(), field: Some(fname.clone()), mutable: *mutable, line: value.line, holder: Some(name.clone()) });
+                            }
+                        }
+                        _ => {}
                     }
                 }
                 cur.moved.remove(name);
@@ -191,8 +201,8 @@ impl<'a> Ctx<'a> {
                 cur = self.after_value_use(value, &cur);
                 cur.moved.remove(name);
             }
-            Stmt::FieldAssign { obj, value, .. } => {
-                self.forbid_borrowed_write(obj, stmt_line(s), &cur);
+            Stmt::FieldAssign { obj, field, value, .. } => {
+                self.forbid_borrowed_field_write(obj, field, stmt_line(s), &cur);
                 self.use_expr(value, &cur, depth);
                 cur = self.after_value_use(value, &cur);
             }
@@ -250,12 +260,22 @@ impl<'a> Ctx<'a> {
         cur
     }
 
-    /// 若 `name` 当前被借用，则禁止写它。
+    /// 若 `name`（或其字段）当前被借用，则禁止写它。
     fn forbid_borrowed_write(&mut self, name: &str, line: usize, st: &State) {
         if st.loans.iter().any(|l| l.var == name) {
             self.errf(line,
                 "cannot assign to '{}' because it is borrowed",
                 "不能给 '{}' 赋值：它正被借用", name);
+        }
+    }
+
+    /// 若 `name.field` 当前被借用，则禁止写该字段。
+    fn forbid_borrowed_field_write(&mut self, name: &str, field: &str, line: usize, st: &State) {
+        let probe = Loan { var: name.to_string(), field: Some(field.to_string()), mutable: true, line: 0, holder: None };
+        if st.loans.iter().any(|l| loans_conflict(l, &probe)) {
+            self.errf(line,
+                "cannot assign to '{}.{}' because it is borrowed",
+                "不能给 '{}.{}' 赋值：它正被借用", &format!("{}.{}", name, field));
         }
     }
 
@@ -274,23 +294,36 @@ impl<'a> Ctx<'a> {
                 }
             }
             ExprKind::Borrow { mutable, inner } => {
-                if let ExprKind::Ident(n) = &inner.kind {
+                // 目标：整变量或某字段（字段级借用精度）
+                let (base, field) = match &inner.kind {
+                    ExprKind::Ident(n) => (Some(n.clone()), None),
+                    ExprKind::Field(b, fname) => match &b.kind {
+                        ExprKind::Ident(n) => (Some(n.clone()), Some(fname.clone())),
+                        _ => (None, None),
+                    },
+                    _ => (None, None),
+                };
+                if let Some(n) = &base {
                     if st.moved.contains(n) {
                         self.errf(e.line, "cannot borrow moved value '{}'", "不能借用已移动的值 '{}'", n);
                     }
-                    if *mutable {
-                        // &mut 与任何现存借用冲突
-                        if st.loans.iter().any(|l| l.var == *n) {
+                    let probe = Loan { var: n.clone(), field: field.clone(), mutable: *mutable, line: e.line, holder: None };
+                    let conflict = st.loans.iter().any(|l| {
+                        if !loans_conflict(l, &probe) { return false; }
+                        // & 与 &（同字段/整变量）共享可共存；只有涉及 &mut 才冲突
+                        if !*mutable && !l.mutable { return false; }
+                        true
+                    });
+                    if conflict {
+                        let what = match &field { Some(f) => format!("{}.{}", n, f), None => n.clone() };
+                        if *mutable {
                             self.errf(e.line,
                                 "cannot borrow '{}' as mutable: already borrowed",
-                                "不能对 '{}' 做 &mut 借用：它已被借用", n);
-                        }
-                    } else {
-                        // & 与 &mut 冲突，与 & 共享可共存
-                        if st.loans.iter().any(|l| l.var == *n && l.mutable) {
+                                "不能对 '{}' 做 &mut 借用：它已被借用", &what);
+                        } else {
                             self.errf(e.line,
                                 "cannot borrow '{}' as shared: already mutably borrowed",
-                                "不能对 '{}' 做 & 借用：它已被 &mut 独占借用", n);
+                                "不能对 '{}' 做 & 借用：它已被 &mut 独占借用", &what);
                         }
                     }
                 } else {
@@ -472,5 +505,20 @@ fn stmt_line(s: &Stmt) -> usize {
         Stmt::Try { line, .. } => *line,
         Stmt::Throw(_, line) => *line,
         Stmt::Asm { line, .. } => *line,
+    }
+}
+
+/// 两个借用是否冲突（字段级精度）：
+///   - 变量不同 → 不冲突
+///   - 任一为"整变量借用"（field=None）→ 冲突
+///   - 字段不同 → 不冲突
+///   - 字段相同且任一为 &mut → 冲突；两个 &mut 也冲突
+///   - 字段相同且都是共享 → 不冲突
+fn loans_conflict(a: &Loan, b: &Loan) -> bool {
+    if a.var != b.var { return false; }
+    match (&a.field, &b.field) {
+        (None, _) | (_, None) => true, // 整变量借用与任意借用冲突
+        (Some(fa), Some(fb)) if fa == fb => a.mutable || b.mutable,
+        _ => false, // 不同字段，互不影响
     }
 }
