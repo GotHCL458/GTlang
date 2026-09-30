@@ -1,3 +1,57 @@
 <!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>静态文件</title></head>
-<body><h1>这是通过静态文件服务返回的 index.html</h1></body></html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GTLang 网页服务器</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header>
+  <h1>🚀 GTLang 网页服务器</h1>
+  <p class="sub">由 GTLang 标准库 <code>web</code> 模块驱动</p>
+</header>
+
+<main>
+  <section class="card">
+    <h2>功能演示</h2>
+    <ul>
+      <li><a href="/api/time">JSON 接口</a></li>
+      <li><a href="/hello/GTLang">动态路由</a></li>
+      <li><a href="/headers">查看请求头</a></li>
+      <li><a href="/count">Cookie 计数</a></li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2>POST 回显</h2>
+    <form method="post" action="/echo">
+      <input name="msg" value="你好，GTLang！" autocomplete="off">
+      <button type="submit">发送</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>前端 JavaScript</h2>
+    <p>当前时间：<span id="clock">--:--:--</span></p>
+    <button id="ping">调用 /api/time</button>
+    <pre id="out">（点击按钮发起请求）</pre>
+  </section>
+</main>
+
+<footer>GTLang · 双后端编译器 / 解释器</footer>
+
+<script>
+  function tick() {
+    document.getElementById('clock').textContent = new Date().toLocaleTimeString('zh-CN');
+  }
+  setInterval(tick, 1000); tick();
+
+  document.getElementById('ping').addEventListener('click', async () => {
+    const r = await fetch('/api/time');
+    const t = await r.text();
+    document.getElementById('out').textContent = 'HTTP ' + r.status + '\n' + t;
+  });
+</script>
+</body>
+</html>

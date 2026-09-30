@@ -162,9 +162,37 @@ struct RouteHit {
 ///   \`{Header: value}\` 前缀添加响应头
 ///   \`@file:路径\` 返回文件内容（按扩展名猜 Content-Type）
 ///   \`@dir:目录\`  返回该目录下的静态文件（按 URL 路径）
-fn resolve(routes: &str, method: &str, path: &str, req_body: &str) -> Option<RouteHit> {
-    let path_only = path.split('?').next().unwrap_or(path);
+/// 把 routes 文本切成"路由记录"：一条记录从"行首形如 METHOD /path ="开始，
+/// 直到下一条这样的行之前（因此响应体可以含换行，例如多行 HTML）。
+fn split_routes(routes: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let mut cur = String::new();
     for line in routes.lines() {
+        let is_start = {
+            let t = line.trim_start();
+            let mut it = t.splitn(3, ' ');
+            match (it.next(), it.next()) {
+                (Some(m), Some(p)) => {
+                    let m_up = m.to_uppercase();
+                    let is_method = m_up == "GET" || m_up == "POST" || m_up == "PUT" || m_up == "DELETE" || m_up == "PATCH" || m_up == "HEAD" || m_up == "OPTIONS" || m_up == "ANY";
+                    is_method && (p.starts_with('/') || p.starts_with('*'))
+                }
+                _ => false,
+            }
+        };
+        if is_start && !cur.is_empty() {
+            out.push(std::mem::take(&mut cur));
+        }
+        if !cur.is_empty() { cur.push('\n'); }
+        cur.push_str(line);
+    }
+    if !cur.is_empty() { out.push(cur); }
+    out
+}
+
+fn resolve(routes: &str, method: &str, path: &str, req_body: &str, headers: &[(String, String)]) -> Option<RouteHit> {
+    let path_only = path.split('?').next().unwrap_or(path);
+    for line in split_routes(routes) {
         let line = line.trim();
         if line.is_empty() || line.starts_with('#') { continue; }
         let eq = match line.find('=') { Some(i) => i, None => continue };
@@ -183,13 +211,13 @@ fn resolve(routes: &str, method: &str, path: &str, req_body: &str) -> Option<Rou
             (ps.len() == qs.len() && ps.iter().zip(qs.iter()).all(|(a,b)| a.starts_with(':') || a == b), path_only.trim_start_matches('/').to_string())
         };
         if !matched { continue; }
-        return Some(build_hit(rhs, &dir_rel, req_body));
+        return Some(build_hit(rhs, &dir_rel, req_body, headers));
     }
     None
 }
 
 /// 依据"响应描述"构造实际响应
-fn build_hit(rhs: &str, path_rel: &str, req_body: &str) -> RouteHit {
+fn build_hit(rhs: &str, path_rel: &str, req_body: &str, headers: &[(String, String)]) -> RouteHit {
     let mut rest = rhs.trim();
     let mut status = 200u16;
     let mut content_type = String::from("text/html; charset=utf-8");
@@ -229,7 +257,41 @@ fn build_hit(rhs: &str, path_rel: &str, req_body: &str) -> RouteHit {
         }
         return RouteHit { status: 404, content_type: "text/plain; charset=utf-8".into(), body: "404 file not found".into() };
     }
-    let body = rest.replace("{{body}}", req_body);
+    // 占位替换：{{body}} → 请求体；{{header:Name}} → 请求头；{{cookie:Name}} → Cookie 值
+    let mut body = rest.replace("{{body}}", req_body);
+    if body.contains("{{header:") {
+        let mut out = String::with_capacity(body.len());
+        let mut s = body.as_str();
+        while let Some(i) = s.find("{{header:") {
+            out.push_str(&s[..i]);
+            s = &s[i + 9..];
+            if let Some(j) = s.find("}}") {
+                let name = s[..j].trim();
+                let val = headers.iter().find(|(k, _)| k.eq_ignore_ascii_case(name)).map(|(_, v)| v.as_str()).unwrap_or("");
+                out.push_str(val);
+                s = &s[j + 2..];
+            } else { out.push_str(s); s = ""; }
+        }
+        out.push_str(s);
+        body = out;
+    }
+    if body.contains("{{cookie:") {
+        let cookie_hdr = headers.iter().find(|(k, _)| k.eq_ignore_ascii_case("cookie")).map(|(_, v)| v.as_str()).unwrap_or("");
+        let mut out = String::with_capacity(body.len());
+        let mut s = body.as_str();
+        while let Some(i) = s.find("{{cookie:") {
+            out.push_str(&s[..i]);
+            s = &s[i + 9..];
+            if let Some(j) = s.find("}}") {
+                let name = s[..j].trim();
+                let val = cookie_hdr.split(';').map(|p| p.trim()).find_map(|p| p.split_once('=').filter(|(k, _)| *k == name).map(|(_, v)| v)).unwrap_or("");
+                out.push_str(val);
+                s = &s[j + 2..];
+            } else { out.push_str(s); s = ""; }
+        }
+        out.push_str(s);
+        body = out;
+    }
     RouteHit { status, content_type, body }
 }
 
@@ -252,43 +314,56 @@ fn guess_ct(path: &str) -> String {
     ct.to_string()
 }
 
-/// 处理单个连接（读请求 → 匹配 → 写响应）
+/// 处理单个连接：支持 keep-alive（同一连接处理多个请求）
 fn handle_conn(mut s: TcpStream, routes: String) {
     let mut reader = match s.try_clone() { Ok(r) => BufReader::new(r), Err(_) => return };
-    let req = read_line(&mut reader);
-    let parts: Vec<&str> = req.split(' ').collect();
-    let method = parts.get(0).copied().unwrap_or("GET");
-    let path = parts.get(1).copied().unwrap_or("/");
-    let mut content_len = 0usize;
     loop {
-        let l = read_line(&mut reader);
-        if l.is_empty() { break; }
-        if let Some((k, v)) = l.split_once(':') {
-            if k.trim().eq_ignore_ascii_case("content-length") {
-                content_len = v.trim().parse::<usize>().unwrap_or(0);
+        let req = read_line(&mut reader);
+        if req.is_empty() { break; }  // 客户端关闭
+        let parts: Vec<&str> = req.split(' ').collect();
+        let method = parts.get(0).copied().unwrap_or("GET").to_string();
+        let path = parts.get(1).copied().unwrap_or("/").to_string();
+        let mut content_len = 0usize;
+        let mut headers: Vec<(String, String)> = Vec::new();
+        let mut keep_alive = true;
+        loop {
+            let l = read_line(&mut reader);
+            if l.is_empty() { break; }
+            if let Some((k, v)) = l.split_once(':') {
+                let k = k.trim().to_string();
+                let v = v.trim().to_string();
+                if k.eq_ignore_ascii_case("content-length") {
+                    content_len = v.parse::<usize>().unwrap_or(0);
+                }
+                if k.eq_ignore_ascii_case("connection") && v.eq_ignore_ascii_case("close") {
+                    keep_alive = false;
+                }
+                headers.push((k, v));
             }
         }
-    }
-    let mut body_buf = vec![0u8; content_len];
-    if content_len > 0 {
-        let _ = reader.read_exact(&mut body_buf);
-    }
-    let req_body = String::from_utf8_lossy(&body_buf).into_owned();
+        let mut body_buf = vec![0u8; content_len];
+        if content_len > 0 {
+            let _ = reader.read_exact(&mut body_buf);
+        }
+        let req_body = String::from_utf8_lossy(&body_buf).into_owned();
 
-    let hit = match resolve(&routes, method, path, &req_body) {
-        Some(h) => h,
-        None => RouteHit { status: 404, content_type: "text/html; charset=utf-8".into(), body: "404 Not Found".into() },
-    };
-    let reason = match hit.status {
-        200 => "OK", 201 => "Created", 204 => "No Content", 301 => "Moved Permanently",
-        302 => "Found", 400 => "Bad Request", 403 => "Forbidden", 404 => "Not Found",
-        405 => "Method Not Allowed", 500 => "Internal Server Error", _ => "OK",
-    };
-    let resp = format!(
-        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-        hit.status, reason, hit.content_type, hit.body.as_bytes().len(), hit.body
-    );
-    let _ = s.write_all(resp.as_bytes());
+        let hit = match resolve(&routes, &method, &path, &req_body, &headers) {
+            Some(h) => h,
+            None => RouteHit { status: 404, content_type: "text/html; charset=utf-8".into(), body: "404 Not Found".into() },
+        };
+        let reason = match hit.status {
+            200 => "OK", 201 => "Created", 204 => "No Content", 301 => "Moved Permanently",
+            302 => "Found", 400 => "Bad Request", 403 => "Forbidden", 404 => "Not Found",
+            405 => "Method Not Allowed", 500 => "Internal Server Error", _ => "OK",
+        };
+        let conn = if keep_alive { "keep-alive" } else { "close" };
+        let resp = format!(
+            "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: {}\r\n\r\n{}",
+            hit.status, reason, hit.content_type, hit.body.as_bytes().len(), conn, hit.body
+        );
+        if s.write_all(resp.as_bytes()).is_err() { break; }
+        if !keep_alive { break; }
+    }
 }
 
 /// web.serve(port, routes) -> int（阻塞；并发处理每个连接）
@@ -310,5 +385,5 @@ pub extern "C" fn py_match_route(routes: *const c_char, method: *const c_char, p
     let r = unsafe { to_string(routes) };
     let m = unsafe { to_string(method) };
     let p = unsafe { to_string(path) };
-    ret_string(resolve(&r, &m, &p, "").map(|h| h.body).unwrap_or_default())
+    ret_string(resolve(&r, &m, &p, "", &[]).map(|h| h.body).unwrap_or_default())
 }
