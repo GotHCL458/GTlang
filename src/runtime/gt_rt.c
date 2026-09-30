@@ -224,11 +224,45 @@ void gt_flush(void) {
 typedef struct { long long rc; long long *data; long long len; long long cap; } GtList;
 typedef struct { long long rc; long long *data; long long len; long long cap; } GtSet;
 typedef struct {
-    long long *keys;
+    long long *keys;   /* 插入顺序数组（keys/vals/for 遍历按此顺序） */
     long long *vals;
     long long len;
     long long cap;
+    long long *ht;     /* 开放寻址哈希桶：存 keys 下标，-1 表示空；大小 hcap 为 2 的幂 */
+    long long hcap;
 } GtMap;
+
+/* map 哈希：64 位键 → 桶下标（Fibonacci hashing） */
+static unsigned long long gt_hash64(unsigned long long x) {
+    x ^= x >> 33;
+    x *= 0xff51afd7ed558ccdULL;
+    x ^= x >> 33;
+    x *= 0xc4ceb9fe1a85ec53ULL;
+    x ^= x >> 33;
+    return x;
+}
+static void gt_map_rehash(GtMap *m, long long newcap) {
+    free(m->ht);
+    m->hcap = newcap;
+    m->ht = (long long *)malloc(sizeof(long long) * (size_t)newcap);
+    for (long long i = 0; i < newcap; i++) m->ht[i] = -1;
+    for (long long i = 0; i < m->len; i++) {
+        unsigned long long h = gt_hash64((unsigned long long)m->keys[i]) & (unsigned long long)(newcap - 1);
+        while (m->ht[h] != -1) h = (h + 1) & (unsigned long long)(newcap - 1);
+        m->ht[h] = i;
+    }
+}
+static long long gt_map_find(GtMap *m, long long k) {
+    if (m->hcap == 0) return -1;
+    unsigned long long mask = (unsigned long long)(m->hcap - 1);
+    unsigned long long h = gt_hash64((unsigned long long)k) & mask;
+    while (m->ht[h] != -1) {
+        long long idx = m->ht[h];
+        if (m->keys[idx] == k) return idx;
+        h = (h + 1) & mask;
+    }
+    return -1;
+}
 
 /* ---------- list ---------- */
 GtList *gt_list_new(void) {
@@ -327,49 +361,56 @@ GtMap *gt_map_new(void) {
     m->len = 0;
     m->keys = (long long *)malloc(sizeof(long long) * (size_t)m->cap);
     m->vals = (long long *)malloc(sizeof(long long) * (size_t)m->cap);
+    m->hcap = 8;
+    m->ht = (long long *)malloc(sizeof(long long) * (size_t)m->hcap);
+    for (long long i = 0; i < m->hcap; i++) m->ht[i] = -1;
     return m;
 }
 
-static long long gt_map_index(GtMap *m, long long k) {
-    for (long long i = 0; i < m->len; i++) {
-        if (m->keys[i] == k) return i;
-    }
-    return -1;
-}
-
 void gt_map_insert(GtMap *m, long long k, long long v) {
-    long long i = gt_map_index(m, k);
+    long long i = gt_map_find(m, k);
     if (i >= 0) {
         m->vals[i] = v;
         return;
+    }
+    /* 装载因子 > 0.7 时扩容并重建哈希 */
+    if ((m->len + 1) * 10 >= m->hcap * 7) {
+        gt_map_rehash(m, m->hcap * 2);
     }
     if (m->len >= m->cap) {
         m->cap *= 2;
         m->keys = (long long *)realloc(m->keys, sizeof(long long) * (size_t)m->cap);
         m->vals = (long long *)realloc(m->vals, sizeof(long long) * (size_t)m->cap);
     }
-    m->keys[m->len] = k;
-    m->vals[m->len] = v;
+    long long idx = m->len;
+    m->keys[idx] = k;
+    m->vals[idx] = v;
     m->len++;
+    unsigned long long mask = (unsigned long long)(m->hcap - 1);
+    unsigned long long h = gt_hash64((unsigned long long)k) & mask;
+    while (m->ht[h] != -1) h = (h + 1) & mask;
+    m->ht[h] = idx;
 }
 
 long long gt_map_get(GtMap *m, long long k) {
-    long long i = gt_map_index(m, k);
+    long long i = gt_map_find(m, k);
     return i >= 0 ? m->vals[i] : 0;
 }
 
 long long gt_map_has(GtMap *m, long long k) {
-    return gt_map_index(m, k) >= 0 ? 1 : 0;
+    return gt_map_find(m, k) >= 0 ? 1 : 0;
 }
 
 void gt_map_remove(GtMap *m, long long k) {
-    long long i = gt_map_index(m, k);
+    long long i = gt_map_find(m, k);
     if (i < 0) return;
     for (long long j = i; j + 1 < m->len; j++) {
         m->keys[j] = m->keys[j + 1];
         m->vals[j] = m->vals[j + 1];
     }
     m->len--;
+    /* 删除后重建哈希（下标全变） */
+    gt_map_rehash(m, m->hcap);
 }
 
 long long gt_map_len(GtMap *m) { return m ? m->len : 0; }

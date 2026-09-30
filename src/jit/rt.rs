@@ -469,60 +469,83 @@ pub(crate) extern "C" fn rt_set_len(s: *mut RtSet) -> i64 {
 // ---------- map ----------
 #[repr(C)]
 pub(crate) struct RtMap {
-    keys: *mut i64,
-    vals: *mut i64,
-    len: i64,
-    cap: i64,
+    keys: Vec<i64>,   // 插入顺序数组（for 遍历按此顺序）
+    vals: Vec<i64>,
+    ht: Vec<i64>,     // 开放寻址哈希桶：存 keys 下标，-1 空；长度 hcap 为 2 的幂
+}
+
+fn hash64(mut x: u64) -> u64 {
+    x ^= x >> 33;
+    x = x.wrapping_mul(0xff51afd7ed558ccd);
+    x ^= x >> 33;
+    x = x.wrapping_mul(0xc4ceb9fe1a85ec53);
+    x ^= x >> 33;
+    x
+}
+
+pub(crate) fn rt_map_rehash(m: &mut RtMap, newcap: usize) {
+    let mut ht: Vec<i64> = vec![-1i64; newcap];
+    let mask = (newcap - 1) as u64;
+    for i in 0..m.keys.len() {
+        let k = m.keys[i];
+        let mut h = (hash64(k as u64) & mask) as usize;
+        while ht[h] != -1 { h = ((h as u64 + 1) & mask) as usize; }
+        ht[h] = i as i64;
+    }
+    m.ht = ht;
+}
+
+pub(crate) unsafe fn rt_map_find(m: *mut RtMap, k: i64) -> i64 {
+    let m = &*m;
+    if m.ht.is_empty() { return -1; }
+    let mask = (m.ht.len() - 1) as u64;
+    let mut h = (hash64(k as u64) & mask) as usize;
+    loop {
+        let idx = m.ht[h];
+        if idx == -1 { return -1; }
+        if m.keys[idx as usize] == k { return idx; }
+        h = ((h as u64 + 1) & mask) as usize;
+    }
 }
 
 pub(crate) fn rt_map_new() -> *mut RtMap {
-    let mut k: Vec<i64> = Vec::with_capacity(4);
-    let mut v: Vec<i64> = Vec::with_capacity(4);
-    let (kp, vp) = (k.as_mut_ptr(), v.as_mut_ptr());
-    std::mem::forget(k);
-    std::mem::forget(v);
-    Box::into_raw(Box::new(RtMap { keys: kp, vals: vp, len: 0, cap: 4 }))
+    Box::into_raw(Box::new(RtMap { keys: Vec::new(), vals: Vec::new(), ht: vec![-1i64; 8] }))
 }
 
 pub(crate) unsafe fn rt_map_index(m: *mut RtMap, k: i64) -> i64 {
-    let m = &*m;
-    for i in 0..m.len {
-        if *m.keys.add(i as usize) == k { return i; }
-    }
-    -1
+    rt_map_find(m, k)
 }
 
 pub(crate) extern "C" fn rt_map_insert(m: *mut RtMap, k: i64, v: i64) {
     if m.is_null() { return; }
     unsafe {
-        let idx = rt_map_index(m, k);
         let m = &mut *m;
-        if idx >= 0 {
-            *m.vals.add(idx as usize) = v;
+        let found = rt_map_find(m, k);
+        if found >= 0 {
+            m.vals[found as usize] = v;
             return;
         }
-        if m.len >= m.cap {
-            m.cap *= 2;
-            let mut kv = Vec::from_raw_parts(m.keys, m.len as usize, m.len as usize);
-            kv.reserve((m.cap - m.len) as usize);
-            m.keys = kv.as_mut_ptr();
-            std::mem::forget(kv);
-            let mut vv = Vec::from_raw_parts(m.vals, m.len as usize, m.len as usize);
-            vv.reserve((m.cap - m.len) as usize);
-            m.vals = vv.as_mut_ptr();
-            std::mem::forget(vv);
+        // 装载因子 > 0.7 → 扩容重建哈希
+        if (m.keys.len() + 1) * 10 >= m.ht.len() * 7 {
+            let newcap = m.ht.len() * 2;
+            rt_map_rehash(m, newcap);
         }
-        *m.keys.add(m.len as usize) = k;
-        *m.vals.add(m.len as usize) = v;
-        m.len += 1;
+        let idx = m.keys.len() as i64;
+        m.keys.push(k);
+        m.vals.push(v);
+        let mask = (m.ht.len() - 1) as u64;
+        let mut h = (hash64(k as u64) & mask) as usize;
+        while m.ht[h] != -1 { h = ((h as u64 + 1) & mask) as usize; }
+        m.ht[h] = idx;
     }
 }
 
 pub(crate) extern "C" fn rt_map_get(m: *mut RtMap, k: i64) -> i64 {
     if m.is_null() { return 0; }
     unsafe {
-        let i = rt_map_index(m, k);
-        if i >= 0 { *(*m).vals.add(i as usize) } else { 0 }
+        let i = rt_map_find(m, k);
+        let mm: &RtMap = &*m;
+        if i >= 0 { mm.vals[i as usize] } else { 0 }
     }
 }
 
@@ -534,21 +557,20 @@ pub(crate) extern "C" fn rt_map_has(m: *mut RtMap, k: i64) -> i64 {
 pub(crate) extern "C" fn rt_map_remove(m: *mut RtMap, k: i64) {
     if m.is_null() { return; }
     unsafe {
-        let i = rt_map_index(m, k);
+        let i = rt_map_find(m, k);
         if i < 0 { return; }
         let m = &mut *m;
-        let mut j = i;
-        while j + 1 < m.len {
-            *m.keys.add(j as usize) = *m.keys.add((j + 1) as usize);
-            *m.vals.add(j as usize) = *m.vals.add((j + 1) as usize);
-            j += 1;
-        }
-        m.len -= 1;
+        let j = i as usize;
+        m.keys.remove(j);
+        m.vals.remove(j);
+        // 下标全变 → 重建哈希
+        let hcap = m.ht.len();
+        rt_map_rehash(m, hcap);
     }
 }
 
 pub(crate) extern "C" fn rt_map_len(m: *mut RtMap) -> i64 {
-    if m.is_null() { 0 } else { unsafe { (*m).len } }
+    if m.is_null() { 0 } else { unsafe { (*m).keys.len() as i64 } }
 }
 
 pub(crate) extern "C" fn rt_map_keys(m: *mut RtMap) -> *mut RtList {
@@ -556,8 +578,8 @@ pub(crate) extern "C" fn rt_map_keys(m: *mut RtMap) -> *mut RtList {
     if m.is_null() { return out; }
     unsafe {
         let m = &*m;
-        for i in 0..m.len {
-            rt_list_push(out, *m.keys.add(i as usize));
+        for i in 0..m.keys.len() {
+            rt_list_push(out, m.keys[i]);
         }
     }
     out
@@ -568,8 +590,8 @@ pub(crate) extern "C" fn rt_map_values(m: *mut RtMap) -> *mut RtList {
     if m.is_null() { return out; }
     unsafe {
         let m = &*m;
-        for i in 0..m.len {
-            rt_list_push(out, *m.vals.add(i as usize));
+        for i in 0..m.vals.len() {
+            rt_list_push(out, m.vals[i]);
         }
     }
     out
@@ -1011,7 +1033,7 @@ pub(crate) extern "C" fn rt_set_at(p: i64, i: i64) -> i64 {
 pub(crate) extern "C" fn rt_map_key_at(p: i64, i: i64) -> i64 {
     unsafe {
         let m = &*(p as *const RtMap);
-        *m.keys.add(i as usize)
+        m.keys[i as usize]
     }
 }
 fn rt_alloc_empty() -> i64 {
