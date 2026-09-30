@@ -1244,6 +1244,20 @@ impl Parser {
                 }, line);
                 continue;
             }
+            // 管道：`x |> f` → `f(x)`（最低优先级，左结合）
+            if self.at_punct("|>") && min_prec == 0 {
+                let line = self.line();
+                self.bump();
+                let rhs = self.expr(1)?;
+                // 右值应是"函数调用样式"：`f` 或 `f(a, b)` → 把 lhs 作为首参插入
+                let call = match rhs.kind {
+                    ExprKind::Call(name, mut args) => { let mut v = vec![lhs]; v.append(&mut args); Expr::new(ExprKind::Call(name, v), line) }
+                    ExprKind::Ident(name) => Expr::new(ExprKind::Call(name, vec![lhs]), line),
+                    other => Expr::new(other, line), // 非调用：保持（类型检查会报错）
+                };
+                lhs = call;
+                continue;
+            }
             // 成员测试：`k in container`（低优先级，等价 has(container, k)）
             if self.at_ident("in") && min_prec <= 3 {
                 let line = self.line();
