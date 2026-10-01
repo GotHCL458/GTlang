@@ -140,6 +140,8 @@ pub(crate) const STDLIB_NAMES: &[&str] = &[
     "strip", "lstrip", "rstrip", "index", "rindex", "replace_all", "join_list", "split_str", "format", "isalnum", "islower", "isupper", "partition", "rpartition", "contains", "is_ascii", "utf8_len",
     // net
     "tcp_connect", "tcp_listen", "accept", "net_send", "net_recv", "recv_all", "net_close", "close_listener", "peer_addr",
+    // sql
+    "sql_open", "sql_close", "sql_exec", "sql_query", "sql_run", "sql_error",
 ];
 
 /// JIT 运行时也要开启控制台 VT，否则 Windows 控制台不认 ANSI 转义

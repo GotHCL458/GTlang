@@ -841,6 +841,13 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "html_page" => f("py_html_page", Ty::Str, &[Ty::Str, Ty::Str]),
         "route_match" => f("py_route_match", Ty::Str, &[Ty::Str, Ty::Str]),
         "query_get" => f("py_query_get", Ty::Str, &[Ty::Str, Ty::Str]),
+        // ---- sql (SQLite) ----
+        "sql_open" => f("py_sql_open", Ty::I64, &[Ty::Str]),
+        "sql_close" => f("py_sql_close", Ty::Void, &[Ty::I64]),
+        "sql_exec" => f("py_sql_exec", Ty::I64, &[Ty::I64, Ty::Str]),
+        "sql_query" => f("py_sql_query", Ty::Str, &[Ty::I64, Ty::Str]),
+        "sql_run" => f("py_sql_run", Ty::I64, &[Ty::I64, Ty::Str]),
+        "sql_error" => f("py_sql_error", Ty::Str, &[Ty::I64]),
         "serve" => f("py_serve", Ty::I64, &[Ty::I64, Ty::Str]),
         "match_route" => f("py_match_route", Ty::Str, &[Ty::Str, Ty::Str, Ty::Str]),
         // ---- ast（纯 C，gto_ 前缀）----
@@ -955,6 +962,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "read_text" | "write_text" | "append_text" | "read_lines" | "write_lines" | "file_exists" | "file_copy" | "file_size" | "file_rename" | "touch" | "args" | "exit" | "glob"
         | "strip" | "lstrip" | "rstrip" | "index" | "rindex" | "replace_all" | "join_list" | "split_str" | "format" | "isalnum" | "islower" | "isupper" | "partition" | "rpartition" | "is_ascii" | "utf8_len"
         | "tcp_connect" | "tcp_listen" | "accept" | "net_send" | "net_recv" | "recv_all" | "net_close" | "close_listener" | "peer_addr"
+        | "sql_open" | "sql_close" | "sql_exec" | "sql_query" | "sql_run" | "sql_error"
         | "seed" | "random" | "randint" | "randrange" | "uniform" | "choice" | "shuffle" | "sample" | "gauss"
         | "ast_lit_int" | "ast_lit_float" | "ast_lit_str" | "ast_lit_char" | "ast_lit_bool"
         | "ast_id" | "ast_binary" | "ast_unary" | "ast_call" | "ast_add_arg"

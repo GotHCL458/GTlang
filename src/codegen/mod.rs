@@ -44,6 +44,7 @@ pub fn generate(prog: &Program, an: &Analysis, file: &str) -> Result<String, Str
         fns: HashMap::new(),
         consts: &an.consts,
         cur_ret: Ty::Void,
+        is_main_fn: false,
         terminated: false,
         break_label: None,
         continue_label: None,
@@ -106,6 +107,8 @@ struct Codegen<'a> {
     pub(crate) fns: HashMap<String, FnInfo>,
     pub(crate) consts: &'a HashMap<String, ConstVal>,
     pub(crate) cur_ret: Ty,
+    /// 当前函数是否为 main（main 的 IR 签名是 i32，return 需生成 ret i32 0）
+    pub(crate) is_main_fn: bool,
     pub(crate) terminated: bool,
     pub(crate) break_label: Option<String>,
     pub(crate) continue_label: Option<String>,
@@ -295,6 +298,7 @@ impl<'a> Codegen<'a> {
         self.scopes.clear();
         self.scopes.push(HashMap::new());
         self.cur_ret = info.ret.clone();
+        self.is_main_fn = is_main;
         self.terminated = false;
         self.break_label = None;
         self.continue_label = None;
@@ -898,7 +902,11 @@ impl<'a> Codegen<'a> {
                 self.emit_label(&lend);
             }
             Stmt::Return(e, _) => {
-                if self.cur_ret == Ty::Void {
+                if self.is_main_fn {
+                    // main 的 IR 签名是 i32：无论 return 有无值都返回 0
+                    self.body.push_str("  ret i32 0\n");
+                    self.terminated = true;
+                } else if self.cur_ret == Ty::Void {
                     self.body.push_str("  ret void\n");
                 } else {
                     let v = match e {

@@ -78,6 +78,12 @@ pub const MODULES: &[StdModule] = &[
         ],
     },
     StdModule {
+        dll: "sql",
+        funcs: &[
+            "sql_open", "sql_close", "sql_exec", "sql_query", "sql_run", "sql_error",
+        ],
+    },
+    StdModule {
         dll: "random",
         funcs: &[
             "seed", "random", "randint", "randrange", "uniform",

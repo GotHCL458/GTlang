@@ -296,7 +296,10 @@ fn link(clang: &Path, rt: &RtInput, srcs: &[PathBuf], ll: &Path, out: &Path, opt
         cmd.arg("-o").arg(out);
         cmd.arg(format!("-O{}", opt));
         cmd.arg("-fms-runtime-lib=libcmt");
-        for syslib in ["kernel32", "ws2_32", "ntdll", "userenv", "advapi32", "bcrypt", "synchronization"] {
+        let mut syslibs: Vec<&str> = vec!["kernel32", "ws2_32", "ntdll", "userenv", "advapi32", "bcrypt", "synchronization"];
+        // 用到 sql 模块时链接 Windows 自带的 SQLite
+        if needed.contains(&"sql") { syslibs.push("winsqlite3"); }
+        for syslib in &syslibs {
             cmd.arg(format!("-l{}", syslib));
         }
         for lib in &std_libs {
