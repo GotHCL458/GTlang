@@ -1,6 +1,6 @@
 //! GT 标准库 —— string 模块（编译为 string.dll + string.lib）
 
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::os::raw::c_char;
 
 unsafe fn to_str<'a>(p: *const c_char) -> &'a str {
@@ -8,8 +8,22 @@ unsafe fn to_str<'a>(p: *const c_char) -> &'a str {
     CStr::from_ptr(p).to_str().unwrap_or("")
 }
 
+#[link(name = "kernel32")]
+extern "system" {
+    fn GetProcessHeap() -> *mut core::ffi::c_void;
+    fn HeapAlloc(h: *mut core::ffi::c_void, flags: u32, n: usize) -> *mut u8;
+}
+pub(crate) unsafe fn heap_alloc(n: usize) -> *mut u8 { HeapAlloc(GetProcessHeap(), 0, n) }
+
 fn out_string(s: String) -> *mut c_char {
-    CString::new(s).unwrap_or_default().into_raw()
+    let bytes = s.as_bytes();
+    let p = unsafe { heap_alloc(bytes.len() + 1) };
+    if p.is_null() { return std::ptr::null_mut(); }
+    unsafe {
+        std::ptr::copy_nonoverlapping(bytes.as_ptr(), p, bytes.len());
+        *p.add(bytes.len()) = 0;
+    }
+    p as *mut c_char
 }
 
 #[no_mangle]

@@ -4,7 +4,7 @@
 
 #![allow(clippy::missing_safety_doc)]
 
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::os::raw::c_char;
@@ -13,8 +13,25 @@ unsafe fn to_string(p: *const c_char) -> String {
     if p.is_null() { return String::new(); }
     CStr::from_ptr(p).to_string_lossy().into_owned()
 }
+#[link(name = "kernel32")]
+extern "system" {
+    fn GetProcessHeap() -> *mut core::ffi::c_void;
+    fn HeapAlloc(h: *mut core::ffi::c_void, flags: u32, n: usize) -> *mut u8;
+}
+pub(crate) unsafe fn heap_alloc(n: usize) -> *mut u8 { HeapAlloc(GetProcessHeap(), 0, n) }
+
+// 统一分配器：用 Windows 进程堆（HeapAlloc），跨 CRT 释放安全
+// （标准库 DLL 与 GTLang 运行时处于不同 CRT；进程堆是进程共享的，
+//  任何 CRT 都能 HeapFree 释放对方分配的内存）。
 fn ret_string(s: String) -> *mut c_char {
-    CString::new(s).unwrap_or_else(|_| CString::new("").unwrap()).into_raw()
+    let bytes = s.as_bytes();
+    let p = unsafe { heap_alloc(bytes.len() + 1) };
+    if p.is_null() { return std::ptr::null_mut(); }
+    unsafe {
+        std::ptr::copy_nonoverlapping(bytes.as_ptr(), p, bytes.len());
+        *p.add(bytes.len()) = 0;
+    }
+    p as *mut c_char
 }
 
 fn parse_url(url: &str) -> Option<(String, String, u16, String)> {
