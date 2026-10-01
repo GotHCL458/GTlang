@@ -204,10 +204,10 @@ fn main() -> ExitCode {
         } else {
             println!("[watch] watching for changes (Ctrl-C to quit)");
         }
-        let mut last = file_stamps(&sources);
+        let mut last = file_stamps(&watch_targets(&sources));
         loop {
             std::thread::sleep(std::time::Duration::from_millis(400));
-            let cur = file_stamps(&sources);
+            let cur = file_stamps(&watch_targets(&sources));
             if cur != last {
                 last = cur;
                 if lang::is_zh() { println!("\n[watch] 变更，重新构建…"); } else { println!("\n[watch] change detected, rebuilding..."); }
@@ -223,6 +223,38 @@ fn main() -> ExitCode {
         Err(e) => {
             eprintln!("{}", e);
             ExitCode::from(1)
+        }
+    }
+}
+
+/// 监控目标：命令行源文件 + 它们所在目录（含子目录）下所有 .gt/.gtlib 文件。
+/// 这样 import 的依赖文件变更也能触发重建（无需显式依赖图）。
+fn watch_targets(files: &[PathBuf]) -> Vec<PathBuf> {
+    let mut out: Vec<PathBuf> = files.to_vec();
+    let mut seen: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
+    for f in files {
+        if let Some(dir) = f.parent() {
+            collect_sources(dir, &mut out, &mut seen, 0);
+        }
+    }
+    out
+}
+
+fn collect_sources(dir: &Path, out: &mut Vec<PathBuf>, seen: &mut std::collections::HashSet<PathBuf>, depth: usize) {
+    if depth > 8 { return; }
+    let rd = match std::fs::read_dir(dir) { Ok(r) => r, Err(_) => return };
+    for e in rd.flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            if name == "target" || name == ".git" || name == "res" || name == "toolchain" { continue; }
+            collect_sources(&p, out, seen, depth + 1);
+        } else if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
+            if ext == "gt" {
+                if let Ok(c) = p.canonicalize() {
+                    if seen.insert(c) { out.push(p); }
+                }
+            }
         }
     }
 }
