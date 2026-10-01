@@ -525,9 +525,10 @@ fn handle_conn_fn(mut s: TcpStream, handler: extern "C" fn(*const c_char) -> *mu
         let creq = match std::ffi::CString::new(req_str) { Ok(c) => c, Err(_) => break };
         let resp_ptr = handler(creq.as_ptr());
         let resp = if resp_ptr.is_null() { String::from("500 Internal Server Error") } else {
-            // 注意：resp_ptr 由 GTLang 运行时（不同 CRT）分配，此处不释放以免跨 CRT 崩溃；
-            // 服务端长期运行会有少量泄漏，可后续由 GTLang 侧提供释放函数解决。
-            unsafe { std::ffi::CStr::from_ptr(resp_ptr).to_string_lossy().into_owned() }
+            // resp_ptr 由 GTLang 函数返回，可能是静态字面量（非堆）也可能是堆串，
+            // 无法区分 —— 因此不能安全释放（释放静态内存会崩溃）。服务端长期运行会有
+            // 少量泄漏；需要时由 GTLang 侧显式 core_free。
+            unsafe { CStr::from_ptr(resp_ptr).to_string_lossy().into_owned() }
         };
         // 解析响应：可带 {status}{Header: v} 前缀 + 正文
         let (status, content_type, extra, body) = parse_resp(&resp);

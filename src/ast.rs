@@ -306,6 +306,32 @@ pub enum Stmt {
     Asm { lines: Vec<String>, line: usize },
 }
 
+impl Stmt {
+    /// 遍历本语句**直接**包含的所有子块（不递归）。
+    /// 用于"需要看全部语句"的分析（如 scan_mutation），
+    /// 新增含块的 Stmt 变体时只需在此补一处，避免各处 match 漏分支。
+    pub fn each_block<'a>(&'a self, f: &mut impl FnMut(&'a Block)) {
+        match self {
+            Stmt::If { then, els, .. } => { f(then); if let Some(e) = els { f(e); } }
+            Stmt::While { body, .. } => f(body),
+            Stmt::DoWhile { body, .. } => f(body),
+            Stmt::ForRange { body, els, .. } => { f(body); if let Some(e) = els { f(e); } }
+            Stmt::ForEach { body, els, .. } => { f(body); if let Some(e) = els { f(e); } }
+            Stmt::Block(inner) => f(inner),
+            Stmt::Labeled { inner, .. } => inner.each_block(f),
+            Stmt::Try { body, catches, fin, .. } => {
+                f(body);
+                for ca in catches { f(&ca.body); }
+                if let Some(fin) = fin { f(fin); }
+            }
+            Stmt::LocalFn(fd) => f(&fd.body),
+            Stmt::Let { .. } | Stmt::Assign { .. } | Stmt::FieldAssign { .. } | Stmt::Expr(_)
+            | Stmt::Return(..) | Stmt::Break(..) | Stmt::Continue(..) | Stmt::Const { .. }
+            | Stmt::Go { .. } | Stmt::Throw(..) | Stmt::Asm { .. } => {}
+        }
+    }
+}
+
 /// `expt` 的一个捕获分支。
 #[derive(Debug, Clone)]
 pub struct CatchArm {

@@ -995,8 +995,11 @@ pub(crate) extern "C" fn rt_read_int() -> i64 {
     if std::io::stdin().read_line(&mut s).is_err() { return 0; }
     s.trim().parse::<i64>().unwrap_or(0)
 }
-extern "C" { fn malloc(n: usize) -> *mut u8; }
-unsafe fn libc_malloc(n: usize) -> *mut u8 { malloc(n) }
+// 统一分配器：Windows 进程堆（HeapAlloc），与 C 运行时 gt_rt.c 一致；
+// 进程堆是「整个进程共享」的，跨 CRT（libcmt/msvcrt）释放安全。
+#[link(name = "kernel32")]
+extern "system" { fn GetProcessHeap() -> *mut core::ffi::c_void; fn HeapAlloc(h: *mut core::ffi::c_void, flags: u32, n: usize) -> *mut u8; }
+unsafe fn libc_malloc(n: usize) -> *mut u8 { HeapAlloc(GetProcessHeap(), 0, n) }
 
 pub(crate) extern "C" fn rt_str_char_at(s: i64, i: i64) -> i64 {
     if s == 0 || i < 0 { return rt_alloc_empty(); }

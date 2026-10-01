@@ -1,10 +1,10 @@
 [package]
-name = "gtstdlib"
+name = "gtlib"
 version = "0.0.1"
 edition = "2021"
 
 [lib]
-name = "gtstdlib"
+name = "gtlib"
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]

@@ -1,4 +1,4 @@
-﻿#define _CRT_SECURE_NO_WARNINGS 1
+#define _CRT_SECURE_NO_WARNINGS 1
 
 /* ============================================================
  * gt_rt.c —— gtc_rust 内置运行时（随编译器二进制内嵌分发）
@@ -16,6 +16,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <windows.h>
+
+/* 统一分配器：用 Windows 进程堆（HeapAlloc），而非 CRT 的 malloc。
+ * 好处：进程堆是「整个进程共享」的，不同 CRT（libcmt / msvcrt）都能
+ * 用 HeapFree 释放对方分配的内存 —— 跨 CRT 释放不再崩溃。
+ * （GTLang 与标准库 DLL 处于不同 CRT，serve_fn 等回调需要这种可跨 CRT 释放的内存。） */
+#define gt_alloc(n)   HeapAlloc(GetProcessHeap(), 0, (n))
+#define gt_free(p)    HeapFree(GetProcessHeap(), 0, (p))
 
 /* 运行时消息语言：默认英文；编译器在用 `zh` 模式编译时会调用 gt_rt_set_zh() 切到中文。 */
 static int GT_ZH = 0;
@@ -58,12 +65,12 @@ static void gt_write(const char *s, int len) {
         /* 控制台：转 UTF-16 后用 WriteConsoleW 输出 */
         int n = MultiByteToWideChar(CP_UTF8, 0, s, len, NULL, 0);
         if (n > 0) {
-            wchar_t *w = (wchar_t *)malloc(sizeof(wchar_t) * (size_t)n);
+            wchar_t *w = (wchar_t *)gt_alloc(sizeof(wchar_t) * (size_t)n);
             if (w != NULL) {
                 MultiByteToWideChar(CP_UTF8, 0, s, len, w, n);
                 DWORD written = 0;
                 WriteConsoleW(h, w, (DWORD)n, &written, NULL);
-                free(w);
+                gt_free(w);
                 return;
             }
         }
@@ -165,7 +172,7 @@ void gt_overflow(long long line) {
 
 /* Result[T,E] 运行时：堆块 [tag, payload]（tag=0 Ok / 1 Err） */
 void *gt_result_new(long long tag, long long payload) {
-    long long *p = (long long *)malloc(16);
+    long long *p = (long long *)gt_alloc(16);
     if (p) { p[0] = tag; p[1] = payload; }
     return p;
 }
@@ -190,7 +197,7 @@ int gt_printf(const char *fmt, ...) {
     }
 
     /* 超长输出：按需扩容，避免截断 */
-    char *big = (char *)malloc((size_t)n + 1);
+    char *big = (char *)gt_alloc((size_t)n + 1);
     if (big == NULL) {
         gt_write(stackbuf, (int)sizeof stackbuf - 1);
         return n;
@@ -199,7 +206,7 @@ int gt_printf(const char *fmt, ...) {
     vsnprintf(big, (size_t)n + 1, fmt, ap);
     va_end(ap);
     gt_write(big, n);
-    free(big);
+    gt_free(big);
     return n;
 }
 
@@ -249,9 +256,9 @@ static unsigned long long gt_hash64(unsigned long long x) {
     return x;
 }
 static void gt_map_rehash(GtMap *m, long long newcap) {
-    free(m->ht);
+    gt_free(m->ht);
     m->hcap = newcap;
-    m->ht = (long long *)malloc(sizeof(long long) * (size_t)newcap);
+    m->ht = (long long *)gt_alloc(sizeof(long long) * (size_t)newcap);
     for (long long i = 0; i < newcap; i++) m->ht[i] = -1;
     for (long long i = 0; i < m->len; i++) {
         unsigned long long h = gt_hash64((unsigned long long)m->keys[i]) & (unsigned long long)(newcap - 1);
@@ -273,11 +280,11 @@ static long long gt_map_find(GtMap *m, long long k) {
 
 /* ---------- list ---------- */
 GtList *gt_list_new(void) {
-    GtList *l = (GtList *)malloc(sizeof(GtList));
+    GtList *l = (GtList *)gt_alloc(sizeof(GtList));
     l->rc = 1;
     l->cap = 4;
     l->len = 0;
-    l->data = (long long *)malloc(sizeof(long long) * (size_t)l->cap);
+    l->data = (long long *)gt_alloc(sizeof(long long) * (size_t)l->cap);
     return l;
 }
 
@@ -325,9 +332,9 @@ void gt_list_remove(GtList *l, long long i) {
 /* ---------- set ---------- */
 /* set 哈希：复用 gt_hash64；桶存 data 下标，-1 空 */
 static void gt_set_rehash(GtSet *s, long long newcap) {
-    free(s->ht);
+    gt_free(s->ht);
     s->hcap = newcap;
-    s->ht = (long long *)malloc(sizeof(long long) * (size_t)newcap);
+    s->ht = (long long *)gt_alloc(sizeof(long long) * (size_t)newcap);
     for (long long i = 0; i < newcap; i++) s->ht[i] = -1;
     for (long long i = 0; i < s->len; i++) {
         unsigned long long mask = (unsigned long long)(newcap - 1);
@@ -349,12 +356,12 @@ static long long gt_set_find(GtSet *s, long long v) {
 }
 
 GtSet *gt_set_new(void) {
-    GtSet *s = (GtSet *)malloc(sizeof(GtSet));
+    GtSet *s = (GtSet *)gt_alloc(sizeof(GtSet));
     s->cap = 4;
     s->len = 0;
-    s->data = (long long *)malloc(sizeof(long long) * (size_t)s->cap);
+    s->data = (long long *)gt_alloc(sizeof(long long) * (size_t)s->cap);
     s->hcap = 8;
-    s->ht = (long long *)malloc(sizeof(long long) * (size_t)s->hcap);
+    s->ht = (long long *)gt_alloc(sizeof(long long) * (size_t)s->hcap);
     for (long long i = 0; i < s->hcap; i++) s->ht[i] = -1;
     return s;
 }
@@ -393,13 +400,13 @@ long long gt_set_len(GtSet *s) { return s ? s->len : 0; }
 
 /* ---------- map ---------- */
 GtMap *gt_map_new(void) {
-    GtMap *m = (GtMap *)malloc(sizeof(GtMap));
+    GtMap *m = (GtMap *)gt_alloc(sizeof(GtMap));
     m->cap = 4;
     m->len = 0;
-    m->keys = (long long *)malloc(sizeof(long long) * (size_t)m->cap);
-    m->vals = (long long *)malloc(sizeof(long long) * (size_t)m->cap);
+    m->keys = (long long *)gt_alloc(sizeof(long long) * (size_t)m->cap);
+    m->vals = (long long *)gt_alloc(sizeof(long long) * (size_t)m->cap);
     m->hcap = 8;
-    m->ht = (long long *)malloc(sizeof(long long) * (size_t)m->hcap);
+    m->ht = (long long *)gt_alloc(sizeof(long long) * (size_t)m->hcap);
     for (long long i = 0; i < m->hcap; i++) m->ht[i] = -1;
     return m;
 }
@@ -481,7 +488,7 @@ double gt_max_f(double a, double b) { return a > b ? a : b; }
 static char *gt_str_dup(const char *s) {
     if (s == NULL) return NULL;
     size_t n = strlen(s);
-    char *p = (char *)malloc(n + 1);
+    char *p = (char *)gt_alloc(n + 1);
     memcpy(p, s, n + 1);
     return p;
 }
@@ -494,7 +501,7 @@ char *gt_str_substr(const char *s, long long start, long long len) {
     if (start > n) start = n;
     if (len < 0) len = 0;
     if (start + len > n) len = n - start;
-    char *p = (char *)malloc((size_t)len + 1);
+    char *p = (char *)gt_alloc((size_t)len + 1);
     memcpy(p, s + start, (size_t)len);
     p[len] = 0;
     return p;
@@ -527,7 +534,7 @@ char *gt_str_trim(const char *s) {
     const char *b = s + strlen(s);
     while (b > a && (b[-1] == ' ' || b[-1] == '\t' || b[-1] == '\n' || b[-1] == '\r')) b--;
     long long len = (long long)(b - a);
-    char *p = (char *)malloc((size_t)len + 1);
+    char *p = (char *)gt_alloc((size_t)len + 1);
     memcpy(p, a, (size_t)len);
     p[len] = 0;
     return p;
@@ -537,7 +544,7 @@ char *gt_str_trim(const char *s) {
 char *gt_str_repeat(const char *s, long long n) {
     if (s == NULL || n <= 0) return gt_str_dup("");
     size_t sl = strlen(s);
-    char *p = (char *)malloc(sl * (size_t)n + 1);
+    char *p = (char *)gt_alloc(sl * (size_t)n + 1);
     char *q = p;
     for (long long i = 0; i < n; i++) { memcpy(q, s, sl); q += sl; }
     *q = 0;
@@ -551,7 +558,7 @@ char *gt_str_replace(const char *s, const char *from, const char *to) {
     if (to == NULL) to = "";
     size_t fl = strlen(from), tl = strlen(to);
     size_t cap = strlen(s) + 1;
-    char *out = (char *)malloc(cap);
+    char *out = (char *)gt_alloc(cap);
     size_t used = 0;
     const char *p = s;
     while (*p) {
@@ -581,7 +588,7 @@ GtList *gt_str_split(const char *s, const char *sep) {
     const char *q;
     while ((q = strstr(p, sep)) != NULL) {
         long long len = (long long)(q - p);
-        char *part = (char *)malloc((size_t)len + 1);
+        char *part = (char *)gt_alloc((size_t)len + 1);
         memcpy(part, p, (size_t)len); part[len] = 0;
         gt_list_push(l, (long long)part);
         p = q + sl;
@@ -595,7 +602,7 @@ char *gt_str_join(GtList *l, const char *sep) {
     if (sep == NULL) sep = "";
     size_t sepl = strlen(sep);
     size_t cap = 64, used = 0;
-    char *out = (char *)malloc(cap);
+    char *out = (char *)gt_alloc(cap);
     out[0] = 0;
     if (l != NULL) {
         for (long long i = 0; i < l->len; i++) {
@@ -639,9 +646,9 @@ double gt_sum_f(GtList *l) {
  * ============================================================ */
 void *gt_mem_alloc(long long n) {
     if (n <= 0) n = 1;
-    return malloc((size_t)n);
+    return gt_alloc((size_t)n);
 }
-void gt_mem_free(void *p) { free(p); }
+void gt_mem_free(void *p) { gt_free(p); }
 
 void gt_mem_store_i64(void *p, long long off, long long v) {
     memcpy((char *)p + off, &v, sizeof(long long));
@@ -690,7 +697,7 @@ char *gt_pad_left(const char *s, long long width, const char *fill) {
     if (n >= width) return gt_str_dup(s);
     const char *f = (fill && *fill) ? fill : " ";
     long long flen = (long long)strlen(f);
-    char *out = (char *)malloc((width + 1) * sizeof(char));
+    char *out = (char *)gt_alloc((width + 1) * sizeof(char));
     long long i = 0;
     while (i + flen <= width - n) { memcpy(out + i, f, flen); i += flen; }
     while (i < width - n) out[i++] = ' ';
@@ -703,7 +710,7 @@ char *gt_pad_right(const char *s, long long width, const char *fill) {
     if (n >= width) return gt_str_dup(s);
     const char *f = (fill && *fill) ? fill : " ";
     long long flen = (long long)strlen(f);
-    char *out = (char *)malloc((width + 1) * sizeof(char));
+    char *out = (char *)gt_alloc((width + 1) * sizeof(char));
     memcpy(out, s, n);
     long long i = n;
     while (i + flen <= width) { memcpy(out + i, f, flen); i += flen; }
@@ -733,11 +740,11 @@ static DWORD WINAPI gt_thread_main(LPVOID p) {
     long long a2 = ta->n > 2 ? ta->args[2] : 0;
     long long a3 = ta->n > 3 ? ta->args[3] : 0;
     ta->fn(a0, a1, a2, a3);
-    free(ta);
+    gt_free(ta);
     return 0;
 }
 void gt_thread_spawn(long long fn, long long *args, long long n) {
-    GtThreadArg *ta = (GtThreadArg *)malloc(sizeof(GtThreadArg));
+    GtThreadArg *ta = (GtThreadArg *)gt_alloc(sizeof(GtThreadArg));
     ta->fn = (long long (*)(long long, long long, long long, long long))fn;
     ta->args = args;
     ta->n = n;
@@ -754,11 +761,11 @@ static void *gt_thread_main(void *p) {
     long long a2 = ta->n > 2 ? ta->args[2] : 0;
     long long a3 = ta->n > 3 ? ta->args[3] : 0;
     ta->fn(a0, a1, a2, a3);
-    free(ta);
+    gt_free(ta);
     return NULL;
 }
 void gt_thread_spawn(long long fn, long long *args, long long n) {
-    GtThreadArg *ta = (GtThreadArg *)malloc(sizeof(GtThreadArg));
+    GtThreadArg *ta = (GtThreadArg *)gt_alloc(sizeof(GtThreadArg));
     ta->fn = (long long (*)(long long, long long, long long, long long))fn;
     ta->args = args;
     ta->n = n;
@@ -787,11 +794,11 @@ void gt_sleep(long long ms) {
 #ifdef _WIN32
 typedef struct { CRITICAL_SECTION mu; CONDITION_VARIABLE cv; long long *buf; long long len, cap, head; } GtChan;
 void *gt_chan_new(void) {
-    GtChan *c = (GtChan *)malloc(sizeof(GtChan));
+    GtChan *c = (GtChan *)gt_alloc(sizeof(GtChan));
     InitializeCriticalSection(&c->mu);
     InitializeConditionVariable(&c->cv);
     c->cap = 16; c->len = 0; c->head = 0;
-    c->buf = (long long *)malloc(sizeof(long long) * c->cap);
+    c->buf = (long long *)gt_alloc(sizeof(long long) * c->cap);
     return c;
 }
 void gt_chan_send(void *p, long long v) {
@@ -799,9 +806,9 @@ void gt_chan_send(void *p, long long v) {
     EnterCriticalSection(&c->mu);
     if (c->len == c->cap) {
         c->cap *= 2;
-        long long *nb = (long long *)malloc(sizeof(long long) * c->cap);
+        long long *nb = (long long *)gt_alloc(sizeof(long long) * c->cap);
         for (long long i = 0; i < c->len; i++) nb[i] = c->buf[(c->head + i) % (c->cap / 2)];
-        free(c->buf); c->buf = nb; c->head = 0;
+        gt_free(c->buf); c->buf = nb; c->head = 0;
     }
     c->buf[(c->head + c->len) % c->cap] = v;
     c->len++;
@@ -822,11 +829,11 @@ long long gt_chan_recv(void *p) {
 #include <pthread.h>
 typedef struct { pthread_mutex_t mu; pthread_cond_t cv; long long *buf; long long len, cap, head; } GtChan;
 void *gt_chan_new(void) {
-    GtChan *c = (GtChan *)malloc(sizeof(GtChan));
+    GtChan *c = (GtChan *)gt_alloc(sizeof(GtChan));
     pthread_mutex_init(&c->mu, NULL);
     pthread_cond_init(&c->cv, NULL);
     c->cap = 16; c->len = 0; c->head = 0;
-    c->buf = (long long *)malloc(sizeof(long long) * c->cap);
+    c->buf = (long long *)gt_alloc(sizeof(long long) * c->cap);
     return c;
 }
 void gt_chan_send(void *p, long long v) {
@@ -834,9 +841,9 @@ void gt_chan_send(void *p, long long v) {
     pthread_mutex_lock(&c->mu);
     if (c->len == c->cap) {
         c->cap *= 2;
-        long long *nb = (long long *)malloc(sizeof(long long) * c->cap);
+        long long *nb = (long long *)gt_alloc(sizeof(long long) * c->cap);
         for (long long i = 0; i < c->len; i++) nb[i] = c->buf[(c->head + i) % (c->cap / 2)];
-        free(c->buf); c->buf = nb; c->head = 0;
+        gt_free(c->buf); c->buf = nb; c->head = 0;
     }
     c->buf[(c->head + c->len) % c->cap] = v;
     c->len++;
@@ -870,15 +877,15 @@ long long gt_rc_dec(void *p, void (*free_fn)(void *)) {
     long long *rc = (long long *)p;
     if (--(*rc) == 0) {
         if (free_fn) free_fn(p);
-        else free(p);
+        else gt_free(p);
         return 0;
     }
     return *rc;
 }
 void gt_list_free(void *p) {
     GtList *l = (GtList *)p;
-    if (l->data) free(l->data);
-    free(l);
+    if (l->data) gt_free(l->data);
+    gt_free(l);
 }
 
 /* ============================================================
@@ -887,7 +894,7 @@ void gt_list_free(void *p) {
  *   - gt_read_int()  跳过空白读一个整数，EOF 返回 0
  * ============================================================ */
 char *gt_read_line(void) {
-    char *buf = (char *)malloc(4096);
+    char *buf = (char *)gt_alloc(4096);
     if (!buf) return NULL;
     if (!fgets(buf, 4096, stdin)) { buf[0] = '\0'; return buf; }
     size_t n = strlen(buf);
@@ -903,7 +910,7 @@ long long gt_read_int(void) {
 /* 取字符串第 i 个"字符"（UTF-8 码点），返回新分配的 NUL 结尾子串。
    i 超出返回空串。 */
 char *gt_str_char_at(const char *s, long long i) {
-    if (!s || i < 0) { char *e = (char *)malloc(1); if (e) e[0] = 0; return e; }
+    if (!s || i < 0) { char *e = (char *)gt_alloc(1); if (e) e[0] = 0; return e; }
     size_t len = strlen(s);
     size_t pos = 0;
     long long k = 0;
@@ -915,7 +922,7 @@ char *gt_str_char_at(const char *s, long long i) {
         else if ((c & 0xF0) == 0xE0) clen = 3;
         else if ((c & 0xF8) == 0xF0) clen = 4;
         if (k == i) {
-            char *out = (char *)malloc(clen + 1);
+            char *out = (char *)gt_alloc(clen + 1);
             if (!out) return NULL;
             memcpy(out, s + pos, clen);
             out[clen] = '\0';
@@ -924,7 +931,7 @@ char *gt_str_char_at(const char *s, long long i) {
         pos += clen;
         k++;
     }
-    { char *e = (char *)malloc(1); if (e) e[0] = 0; return e; }
+    { char *e = (char *)gt_alloc(1); if (e) e[0] = 0; return e; }
 }
 long long gt_str_char_len(const char *s) {
     if (!s) return 0;
@@ -959,7 +966,7 @@ char *gt_str_concat(const char *a, const char *b) {
     if (!a) a = "";
     if (!b) b = "";
     size_t la = strlen(a), lb = strlen(b);
-    char *out = (char *)malloc(la + lb + 1);
+    char *out = (char *)gt_alloc(la + lb + 1);
     if (!out) return NULL;
     memcpy(out, a, la);
     memcpy(out + la, b, lb);

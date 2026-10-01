@@ -477,6 +477,8 @@ impl<'a> Codegen<'a> {
     }
     pub(crate) fn emit_label(&mut self, l: &str) {
         let trimmed = self.body.trim_end(); if trimmed.ends_with(":") { self.body.push_str(&format!("  br label %{}\n", l)); } let trimmed = self.body.trim_end(); if trimmed.ends_with(":") { self.body.push_str(&format!("  br label %{}\n", l)); } self.terminated = false; self.body.push_str(&format!("{}:\n", l));
+        // 新基本块：块内 SSA 缓存失效（perm_cache 跨块，保留）
+        self.var_cache.clear();
     }
     pub(crate) fn new_alloca(&mut self, ty: &Ty) -> String {
         let slot = format!("%v{}", self.slot);
@@ -541,8 +543,10 @@ impl<'a> Codegen<'a> {
         None
     }
     pub(crate) fn load(&mut self, loc: &Local) -> Result<Val, String> {
-        // immutable 变量（声明后从不重新赋值）：跨基本块保持其唯一 SSA 值，
-        // 不必每个分支都重新 load —— 这也让 IR 更接近 SSA，便于 LLVM 优化。
+        // 1) 本基本块内已存的值（var_cache，emit_label 时清空）
+        if let Some(v) = self.var_cache.get(&loc.ptr) { return Ok(v.clone()); }
+        // 2) immutable 变量（声明后从不重新赋值）：跨基本块保持其唯一 SSA 值，
+        //    不必每个分支都重新 load —— 也让 IR 更接近 SSA，便于 LLVM 优化。
         if self.perm_ptrs.contains(&loc.ptr) {
             if let Some(v) = self.perm_cache.get(&loc.ptr) { return Ok(v.clone()); }
         }
@@ -552,6 +556,7 @@ impl<'a> Codegen<'a> {
     }
     pub(crate) fn store(&mut self, loc: &Local, v: &Val) -> Result<(), String> {
         let v = self.coerce(v, &loc.ty)?;
+        self.var_cache.insert(loc.ptr.clone(), v.clone());
         if self.perm_ptrs.contains(&loc.ptr) {
             self.perm_cache.insert(loc.ptr.clone(), v.clone());
         }
@@ -650,25 +655,17 @@ pub(crate) fn immutable_vars(b: &Block) -> std::collections::HashSet<String> {
 
 pub(crate) fn scan_mutation(b: &Block, in_loop: bool, assigned: &mut std::collections::HashSet<String>, declared: &mut std::collections::HashSet<String>) {
     for s in b {
+        // 只在本层识别"声明/赋值"；子块递归交给 Stmt::each_block（遍历驱动，
+        // 新增含块变体只需在 each_block 补一处，这里不会漏分支）。
+        let loop_like = matches!(s, Stmt::While { .. } | Stmt::DoWhile { .. } | Stmt::ForRange { .. } | Stmt::ForEach { .. });
         match s {
             Stmt::Let { name, .. } => { if !in_loop { declared.insert(name.clone()); } }
             Stmt::Assign { name, .. } => { assigned.insert(name.clone()); }
             Stmt::FieldAssign { obj, .. } => { assigned.insert(obj.clone()); }
-            Stmt::If { then, els, .. } => { scan_mutation(then, in_loop, assigned, declared); if let Some(e) = els { scan_mutation(e, in_loop, assigned, declared); } }
-            Stmt::While { body, .. } => scan_mutation(body, true, assigned, declared),
-            Stmt::ForRange { body, .. } => scan_mutation(body, true, assigned, declared),
-            Stmt::ForEach { body, .. } => scan_mutation(body, true, assigned, declared),
-            Stmt::DoWhile { body, .. } => scan_mutation(body, true, assigned, declared),
-            Stmt::Block(inner) => scan_mutation(inner, in_loop, assigned, declared),
-            Stmt::Labeled { inner, .. } => scan_mutation(&vec![(**inner).clone()], in_loop, assigned, declared),
-            Stmt::Try { body, catches, fin, .. } => {
-                scan_mutation(body, in_loop, assigned, declared);
-                for ca in catches { scan_mutation(&ca.body, in_loop, assigned, declared); }
-                if let Some(f) = fin { scan_mutation(f, in_loop, assigned, declared); }
-            }
-            Stmt::LocalFn(_) => {}
             _ => {}
         }
+        let child_in_loop = in_loop || loop_like;
+        s.each_block(&mut |blk| scan_mutation(blk, child_in_loop, assigned, declared));
     }
 }
 
