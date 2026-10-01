@@ -142,20 +142,45 @@ pub extern "C" fn py_hex_decode(s: *const c_char) -> *mut c_char {
     ret_string(String::from_utf8_lossy(&out).into_owned())
 }
 
+/// PBKDF2 简化版：反复 SHA-256 迭代（提高暴力破解成本）
+const PBKDF2_ROUNDS: u32 = 20000;
+
+fn pbkdf2_hash(pwd: &[u8], salt: &[u8], rounds: u32) -> [u8; 32] {
+    let mut data = Vec::with_capacity(salt.len() + pwd.len());
+    data.extend_from_slice(salt);
+    data.extend_from_slice(pwd);
+    let mut h = sha256_bytes(&data);
+    for _ in 1..rounds {
+        let mut d = Vec::with_capacity(32 + pwd.len());
+        d.extend_from_slice(&h);
+        d.extend_from_slice(pwd);
+        h = sha256_bytes(&d);
+    }
+    h
+}
+
 #[no_mangle]
 pub extern "C" fn py_password_hash(pwd: *const c_char, salt: *const c_char) -> *mut c_char {
     let p = unsafe { to_string(pwd) };
     let s = unsafe { to_string(salt) };
-    let mut data = Vec::with_capacity(s.len() + p.len());
-    data.extend_from_slice(s.as_bytes());
-    data.extend_from_slice(p.as_bytes());
-    ret_string(format!("{}${}", s, to_hex(&sha256_bytes(&data))))
+    let h = pbkdf2_hash(p.as_bytes(), s.as_bytes(), PBKDF2_ROUNDS);
+    ret_string(format!("v2${}${}${}", PBKDF2_ROUNDS, s, to_hex(&h)))
 }
 
 #[no_mangle]
 pub extern "C" fn py_password_verify(pwd: *const c_char, stored: *const c_char) -> i64 {
     let p = unsafe { to_string(pwd) };
     let st = unsafe { to_string(stored) };
+    // 新格式：v2$rounds$salt$hash
+    if let Some(rest) = st.strip_prefix("v2$") {
+        let parts: Vec<&str> = rest.splitn(3, '$').collect();
+        if parts.len() != 3 { return 0; }
+        let rounds: u32 = parts[0].parse().unwrap_or(PBKDF2_ROUNDS);
+        let salt = parts[1];
+        let expect = to_hex(&pbkdf2_hash(p.as_bytes(), salt.as_bytes(), rounds));
+        return ct_eq(expect.as_bytes(), parts[2].as_bytes());
+    }
+    // 旧格式兼容：salt$sha256(salt+pwd)
     let parts: Vec<&str> = st.splitn(2, '$').collect();
     if parts.len() != 2 { return 0; }
     let salt = parts[0];
@@ -163,7 +188,15 @@ pub extern "C" fn py_password_verify(pwd: *const c_char, stored: *const c_char) 
     data.extend_from_slice(salt.as_bytes());
     data.extend_from_slice(p.as_bytes());
     let expect = to_hex(&sha256_bytes(&data));
-    if expect == parts[1] { 1 } else { 0 }
+    ct_eq(expect.as_bytes(), parts[1].as_bytes())
+}
+
+/// 恒定时间字节比较
+fn ct_eq(a: &[u8], b: &[u8]) -> i64 {
+    if a.len() != b.len() { return 0; }
+    let mut diff = 0u8;
+    for i in 0..a.len() { diff |= a[i] ^ b[i]; }
+    if diff == 0 { 1 } else { 0 }
 }
 // ---------- SHA-512 ----------
 const K512: [u64; 80] = [
