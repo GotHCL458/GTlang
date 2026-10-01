@@ -725,6 +725,14 @@ fn check_cond(ctx: &mut Ctx, cond: &mut Expr, line: &usize, errors: &mut Vec<Str
 }
 
 impl Ctx {
+    /// 可变借出变量信息（用于 push 细化 list 元素类型等）。
+    fn lookup_var_mut(&mut self, name: &str) -> Option<&mut VarInfo> {
+        for sc in self.scopes.iter_mut().rev() {
+            if sc.contains_key(name) { return sc.get_mut(name); }
+        }
+        None
+    }
+
     fn lookup(&self, name: &str) -> Option<Ty> {
         for s in self.scopes.iter().rev() {
             if let Some(v) = s.get(name) {
@@ -918,6 +926,19 @@ impl Ctx {
                 let mut arg_tys = Vec::with_capacity(args.len());
                 for a in args.iter_mut() {
                     arg_tys.push(self.infer(a)?);
+                }
+                // push(l, x)：若 l 是"元素未知的 list 变量"，用 x 的类型细化其元素类型。
+                // 这让 codegen/jit 能判断"元素是否为堆指针"，从而正确设置 GC 的 elem_ptr。
+                if (name == "push" || name == "append") && args.len() == 2 {
+                    if let (ExprKind::Ident(lname), Some(vty)) = (&args[0].kind, arg_tys.get(1).cloned()) {
+                        if let Some(vi) = self.lookup_var_mut(lname) {
+                            if let Ty::List(e) = &vi.ty {
+                                if matches!(**e, Ty::Unknown) {
+                                    vi.ty = Ty::List(Box::new(vty));
+                                }
+                            }
+                        }
+                    }
                 }
                 // Result 构造：Ok(v) / Err(e)
                 if name == "Ok" || name == "Err" {
