@@ -296,6 +296,13 @@ fn link(clang: &Path, rt: &RtInput, srcs: &[PathBuf], ll: &Path, out: &Path, opt
         cmd.arg("-o").arg(out);
         cmd.arg(format!("-O{}", opt));
         cmd.arg("-fms-runtime-lib=libcmt");
+        // 极致性能（可被 GTC_NO_FAST 关闭）
+        if std::env::var("GTC_NO_FAST").is_err() {
+            cmd.arg("-march=native");
+            cmd.arg("-funroll-loops");
+            cmd.arg("-fno-stack-protector");
+            cmd.arg("-fno-asynchronous-unwind-tables");
+        }
         let mut syslibs: Vec<&str> = vec!["kernel32", "ws2_32", "ntdll", "userenv", "advapi32", "bcrypt", "synchronization"];
         // 用到 sql 模块时链接 Windows 自带的 SQLite
         if needed.contains(&"sql") { syslibs.push("winsqlite3"); }

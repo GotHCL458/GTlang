@@ -16,6 +16,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// 是否启用整数溢出检查（默认开）。`--no-overflow-check` 关闭后加减乘用回绕指令。
 static OVERFLOW_CHECK: AtomicBool = AtomicBool::new(true);
 
+/// 供 JIT 查询"溢出检查是否启用"（双端同步）。
+pub fn overflow_check_enabled_pub() -> bool { overflow_check_enabled() }
+
 pub fn set_overflow_check(on: bool) {
     OVERFLOW_CHECK.store(on, Ordering::Relaxed);
 }

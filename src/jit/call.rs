@@ -439,9 +439,10 @@ impl FnState {
             match op {
                 // 加/减/乘：检测有符号溢出，溢出则运行时终止（与编译器后端一致）
                 // safe=true：范围分析已证明不会溢出 → 用普通指令，省略检查
-                BinOp::Add => if safe { Ok((b.ins().iadd(x, y), Ty::I64)) } else { let (r, o) = b.ins().sadd_overflow(x, y); self.gen_overflow_check(jit, b, o, line)?; Ok((r, Ty::I64)) }
-                BinOp::Sub => if safe { Ok((b.ins().isub(x, y), Ty::I64)) } else { let (r, o) = b.ins().ssub_overflow(x, y); self.gen_overflow_check(jit, b, o, line)?; Ok((r, Ty::I64)) }
-                BinOp::Mul => if safe { Ok((b.ins().imul(x, y), Ty::I64)) } else { let (r, o) = b.ins().smul_overflow(x, y); self.gen_overflow_check(jit, b, o, line)?; Ok((r, Ty::I64)) }
+                // safe（范围分析已证）或全局关闭检查时，省略溢出检查
+                BinOp::Add => if safe || !crate::codegen::overflow_check_enabled_pub() { Ok((b.ins().iadd(x, y), Ty::I64)) } else { let (r, o) = b.ins().sadd_overflow(x, y); self.gen_overflow_check(jit, b, o, line)?; Ok((r, Ty::I64)) }
+                BinOp::Sub => if safe || !crate::codegen::overflow_check_enabled_pub() { Ok((b.ins().isub(x, y), Ty::I64)) } else { let (r, o) = b.ins().ssub_overflow(x, y); self.gen_overflow_check(jit, b, o, line)?; Ok((r, Ty::I64)) }
+                BinOp::Mul => if safe || !crate::codegen::overflow_check_enabled_pub() { Ok((b.ins().imul(x, y), Ty::I64)) } else { let (r, o) = b.ins().smul_overflow(x, y); self.gen_overflow_check(jit, b, o, line)?; Ok((r, Ty::I64)) }
                 BinOp::Div | BinOp::FloorDiv => Ok((b.ins().sdiv(x, y), Ty::I64)),
                 _ => Ok((b.ins().srem(x, y), Ty::I64)),
             }
