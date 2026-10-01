@@ -576,7 +576,7 @@ pub(crate) fn collect_strs_block(b: &Block, out: &mut Vec<Vec<u8>>) {
         match s {
             Stmt::Let { value, .. } => collect_strs(value, out),
             Stmt::Const { value, .. } => collect_strs(value, out),
-            Stmt::Assign { value, .. } => collect_strs(value, out),
+            Stmt::Assign { value, index, .. } => { collect_strs(value, out); if let Some(i) = index { collect_strs(i, out); } }
             Stmt::Expr(e) | Stmt::Return(Some(e), _) => collect_strs(e, out),
             Stmt::If { cond, then, els, .. } => {
                 collect_strs(cond, out);

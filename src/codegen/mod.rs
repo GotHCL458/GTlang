@@ -609,14 +609,16 @@ impl<'a> Codegen<'a> {
                                 Ty::List(el) => {
                                     let i = self.as_i64(&iv);
                                     let rv = self.coerce(&rhs, el)?;
+                                    let rv = self.to_slot(&rv);
                                     self.declare("declare void @gt_list_set(ptr, i64, i64)");
-                                    self.body.push_str(&format!("  call void @gt_list_set(ptr {}, i64 {}, i64 {})\n", base.s, i, rv.s));
+                                    self.body.push_str(&format!("  call void @gt_list_set(ptr {}, i64 {}, i64 {})\n", base.s, i, rv));
                                 }
                                 Ty::Map(_, v) => {
                                     let k = self.to_slot(&iv);
                                     let rv = self.coerce(&rhs, v)?;
+                                    let rv = self.to_slot(&rv);
                                     self.declare("declare void @gt_map_insert(ptr, i64, i64)");
-                                    self.body.push_str(&format!("  call void @gt_map_insert(ptr {}, i64 {}, i64 {})\n", base.s, k, rv.s));
+                                    self.body.push_str(&format!("  call void @gt_map_insert(ptr {}, i64 {}, i64 {})\n", base.s, k, rv));
                                 }
                                 _ => unreachable!(),
                             }
