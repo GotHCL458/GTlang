@@ -541,12 +541,20 @@ impl<'a> Codegen<'a> {
         None
     }
     pub(crate) fn load(&mut self, loc: &Local) -> Result<Val, String> {
+        // immutable 变量（声明后从不重新赋值）：跨基本块保持其唯一 SSA 值，
+        // 不必每个分支都重新 load —— 这也让 IR 更接近 SSA，便于 LLVM 优化。
+        if self.perm_ptrs.contains(&loc.ptr) {
+            if let Some(v) = self.perm_cache.get(&loc.ptr) { return Ok(v.clone()); }
+        }
         let r = self.new_reg();
         self.body.push_str(&format!("  {} = load {}, ptr {}\n", r, loc.ty.llvm(), loc.ptr));
         Ok(Val::new(&loc.ty, r))
     }
     pub(crate) fn store(&mut self, loc: &Local, v: &Val) -> Result<(), String> {
         let v = self.coerce(v, &loc.ty)?;
+        if self.perm_ptrs.contains(&loc.ptr) {
+            self.perm_cache.insert(loc.ptr.clone(), v.clone());
+        }
         self.body.push_str(&format!("  store {} {}, ptr {}\n", loc.ty.llvm(), v.s, loc.ptr));
         Ok(())
     }
