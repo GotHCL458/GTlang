@@ -537,6 +537,17 @@ fn check_stmt(ctx: &mut Ctx, s: &mut Stmt, errors: &mut Vec<String>) {
                                     rty, target,
                                     if lt == Ty::Unknown { String::new() } else { format!("({})", lt) }));
                             }
+                            // m[k] = v：用键/值类型细化 map 的元素类型（供后续 for-in 遍历推断）
+                            if let Some(idx) = index {
+                                let kt = idx.ty.clone();
+                                if let Some(entry) = ctx.scopes.iter_mut().rev().find_map(|sc| sc.get_mut(name)) {
+                                    if let Ty::Map(ek, ev) = &entry.ty {
+                                        let nk = if matches!(**ek, Ty::Unknown) && kt != Ty::Unknown { kt.clone() } else { (**ek).clone() };
+                                        let nv = if matches!(**ev, Ty::Unknown) && rty != Ty::Unknown { rty.clone() } else { (**ev).clone() };
+                                        entry.ty = Ty::Map(Box::new(nk), Box::new(nv));
+                                    }
+                                }
+                            }
                         }
                         Err(e) => errors.push(e),
                     }
