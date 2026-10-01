@@ -5,7 +5,7 @@ REM
 REM Just run it -- no arguments needed.
 REM
 REM   1. Check Rust ^(^>= 1.75^) and LLVM/clang ^(^>= 15^) on PATH.
-REM   2. Build gtc + gtfmt (release).
+REM   2. Build gtc (release).
 REM   3. Build the standard library (src\gtlib\*.rs -> *.dll + *.lib).
 REM   4. Assemble a portable res\ directory.
 REM
@@ -87,8 +87,9 @@ set "RES=%ROOT%res"
 if exist "%RES%" rmdir /s /q "%RES%" 2>nul
 if exist "%RES%" cmd /c rmdir /s /q "%RES%" 2>nul
 if exist "%RES%" (
-    echo [ERROR] cannot clean %RES% -- close any running gtc.exe/gtfmt.exe and retry.
-    exit /b 1
+    REM 目录可能被"某进程的 cwd"占用（如编辑器/终端）；尽力清空内容后继续覆盖。
+    del /q /s "%RES%\*" 2>nul
+    echo [warn] res/ could not be fully removed; overwriting in place.
 )
 mkdir "%RES%" 2>nul
 mkdir "%RES%\llvm\bin" 2>nul
@@ -96,7 +97,6 @@ mkdir "%RES%\runtime" 2>nul
 mkdir "%RES%\lib" 2>nul
 
 copy /Y "%ROOT%target\release\gtc.exe"   "%RES%\gtc.exe"   >nul || (echo [ERROR] gtc.exe missing & exit /b 1)
-copy /Y "%ROOT%target\release\gtfmt.exe" "%RES%\gtfmt.exe" >nul
 copy /Y "%STDOUT%\*.dll" "%RES%\lib\" >nul 2>nul
 if not exist "%RES%\lib\.lib" mkdir "%RES%\lib\.lib" 2>nul
 copy /Y "%STDOUT%\*.lib" "%RES%\lib\.lib\" >nul 2>nul
@@ -122,6 +122,8 @@ if "%GTC_TCC%"=="" (
 )
 
 copy /Y "%ROOT%src\runtime\gt_rt.c" "%RES%\runtime\gt_rt.c" >nul
+copy /Y "%ROOT%src\runtime\gc.c"   "%RES%\runtime\gc.c"   >nul
+copy /Y "%ROOT%src\runtime\gc.h"   "%RES%\runtime\gc.h"   >nul
 "%GTC_CLANG%" -c "%ROOT%src\runtime\gt_rt.c" -o "%RES%\runtime\gt_rt.obj" -O2
 if errorlevel 1 ( echo [ERROR] gt_rt.c compile failed. & exit /b 1 )
 if exist "%LLD_LINK%" "%LLD_LINK%" /lib /out:"%RES%\lib\gt_rt.lib" "%RES%\runtime\gt_rt.obj" >nul 2>nul

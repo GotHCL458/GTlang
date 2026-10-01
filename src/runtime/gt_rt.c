@@ -24,6 +24,11 @@
 #define gt_alloc(n)   HeapAlloc(GetProcessHeap(), 0, (n))
 #define gt_free(p)    HeapFree(GetProcessHeap(), 0, (p))
 
+/* 自动内存管理（引用计数 + 预留环检测）。--no-gc 时退化为裸分配。
+ * 直接包含实现（gc.c 内含 gc.h），使 gt_rt.c 自成编译单元；
+ * driver.rs / build.bat 只需把 gc.c、gc.h 与 gt_rt.c 放在同一目录即可。 */
+#include "gc.c"
+
 /* 运行时消息语言：默认英文；编译器在用 `zh` 模式编译时会调用 gt_rt_set_zh() 切到中文。 */
 static int GT_ZH = 0;
 void gt_rt_set_zh(void) { GT_ZH = 1; }
@@ -280,7 +285,7 @@ static long long gt_map_find(GtMap *m, long long k) {
 
 /* ---------- list ---------- */
 GtList *gt_list_new(void) {
-    GtList *l = (GtList *)gt_alloc(sizeof(GtList));
+    GtList *l = (GtList *)gc_alloc(sizeof(GtList));
     l->rc = 1;
     l->cap = 4;
     l->len = 0;

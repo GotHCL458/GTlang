@@ -111,8 +111,11 @@ pub fn find_tcc_dir() -> Option<PathBuf> {
 // 编译后端：.ll + 运行时 + 内联 C 块 → 可执行文件
 // ============================================================
 
-/// 内置 C 运行时源码：随编译器二进制内嵌，避免运行时再去找文件
+/// 内置 C 运行时源码：随编译器二进制内嵌，避免运行时再去找文件。
+/// GC 实现（gc.c/gc.h）与 gt_rt.c 分文件保存，编译时写入同一目录。
 const GT_RT_C: &str = include_str!("runtime/gt_rt.c");
+const GT_GC_C: &str = include_str!("runtime/gc.c");
+const GT_GC_H: &str = include_str!("runtime/gc.h");
 
 /// 把内置运行时 + 内联 C 块 + `.ll` 交给 clang 编译链接成可执行文件。
 ///
@@ -217,10 +220,14 @@ fn runtime_object(clang: &Path, opt: u8) -> Result<PathBuf, String> {
     std::fs::create_dir_all(&dir)
         .map_err(|e| format!("无法创建运行时缓存目录 {}：{}", dir.display(), e))?;
 
-    // 写源码并编译为对象（不链接）
+    // 写源码并编译为对象（不链接）；gc.c/gc.h 与 gt_rt.c 同目录（gt_rt.c 里 #include "gc.c"）。
     let src = dir.join(format!("gt_rt_{}.c", tag));
     std::fs::write(&src, GT_RT_C)
         .map_err(|e| format!("无法写入运行时源码 {}：{}", src.display(), e))?;
+    std::fs::write(dir.join("gc.c"), GT_GC_C)
+        .map_err(|e| format!("无法写入 gc.c：{}", e))?;
+    std::fs::write(dir.join("gc.h"), GT_GC_H)
+        .map_err(|e| format!("无法写入 gc.h：{}", e))?;
     let o = Command::new(clang)
         .arg("-c")
         .arg(&src)
