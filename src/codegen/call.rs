@@ -185,7 +185,7 @@ impl<'a> Codegen<'a> {
                 self.body.push_str(&format!("  {} = call ptr @gt_map_new(i64 {})\n", r, ep));
                 Ok(Val::new(call_ty, r))
             }
-            "push" | "append" => { self.declare("declare void @gt_list_push(ptr, i64)"); let l = self.expr(&args[0])?; let v = self.expr(&args[1])?; let vs = self.to_slot(&v); self.body.push_str(&format!("  call void @gt_list_push(ptr {}, i64 {})\n", l.s, vs)); Ok(Val::new(&Ty::Void, "0")) }
+            "push" | "append" => { self.declare("declare void @gt_list_push(ptr, i64)"); let l = self.expr(&args[0])?; let lp = if l.ty.llvm() == "ptr" { l.s.clone() } else { let ls = self.as_i64(&l); self.from_slot(&ls, &Ty::List(Box::new(Ty::Unknown))) }; let v = self.expr(&args[1])?; let vs = self.to_slot(&v); self.body.push_str(&format!("  call void @gt_list_push(ptr {}, i64 {})\n", lp, vs)); Ok(Val::new(&Ty::Void, "0")) }
             "pop" => { self.declare("declare i64 @gt_list_pop(ptr)"); let l = self.expr(&args[0])?; let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_list_pop(ptr {})\n", r, l.s)); let v = self.from_slot(&r, call_ty); Ok(Val::new(call_ty, v)) }
             "at" => { let c = self.expr(&args[0])?; let i = self.expr(&args[1])?; let i = self.as_i64(&i); match args[0].ty.clone() {
                 Ty::List(e) => { self.declare("declare i64 @gt_list_at(ptr, i64)"); let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_list_at(ptr {}, i64 {})\n", r, c.s, i)); let v = self.from_slot(&r, &e); Ok(Val::new(&e, v)) }
