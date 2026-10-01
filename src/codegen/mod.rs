@@ -311,19 +311,7 @@ impl<'a> Codegen<'a> {
 
         // 找出"从不被重新赋值、且不在循环体内声明"的变量：它们可以跨基本块
         // 保持 SSA 值，从而在每个分支里省掉一次 load。
-        let mut immutable = immutable_vars(&f.body);
-        // 形参：默认也视为 immutable（除非函数体里被重新赋值）——
-        // 这样其 SSA 值可跨块复用，IR 更接近纯 SSA，便于 LLVM 优化（如递归→循环）。
-        {
-            let mut assigned = std::collections::HashSet::new();
-            let mut declared = std::collections::HashSet::new();
-            crate::codegen::call::scan_mutation(&f.body, false, &mut assigned, &mut declared);
-            for p in &f.params {
-                if !assigned.contains(&p.name) {
-                    immutable.insert(p.name.clone());
-                }
-            }
-        }
+        let immutable = immutable_vars(&f.body);
         self.immutable_lets = immutable.clone();
 
         let mut sig = String::new();
