@@ -33,6 +33,9 @@
 static int GT_ZH = 0;
 void gt_rt_set_zh(void) { GT_ZH = 1; }
 
+/* 关闭自动内存管理（--no-gc 编译时由生成程序调用；不回收，靠进程结束回收）。 */
+void gt_rt_set_gc(int on) { gc_set_enabled(on); }
+
 /* 进程初始化：设控制台输出为 UTF-8（让 C 的 printf 也能正确显示中文）。 */
 void gt_rt_init(void) {
     static int done = 0;

@@ -16,6 +16,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// 是否启用整数溢出检查（默认开）。`--no-overflow-check` 关闭后加减乘用回绕指令。
 static OVERFLOW_CHECK: AtomicBool = AtomicBool::new(true);
 
+/// 是否启用自动内存管理（默认开）。`--no-gc` 关闭后生成的程序不回收（靠进程结束回收）。
+static GC_ENABLED: AtomicBool = AtomicBool::new(true);
+pub fn set_gc(on: bool) { GC_ENABLED.store(on, Ordering::Relaxed); }
+pub fn gc_enabled() -> bool { GC_ENABLED.load(Ordering::Relaxed) }
+
 /// 供 JIT 查询"溢出检查是否启用"（双端同步）。
 pub fn overflow_check_enabled_pub() -> bool { overflow_check_enabled() }
 
@@ -348,6 +353,11 @@ impl<'a> Codegen<'a> {
         }
 
         if is_main {
+            // --no-gc：生成程序里关闭自动内存管理
+            if !gc_enabled() {
+                self.declare("declare void @gt_rt_set_gc(i32)");
+                self.body.push_str("  call void @gt_rt_set_gc(i32 0)\n");
+            }
             // 若以 zh 模式编译，让运行时诊断也用中文
             if crate::lang::is_zh() {
                 self.declare("declare void @gt_rt_set_zh()");

@@ -140,6 +140,7 @@ fn main() -> ExitCode {
             "--keep-tmp" => keep_tmp = true,
             "--watch" | "-w" => watch = true,
             "--no-overflow-check" | "-fno-overflow" => gtc_rust::disable_overflow_check(),
+            "--no-gc" | "-fno-gc" => gtc_rust::disable_gc(),
             "-o" => {
                 i += 1;
                 match args.get(i) {

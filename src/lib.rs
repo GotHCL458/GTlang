@@ -69,6 +69,11 @@ pub fn disable_overflow_check() {
     codegen::set_overflow_check(false);
 }
 
+/// 关闭自动内存管理（编译后端 + JIT）：不回收内存，靠进程结束回收。
+pub fn disable_gc() {
+    codegen::set_gc(false);
+}
+
 /// 全局详细日志开关（`--verbose`）。
 pub fn set_verbose(on: bool) {
     lang::set_verbose(on);
