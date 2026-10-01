@@ -3,7 +3,7 @@
 > 覆盖 `sql` / `crypto` / `entropy` / `session` / `web` / `http` / `net` 等模块。
 > **使用前必须 `import <模块>`**（如 `import sql`）。
 
-## 目录 / Contents
+## 内存归属（重要）
 
 - [sql — SQLite](#sql)
 - [crypto — 哈希与密码](#crypto)

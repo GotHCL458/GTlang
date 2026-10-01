@@ -3,6 +3,13 @@
 > Covers `sql` / `crypto` / `entropy` / `session` / `web` / `http` / `net`.
 > **You must `import <module>` first** (e.g. `import sql`).
 
+## Memory ownership (important)
+
+- **`core_free(s)`**: free a string **returned by stdlib**. Always use it; do **not** use `mem_free`.
+- **`mem_free(p)`**: free memory allocated by **GTLang itself** (`mem_alloc` / string concat).
+- Mixing them crosses CRT boundaries (stdlib uses msvcrt, runtime uses libcmt) and **will crash**.
+- **`serve_fn` limitation**: the string returned by a GTLang handler is allocated by the GTLang runtime and cannot be freed by the `web` module, so **each request leaks a small amount** (relevant for long-running servers).
+
 ## sql — SQLite
 
 ```gt

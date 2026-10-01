@@ -569,5 +569,4 @@ fn parse_resp(resp: &str) -> (u16, String, Vec<(String, String)>, String) {
     (status, content_type, extra, rest.to_string())
 }
 
-extern "C" { fn free(p: *mut core::ffi::c_void); }
-unsafe fn libc_free(p: *mut core::ffi::c_void) { free(p); }
+

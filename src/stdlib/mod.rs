@@ -85,6 +85,10 @@ pub const MODULES: &[StdModule] = &[
         ],
     },
     StdModule {
+        dll: "core",
+        funcs: &["core_free", "core_version", "core_echo"],
+    },
+    StdModule {
         dll: "crypto",
         funcs: &[
             "sha256", "hmac_sha256", "sha256_hexlen", "sha512", "sha1", "md5", "sha512_hexlen",

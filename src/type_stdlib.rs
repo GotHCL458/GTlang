@@ -169,6 +169,10 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "hex_decode" => f("py_hex_decode", Ty::Str, &[Ty::Str]),
         "password_hash" => f("py_password_hash", Ty::Str, &[Ty::Str, Ty::Str]),
         "password_verify" => f("py_password_verify", Ty::Bool, &[Ty::Str, Ty::Str]),
+        // ---- core ----
+        "core_free" => f("py_free", Ty::Void, &[Ty::Str]),
+        "core_version" => f("py_core_version", Ty::Str, &[]),
+        "core_echo" => f("py_core_echo", Ty::Str, &[Ty::Str]),
         // ---- entropy ----
         "sha512" => f("py_sha512", Ty::Str, &[Ty::Str]),
         "sha1" => f("py_sha1", Ty::Str, &[Ty::Str]),
@@ -300,6 +304,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "strip" | "lstrip" | "rstrip" | "index" | "rindex" | "replace_all" | "join_list" | "split_str" | "format" | "isalnum" | "islower" | "isupper" | "partition" | "rpartition" | "is_ascii" | "utf8_len"
         | "tcp_connect" | "tcp_listen" | "accept" | "net_send" | "net_recv" | "recv_all" | "net_close" | "close_listener" | "peer_addr"
         | "sql_open" | "sql_close" | "sql_exec" | "sql_query" | "sql_run" | "sql_error" | "sql_begin" | "sql_commit" | "sql_rollback" | "sql_exec_many"
+        | "core_free" | "core_version" | "core_echo"
         | "sha256" | "hmac_sha256" | "sha256_hexlen" | "sha512" | "sha1" | "md5" | "sha512_hexlen" | "random_hex" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
         | "entropy_random_hex" | "entropy_random_int" | "entropy_random_bytes" | "entropy_uuid"
         | "session_create" | "session_get" | "session_destroy" | "session_gc" | "session_count"
