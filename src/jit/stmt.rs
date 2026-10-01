@@ -319,9 +319,9 @@ impl FnState {
                 b.switch_to_block(bodyb); self.terminated = false;
                 let i2 = b.use_var(idx);
                 let ld = if is_list {
-                    // 内联 `data[i]`（RtList.data 在偏移 0），省函数调用与边界检查
+                    // 内联 `data[i]`（RtList 首字段 rc 占 8 字节，data 在偏移 8），省函数调用与边界检查
                     // （循环上界已保证 i < len）
-                    let data = b.ins().load(types::I64, MemFlags::new(), base, 0);
+                    let data = b.ins().load(types::I64, MemFlags::new(), base, 8);
                     let off = b.ins().imul_imm(i2, 8);
                     let addr = b.ins().iadd(data, off);
                     let raw = b.ins().load(types::I64, MemFlags::new(), addr, 0);
