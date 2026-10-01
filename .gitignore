@@ -33,6 +33,11 @@ build_res.bat
 # Temp / scratch
 /tmp/
 bench/_*.gt
+bench/_*.dll
+bench/_*.dll.*
+bench/_*.exe
+bench/_*.obj
+bench/_*.txt
 bench/_cl_win
 *.txt
 !README.md
