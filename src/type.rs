@@ -693,7 +693,9 @@ fn builtin_check(name: &str, args: &[Ty]) -> Result<Ty, String> {
 
 
 
-include!("type_stdlib.rs");
+#[path = "type_stdlib.rs"]
+mod type_stdlib;
+pub use type_stdlib::*;
 // ============================================================
 // 单元测试：类型规则必须稳定，两个后端共用
 // ============================================================

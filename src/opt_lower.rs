@@ -1,3 +1,5 @@
+use super::*;
+
 /// 命名参数：CallNamed 按形参名重排为 Call（需 FnDef 形参名）。
 pub fn resolve_named(prog: &mut Program) {
     use std::collections::HashMap;
@@ -18,11 +20,11 @@ pub fn resolve_named(prog: &mut Program) {
     }
 }
 
-fn resolve_block(b: &mut Block, params: &std::collections::HashMap<String, Vec<String>>) {
+pub(crate) fn resolve_block(b: &mut Block, params: &std::collections::HashMap<String, Vec<String>>) {
     for s in b.iter_mut() { resolve_stmt(s, params); }
 }
 
-fn resolve_stmt(s: &mut Stmt, params: &std::collections::HashMap<String, Vec<String>>) {
+pub(crate) fn resolve_stmt(s: &mut Stmt, params: &std::collections::HashMap<String, Vec<String>>) {
     match s {
         Stmt::Let { value, .. } | Stmt::Const { value, .. } => resolve_expr(value, params),
         Stmt::Assign { value, index, .. } => { resolve_expr(value, params); if let Some(i) = index { resolve_expr(i, params); } }
@@ -44,7 +46,7 @@ fn resolve_stmt(s: &mut Stmt, params: &std::collections::HashMap<String, Vec<Str
     }
 }
 
-fn resolve_expr(e: &mut Expr, params: &std::collections::HashMap<String, Vec<String>>) {
+pub(crate) fn resolve_expr(e: &mut Expr, params: &std::collections::HashMap<String, Vec<String>>) {
     match &mut e.kind {
         ExprKind::Unary(_, a) => resolve_expr(a, params),
         ExprKind::Binary(_, a, b) | ExprKind::Index(a, b) => { resolve_expr(a, params); resolve_expr(b, params); }
@@ -101,11 +103,11 @@ pub fn expand_list_comp(prog: &mut Program) {
     }
 }
 
-fn expand_block(b: &mut Block) {
+pub(crate) fn expand_block(b: &mut Block) {
     for s in b.iter_mut() { expand_stmt(s); }
 }
 
-fn expand_stmt(s: &mut Stmt) {
+pub(crate) fn expand_stmt(s: &mut Stmt) {
     match s {
         Stmt::Let { value, .. } | Stmt::Const { value, .. } => expand_expr(value),
         Stmt::Assign { value, index, .. } => { expand_expr(value); if let Some(i) = index { expand_expr(i); } }
@@ -127,7 +129,7 @@ fn expand_stmt(s: &mut Stmt) {
     }
 }
 
-fn expand_expr(e: &mut Expr) {
+pub(crate) fn expand_expr(e: &mut Expr) {
     // 先递归
     match &mut e.kind {
         ExprKind::Unary(_, a) => expand_expr(a),
@@ -204,11 +206,11 @@ pub fn expand_macros(prog: &mut Program) {
 
 const MACRO_MAX_DEPTH: usize = 64;
 
-fn macro_expand_block(b: &mut Block, macros: &std::collections::HashMap<String, (Vec<String>, Expr)>) {
+pub(crate) fn macro_expand_block(b: &mut Block, macros: &std::collections::HashMap<String, (Vec<String>, Expr)>) {
     for s in b.iter_mut() { macro_expand_stmt(s, macros); }
 }
 
-fn macro_expand_stmt(s: &mut Stmt, macros: &std::collections::HashMap<String, (Vec<String>, Expr)>) {
+pub(crate) fn macro_expand_stmt(s: &mut Stmt, macros: &std::collections::HashMap<String, (Vec<String>, Expr)>) {
     match s {
         Stmt::Let { value, .. } | Stmt::Const { value, .. } => macro_expand_expr(value, macros),
         Stmt::Assign { value, index, .. } => { macro_expand_expr(value, macros); if let Some(i) = index { macro_expand_expr(i, macros); } }
@@ -234,7 +236,7 @@ thread_local! {
     static MACRO_DEPTH: std::cell::Cell<usize> = std::cell::Cell::new(0);
 }
 
-fn macro_expand_expr(e: &mut Expr, macros: &std::collections::HashMap<String, (Vec<String>, Expr)>) {
+pub(crate) fn macro_expand_expr(e: &mut Expr, macros: &std::collections::HashMap<String, (Vec<String>, Expr)>) {
     // 展开深度保护（防止宏无限递归，借 Vix 的 64 上限）
     if MACRO_DEPTH.with(|d| d.get()) >= MACRO_MAX_DEPTH { return; }
     // 先递归子表达式（宏可能嵌套）
@@ -288,7 +290,7 @@ fn macro_expand_expr(e: &mut Expr, macros: &std::collections::HashMap<String, (V
     }
 }
 
-fn macro_subst(e: &mut Expr, subst: &std::collections::HashMap<String, Expr>) {
+pub(crate) fn macro_subst(e: &mut Expr, subst: &std::collections::HashMap<String, Expr>) {
     if let ExprKind::Ident(n) = &e.kind {
         if let Some(r) = subst.get(n) {
             e.kind = r.kind.clone();
@@ -319,7 +321,7 @@ fn macro_subst(e: &mut Expr, subst: &std::collections::HashMap<String, Expr>) {
     }
 }
 
-fn macro_subst_stmt(s: &mut Stmt, subst: &std::collections::HashMap<String, Expr>) {
+pub(crate) fn macro_subst_stmt(s: &mut Stmt, subst: &std::collections::HashMap<String, Expr>) {
     match s {
         Stmt::Let { value, .. } | Stmt::Const { value, .. } => macro_subst(value, subst),
         Stmt::Assign { value, index, .. } => { macro_subst(value, subst); if let Some(i) = index { macro_subst(i, subst); } }

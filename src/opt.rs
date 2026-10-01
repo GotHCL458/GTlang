@@ -630,5 +630,7 @@ fn collect_calls(e: &Expr, out: &mut std::collections::HashSet<String>) {
 }
 
 
-include!("opt_lower.rs");
+#[path = "opt_lower.rs"]
+mod opt_lower;
+pub(crate) use opt_lower::*;
 

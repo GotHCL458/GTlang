@@ -1,6 +1,7 @@
+use super::*;
 
 /// 赋值运算符 → 对应的复合运算（`=` 映射为 `Some(None)`，非赋值返回 None）
-fn assign_op(tok: &Tok) -> Option<Option<BinOp>> {
+pub(crate) fn assign_op(tok: &Tok) -> Option<Option<BinOp>> {
     let p = match tok {
         Tok::Punct(p) => p.as_str(),
         _ => return None,
@@ -23,7 +24,7 @@ fn assign_op(tok: &Tok) -> Option<Option<BinOp>> {
 
 /// 二元运算符优先级（数值越大结合越紧）。
 /// 位运算按 C 的习惯排在比较之下、逻辑之上，移位高于按位与或。
-fn prec_of(op: BinOp) -> u8 {
+pub(crate) fn prec_of(op: BinOp) -> u8 {
     match op {
         BinOp::Or => 1,
         BinOp::And => 2,
@@ -45,7 +46,7 @@ fn prec_of(op: BinOp) -> u8 {
 /// - `${expr}`   —— 任意表达式（花括号可嵌套）
 ///
 /// 需要字面 `$` 时写 `\$`（词法阶段已还原为 `$`，这里用 `\$` 转义后同理）。
-fn interp(raw: &str, line: usize) -> Result<ExprKind, String> {
+pub(crate) fn interp(raw: &str, line: usize) -> Result<ExprKind, String> {
     let chars: Vec<char> = raw.chars().collect();
     let mut parts: Vec<StrPart> = Vec::new();
     let mut lit = String::new();
@@ -138,7 +139,7 @@ fn interp(raw: &str, line: usize) -> Result<ExprKind, String> {
 
 
 /// 解构 let (a, b) = expr -> 拆成 tmp := expr; a := tmp.0; b := tmp.1
-fn desugar_destructure(names: Vec<String>, value: Expr, mutable: bool, line: usize) -> Stmt {
+pub(crate) fn desugar_destructure(names: Vec<String>, value: Expr, mutable: bool, line: usize) -> Stmt {
     let tmp = format!("__dst{}", line);
     let mut stmts: Block = Vec::new();
     stmts.push(Stmt::Let { name: tmp.clone(), ty: None, value, mutable: false, line });
@@ -151,7 +152,7 @@ fn desugar_destructure(names: Vec<String>, value: Expr, mutable: bool, line: usi
 }
 
 /// 解包赋值 `a, b = expr` -> { tmp := expr; a = tmp.0; b = tmp.1 }（原地交换靠 tmp 保留旧值）。
-fn desugar_unpack_assign(names: Vec<String>, value: Expr, line: usize) -> Stmt {
+pub(crate) fn desugar_unpack_assign(names: Vec<String>, value: Expr, line: usize) -> Stmt {
     let tmp = format!("__unpack{}", line);
     let mut stmts: Block = Vec::new();
     stmts.push(Stmt::Let { name: tmp.clone(), ty: None, value, mutable: false, line });
@@ -164,7 +165,7 @@ fn desugar_unpack_assign(names: Vec<String>, value: Expr, line: usize) -> Stmt {
 }
 
 /// 把 `a | b | c` 模式拆成 [a, b, c]（仅顶层 BitOr）。
-fn split_or_pattern(e: &Expr) -> Vec<Expr> {
+pub(crate) fn split_or_pattern(e: &Expr) -> Vec<Expr> {
     match &e.kind {
         ExprKind::Binary(BinOp::BitOr, a, b) => {
             let mut v = split_or_pattern(a);

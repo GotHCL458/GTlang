@@ -2,6 +2,8 @@
 // 标准库（libGT.dll）：Python 风格函数名 → C 符号 + 签名
 // ============================================================
 
+use super::Ty;
+
 /// 标准库函数签名：C 符号名、返回类型、参数类型
 pub struct StdFn {
     pub symbol: &'static str,

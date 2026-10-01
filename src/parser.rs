@@ -1715,4 +1715,6 @@ impl Parser {
     }
 }
 
-include!("parser_util.rs");
+#[path = "parser_util.rs"]
+mod parser_util;
+pub(crate) use parser_util::*;
