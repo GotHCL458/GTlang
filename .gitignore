@@ -37,7 +37,6 @@ bench/perf_suite.gt
 bench/perf.ll
 bench/perf*.exe
 bench/*.s
-!bench/_cl_win
 *.txt
 !README.md
 !doc/*.md
