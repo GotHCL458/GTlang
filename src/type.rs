@@ -858,6 +858,10 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "password_hash" => f("py_password_hash", Ty::Str, &[Ty::Str, Ty::Str]),
         "password_verify" => f("py_password_verify", Ty::Bool, &[Ty::Str, Ty::Str]),
         // ---- entropy ----
+        "sha512" => f("py_sha512", Ty::Str, &[Ty::Str]),
+        "sha1" => f("py_sha1", Ty::Str, &[Ty::Str]),
+        "md5" => f("py_md5", Ty::Str, &[Ty::Str]),
+        "sha512_hexlen" => f("py_sha512_hexlen", Ty::I64, &[]),
         "entropy_random_hex" => f("py_entropy_random_hex", Ty::Str, &[Ty::I64]),
         "entropy_random_int" => f("py_entropy_random_int", Ty::I64, &[Ty::I64]),
         "entropy_random_bytes" => f("py_entropy_random_bytes", Ty::Str, &[Ty::I64]),
@@ -978,7 +982,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "strip" | "lstrip" | "rstrip" | "index" | "rindex" | "replace_all" | "join_list" | "split_str" | "format" | "isalnum" | "islower" | "isupper" | "partition" | "rpartition" | "is_ascii" | "utf8_len"
         | "tcp_connect" | "tcp_listen" | "accept" | "net_send" | "net_recv" | "recv_all" | "net_close" | "close_listener" | "peer_addr"
         | "sql_open" | "sql_close" | "sql_exec" | "sql_query" | "sql_run" | "sql_error"
-        | "sha256" | "hmac_sha256" | "sha256_hexlen" | "random_hex" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
+        | "sha256" | "hmac_sha256" | "sha256_hexlen" | "sha512" | "sha1" | "md5" | "sha512_hexlen" | "random_hex" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
         | "entropy_random_hex" | "entropy_random_int" | "entropy_random_bytes" | "entropy_uuid"
         | "seed" | "random" | "randint" | "randrange" | "uniform" | "choice" | "shuffle" | "sample" | "gauss"
         | "ast_lit_int" | "ast_lit_float" | "ast_lit_str" | "ast_lit_char" | "ast_lit_bool"
