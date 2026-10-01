@@ -269,6 +269,7 @@ impl<'a> Jit<'a> {
         jb.symbol("rt_list_push", rt_list_push as *const u8);
         jb.symbol("rt_list_pop", rt_list_pop as *const u8);
         jb.symbol("rt_list_at", rt_list_at as *const u8);
+        jb.symbol("rt_list_slice", rt_list_slice as *const u8);
         jb.symbol("rt_list_set", rt_list_set as *const u8);
         jb.symbol("rt_list_len", rt_list_len as *const u8);
         jb.symbol("rt_list_has", rt_list_has as *const u8);
@@ -459,6 +460,7 @@ impl<'a> Jit<'a> {
             ("list_push", "rt_list_push", vec![i64v, i64v], None),
             ("list_pop", "rt_list_pop", vec![i64v], Some(i64v)),
             ("list_at", "rt_list_at", vec![i64v, i64v], Some(i64v)),
+            ("list_slice", "rt_list_slice", vec![i64v, i64v, i64v], Some(i64v)),
             ("list_set", "rt_list_set", vec![i64v, i64v, i64v], None),
             ("list_len", "rt_list_len", vec![i64v], Some(i64v)),
             ("list_has", "rt_list_has", vec![i64v, i64v], Some(i64v)),

@@ -185,6 +185,13 @@ impl<'a> Codegen<'a> {
                 let hv = self.expr(hi)?;
                 let l = self.as_i64(&lv);
                 let h = self.as_i64(&hv);
+                // list 切片：返回新 list（[lo, hi)）
+                if matches!(b.ty, Ty::List(_)) {
+                    self.declare("declare ptr @gt_list_slice(ptr, i64, i64)");
+                    let r = self.new_reg();
+                    self.body.push_str(&format!("  {} = call ptr @gt_list_slice(ptr {}, i64 {}, i64 {})\n", r, b.s, l, h));
+                    return Ok(Val::new(&Ty::List(Box::new(Ty::I64)), r));
+                }
                 let len = self.new_reg();
                 self.body.push_str(&format!("  {} = sub i64 {}, {}\n", len, h, l));
                 self.declare("declare ptr @gt_str_substr(ptr, i64, i64)");

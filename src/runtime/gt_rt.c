@@ -328,6 +328,16 @@ long long gt_list_pop(GtList *l) {
     return l->data[--l->len];
 }
 
+/* list 切片：返回新 list，元素 [lo, hi)。 */
+GtList *gt_list_slice(GtList *l, long long lo, long long hi) {
+    GtList *out = gt_list_new(l ? l->elem_ptr : 0);
+    if (!l) return out;
+    if (lo < 0) lo = 0;
+    if (hi > l->len) hi = l->len;
+    for (long long i = lo; i < hi; i++) gt_list_push(out, l->data[i]);
+    return out;
+}
+
 long long gt_list_at(GtList *l, long long i) {
     if (i < 0 || i >= l->len) return 0;
     return l->data[i];

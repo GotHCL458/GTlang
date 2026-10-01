@@ -147,6 +147,12 @@ impl FnState {
                 let hs = self.gen_expr(jit, b, hi)?;
                 let l = self.convert(b, &ls, &Ty::I64);
                 let h = self.convert(b, &hs, &Ty::I64);
+                // list 切片：返回新 list
+                if matches!(bs.1, Ty::List(_)) {
+                    let f = self.rt_ref(jit, b, "list_slice")?;
+                    let call = b.ins().call(f, &[bs.0, l, h]);
+                    return Ok((b.inst_results(call)[0], Ty::List(Box::new(Ty::I64))));
+                }
                 let len = b.ins().isub(h, l);
                 let f = self.rt_ref(jit, b, "str_substr")?;
                 let call = b.ins().call(f, &[bs.0, l, len]);

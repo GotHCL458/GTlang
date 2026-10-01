@@ -364,6 +364,20 @@ pub(crate) extern "C" fn rt_list_at(l: *mut RtList, i: i64) -> i64 {
     }
 }
 
+pub(crate) extern "C" fn rt_list_slice(l: *mut RtList, lo: i64, hi: i64) -> *mut RtList {
+    let elem_ptr = if l.is_null() { 0 } else { unsafe { (*l).elem_ptr } };
+    let out = rt_list_new(elem_ptr);
+    if l.is_null() { return out; }
+    unsafe {
+        let src = &*l;
+        let lo = lo.max(0);
+        let hi = hi.min(src.len);
+        let mut i = lo;
+        while i < hi { rt_list_push(out, *src.data.add(i as usize)); i += 1; }
+    }
+    out
+}
+
 pub(crate) extern "C" fn rt_list_set(l: *mut RtList, i: i64, v: i64) {
     if l.is_null() { return; }
     unsafe {
