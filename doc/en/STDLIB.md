@@ -77,7 +77,8 @@ serve(8080, routes)
 ```
 
 Response may carry `{status}` and `{Header: value}` prefixes, or `@file:` / `@dir:`.
-Placeholders: `{{body}}` `{{param:name}}` `{{query:name}}` `{{header:Name}}` `{{cookie:Name}}`.
+Placeholders: `{{body}}` `{{param:name}}` `{{query:name}}` `{{header:Name}}` `{{cookie:Name}}` `{{form:name}}` (urlencoded body).
+Routes support `:name` (single segment) and `/*name` (greedy, matches the rest of the path).
 
 ### Handler callback (`serve_fn`, **--run / JIT only**)
 

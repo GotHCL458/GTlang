@@ -157,6 +157,9 @@ serve(8080, routes)
 | `{{query:name}}` | 查询参数（`?name=x`）|
 | `{{header:Name}}` | 请求头 |
 | `{{cookie:Name}}` | Cookie 值 |
+| `{{form:Name}}` | 表单字段（`application/x-www-form-urlencoded` 请求体）|
+
+**通配符**：`:name` 匹配单段；`/*name` 贪婪匹配剩余整条路径（注入 `{{param:name}}`）。
 
 ### 模式二：处理函数回调（`serve_fn`，**仅 --run / JIT**）
 

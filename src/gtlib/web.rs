@@ -115,6 +115,9 @@ pub extern "C" fn py_route_match(pattern: *const c_char, path: *const c_char) ->
     for (p, q) in ps.iter().zip(qs.iter()) {
         if let Some(name) = p.strip_prefix(':') {
             params.push(format!("{}={}", name, q));
+        } else if let Some(name) = p.strip_prefix('*') {
+            // 命名通配 `*name`：匹配单段
+            if !name.is_empty() { params.push(format!("{}={}", name, q)); }
         } else if p != q {
             return ret_string(String::new());
         }
@@ -223,6 +226,16 @@ fn resolve(routes: &str, method: &str, path: &str, req_body: &str, headers: &[(S
         let (matched, dir_rel) = if let Some(prefix) = p.strip_suffix("/*") {
             let ok = path_only.starts_with(prefix);
             (ok, path_only.trim_start_matches(prefix).trim_start_matches('/').to_string())
+        } else if let Some(idx) = p.find("/*") {
+            // 命名通配 `/*name`（贪婪匹配剩余整段，注入 params）
+            let pre = &p[..idx];
+            let after = &p[idx + 2..];
+            if path_only.starts_with(pre) {
+                let rest = &path_only[pre.len()..];
+                let rest = rest.strip_prefix('/').unwrap_or(rest);
+                if !after.is_empty() { params.push((after.to_string(), rest.to_string())); }
+                (true, rest.to_string())
+            } else { (false, String::new()) }
         } else {
             let ps: Vec<&str> = p.trim_matches('/').split('/').collect();
             let qs: Vec<&str> = path_only.trim_matches('/').split('/').collect();
@@ -349,6 +362,23 @@ fn build_hit(rhs: &str, path_rel: &str, req_body: &str, headers: &[(String, Stri
             if let Some(j) = s.find("}}") {
                 let name = s[..j].trim();
                 let val = params.iter().find(|(k, _)| k == name).map(|(_, v)| v.as_str()).unwrap_or("");
+                out.push_str(&url_dec(val));
+                s = &s[j + 2..];
+            } else { out.push_str(s); s = ""; }
+        }
+        out.push_str(s);
+        body = out;
+    }
+    // {{form:name}} → 表单体（application/x-www-form-urlencoded）字段
+    if body.contains("{{form:") {
+        let mut out = String::with_capacity(body.len());
+        let mut s = body.as_str();
+        while let Some(i) = s.find("{{form:") {
+            out.push_str(&s[..i]);
+            s = &s[i + 7..];
+            if let Some(j) = s.find("}}") {
+                let name = s[..j].trim();
+                let val = req_body.split('&').filter_map(|p| p.split_once('=')).find(|(k, _)| *k == name).map(|(_, v)| v).unwrap_or("");
                 out.push_str(&url_dec(val));
                 s = &s[j + 2..];
             } else { out.push_str(s); s = ""; }
