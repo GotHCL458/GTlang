@@ -64,7 +64,9 @@ pub(crate) fn load_stdlib() -> Vec<(&'static str, usize)> {
                 if !h.is_null() { handles.push(h); loaded = true; break; }
             }
         }
-        let _ = loaded;
+        if !loaded && std::env::var("GT_DEBUG_STDLIB").is_ok() {
+            eprintln!("[stdlib] FAILED to load {}.dll", lib.dll);
+        }
     }
     let mut out = Vec::new();
     if std::env::var("GT_DEBUG_STDLIB").is_ok() {
