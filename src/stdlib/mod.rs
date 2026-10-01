@@ -91,24 +91,9 @@ pub const MODULES: &[StdModule] = &[
         ],
     },
     StdModule {
-        dll: "crypto",
+        dll: "entropy",
         funcs: &[
-            "sha256", "hmac_sha256", "sha256_hexlen", "random_hex", "hex_encode", "hex_decode",
-            "password_hash", "password_verify",
-        ],
-    },
-    StdModule {
-        dll: "crypto",
-        funcs: &[
-            "sha256", "hmac_sha256", "sha256_hexlen", "random_hex", "hex_encode", "hex_decode",
-            "password_hash", "password_verify",
-        ],
-    },
-    StdModule {
-        dll: "crypto",
-        funcs: &[
-            "sha256", "hmac_sha256", "sha256_hexlen", "random_hex", "hex_encode", "hex_decode",
-            "password_hash", "password_verify",
+            "entropy_random_hex", "entropy_random_int", "entropy_random_bytes", "entropy_uuid",
         ],
     },
     StdModule {

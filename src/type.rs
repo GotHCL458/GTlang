@@ -857,6 +857,11 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "hex_decode" => f("py_hex_decode", Ty::Str, &[Ty::Str]),
         "password_hash" => f("py_password_hash", Ty::Str, &[Ty::Str, Ty::Str]),
         "password_verify" => f("py_password_verify", Ty::Bool, &[Ty::Str, Ty::Str]),
+        // ---- entropy ----
+        "entropy_random_hex" => f("py_entropy_random_hex", Ty::Str, &[Ty::I64]),
+        "entropy_random_int" => f("py_entropy_random_int", Ty::I64, &[Ty::I64]),
+        "entropy_random_bytes" => f("py_entropy_random_bytes", Ty::Str, &[Ty::I64]),
+        "entropy_uuid" => f("py_entropy_uuid", Ty::Str, &[]),
         "serve" => f("py_serve", Ty::I64, &[Ty::I64, Ty::Str]),
         "serve_fn" => f("py_serve_fn", Ty::I64, &[Ty::I64, Ty::I64]),
         "match_route" => f("py_match_route", Ty::Str, &[Ty::Str, Ty::Str, Ty::Str]),
@@ -974,9 +979,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "tcp_connect" | "tcp_listen" | "accept" | "net_send" | "net_recv" | "recv_all" | "net_close" | "close_listener" | "peer_addr"
         | "sql_open" | "sql_close" | "sql_exec" | "sql_query" | "sql_run" | "sql_error"
         | "sha256" | "hmac_sha256" | "sha256_hexlen" | "random_hex" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
-        | "sha256" | "hmac_sha256" | "sha256_hexlen" | "random_hex" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
-        | "sha256" | "hmac_sha256" | "sha256_hexlen" | "random_hex" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
-        | "sha256" | "hmac_sha256" | "sha256_hexlen" | "random_hex" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
+        | "entropy_random_hex" | "entropy_random_int" | "entropy_random_bytes" | "entropy_uuid"
         | "seed" | "random" | "randint" | "randrange" | "uniform" | "choice" | "shuffle" | "sample" | "gauss"
         | "ast_lit_int" | "ast_lit_float" | "ast_lit_str" | "ast_lit_char" | "ast_lit_bool"
         | "ast_id" | "ast_binary" | "ast_unary" | "ast_call" | "ast_add_arg"

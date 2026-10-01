@@ -147,6 +147,8 @@ pub(crate) const STDLIB_NAMES: &[&str] = &[
     "sql_open", "sql_close", "sql_exec", "sql_query", "sql_run", "sql_error",
     // crypto
     "sha256", "hmac_sha256", "sha256_hexlen", "random_hex", "hex_encode", "hex_decode", "password_hash", "password_verify",
+    // entropy
+    "entropy_random_hex", "entropy_random_int", "entropy_random_bytes", "entropy_uuid",
 ];
 
 /// JIT 运行时也要开启控制台 VT，否则 Windows 控制台不认 ANSI 转义
