@@ -84,6 +84,34 @@ pub const MODULES: &[StdModule] = &[
         ],
     },
     StdModule {
+        dll: "crypto",
+        funcs: &[
+            "sha256", "hmac_sha256", "sha256_hexlen", "random_hex", "hex_encode", "hex_decode",
+            "password_hash", "password_verify",
+        ],
+    },
+    StdModule {
+        dll: "crypto",
+        funcs: &[
+            "sha256", "hmac_sha256", "sha256_hexlen", "random_hex", "hex_encode", "hex_decode",
+            "password_hash", "password_verify",
+        ],
+    },
+    StdModule {
+        dll: "crypto",
+        funcs: &[
+            "sha256", "hmac_sha256", "sha256_hexlen", "random_hex", "hex_encode", "hex_decode",
+            "password_hash", "password_verify",
+        ],
+    },
+    StdModule {
+        dll: "crypto",
+        funcs: &[
+            "sha256", "hmac_sha256", "sha256_hexlen", "random_hex", "hex_encode", "hex_decode",
+            "password_hash", "password_verify",
+        ],
+    },
+    StdModule {
         dll: "random",
         funcs: &[
             "seed", "random", "randint", "randrange", "uniform",

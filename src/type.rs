@@ -848,6 +848,15 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "sql_query" => f("py_sql_query", Ty::Str, &[Ty::I64, Ty::Str]),
         "sql_run" => f("py_sql_run", Ty::I64, &[Ty::I64, Ty::Str]),
         "sql_error" => f("py_sql_error", Ty::Str, &[Ty::I64]),
+        // ---- crypto ----
+        "sha256" => f("py_sha256", Ty::Str, &[Ty::Str]),
+        "hmac_sha256" => f("py_hmac_sha256", Ty::Str, &[Ty::Str, Ty::Str]),
+        "sha256_hexlen" => f("py_sha256_hexlen", Ty::I64, &[]),
+        "random_hex" => f("py_random_hex", Ty::Str, &[Ty::I64]),
+        "hex_encode" => f("py_hex_encode", Ty::Str, &[Ty::Str]),
+        "hex_decode" => f("py_hex_decode", Ty::Str, &[Ty::Str]),
+        "password_hash" => f("py_password_hash", Ty::Str, &[Ty::Str, Ty::Str]),
+        "password_verify" => f("py_password_verify", Ty::Bool, &[Ty::Str, Ty::Str]),
         "serve" => f("py_serve", Ty::I64, &[Ty::I64, Ty::Str]),
         "serve_fn" => f("py_serve_fn", Ty::I64, &[Ty::I64, Ty::I64]),
         "match_route" => f("py_match_route", Ty::Str, &[Ty::Str, Ty::Str, Ty::Str]),
@@ -964,6 +973,10 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "strip" | "lstrip" | "rstrip" | "index" | "rindex" | "replace_all" | "join_list" | "split_str" | "format" | "isalnum" | "islower" | "isupper" | "partition" | "rpartition" | "is_ascii" | "utf8_len"
         | "tcp_connect" | "tcp_listen" | "accept" | "net_send" | "net_recv" | "recv_all" | "net_close" | "close_listener" | "peer_addr"
         | "sql_open" | "sql_close" | "sql_exec" | "sql_query" | "sql_run" | "sql_error"
+        | "sha256" | "hmac_sha256" | "sha256_hexlen" | "random_hex" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
+        | "sha256" | "hmac_sha256" | "sha256_hexlen" | "random_hex" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
+        | "sha256" | "hmac_sha256" | "sha256_hexlen" | "random_hex" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
+        | "sha256" | "hmac_sha256" | "sha256_hexlen" | "random_hex" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
         | "seed" | "random" | "randint" | "randrange" | "uniform" | "choice" | "shuffle" | "sample" | "gauss"
         | "ast_lit_int" | "ast_lit_float" | "ast_lit_str" | "ast_lit_char" | "ast_lit_bool"
         | "ast_id" | "ast_binary" | "ast_unary" | "ast_call" | "ast_add_arg"

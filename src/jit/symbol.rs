@@ -67,6 +67,9 @@ pub(crate) fn load_stdlib() -> Vec<(&'static str, usize)> {
         let _ = loaded;
     }
     let mut out = Vec::new();
+    if std::env::var("GT_DEBUG_STDLIB").is_ok() {
+        eprintln!("[stdlib] loaded {} dll handles", handles.len());
+    }
     for name in STDLIB_NAMES {
         if let Some(sf) = stdlib_fn(name) {
             let c = std::ffi::CString::new(sf.symbol).unwrap();
@@ -142,6 +145,8 @@ pub(crate) const STDLIB_NAMES: &[&str] = &[
     "tcp_connect", "tcp_listen", "accept", "net_send", "net_recv", "recv_all", "net_close", "close_listener", "peer_addr",
     // sql
     "sql_open", "sql_close", "sql_exec", "sql_query", "sql_run", "sql_error",
+    // crypto
+    "sha256", "hmac_sha256", "sha256_hexlen", "random_hex", "hex_encode", "hex_decode", "password_hash", "password_verify",
 ];
 
 /// JIT 运行时也要开启控制台 VT，否则 Windows 控制台不认 ANSI 转义
