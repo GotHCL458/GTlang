@@ -1,0 +1,76 @@
+// 端到端示例：GTLang 网页后端 + SQLite（留言板/TODO）
+// 运行： gtc --run examples/todo_app.gt
+// 浏览器访问本地 8090 端口
+import web
+import sql
+import string
+
+fn 页面(内容: str) -> str {
+    head := "<!DOCTYPE html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\">" +
+            "<title>GTLang 留言板</title><style>" +
+            "body{font-family:system-ui,sans-serif;max-width:720px;margin:40px auto;padding:0 16px}" +
+            "h1{color:#38bdf8}li{margin:8px 0}form{display:flex;gap:8px;margin:16px 0}" +
+            "input,button{font:inherit;padding:8px 12px;border-radius:8px;border:1px solid #ccc}" +
+            "button{background:#38bdf8;color:#fff;border:none;cursor:pointer}" +
+            "</style></head><body>"
+    foot := "</body></html>"
+    return head + 内容 + foot
+}
+
+fn 首页(db: int) -> str {
+    rows := sql_query(db, "SELECT id, text FROM msgs ORDER BY id DESC")
+    items := "<li>（还没有留言）</li>"
+    lines := split(rows, "\n")
+    if len(lines) > 1 {
+        items = ""
+        i := 1
+        while i < len(lines) {
+            line := lines[i]
+            if len(line) > 0 {
+                parts := split(line, "\t")
+                if len(parts) >= 2 {
+                    items = items + "<li>#" + parts[0] + " " + html_escape(parts[1]) + "</li>"
+                }
+            }
+            i = i + 1
+        }
+    }
+    body := "<h1>GTLang 留言板</h1>" +
+            "<form method=\"post\" action=\"/add\">" +
+            "<input name=\"text\" placeholder=\"写点什么…\" autocomplete=\"off\">" +
+            "<button type=\"submit\">留言</button></form>" +
+            "<ul>" + items + "</ul>"
+    return 页面(body)
+}
+
+fn 处理(req: str) -> str {
+    db := sql_open("todo.db")
+    if db == 0 { return "500 Internal Server Error" }
+    sql_exec(db, "CREATE TABLE IF NOT EXISTS msgs (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT)")
+    head := split(req, "\n")
+    first := head[0]
+    seg := split(first, " ")
+    method := seg[0]
+    path := seg[1]
+    resp := ""
+    if method == "POST" && path == "/add" {
+        body := ""
+        if len(head) >= 2 { body = head[1] }
+        kv := parse_query(body)
+        text := url_decode(query_get(kv, "text"))
+        if len(text) > 0 {
+            esc := replace_all(text, "'", "''")
+            sql_exec(db, "INSERT INTO msgs (text) VALUES ('" + esc + "')")
+        }
+        resp = "{303}{Location: /}"
+    } else {
+        resp = 首页(db)
+    }
+    sql_close(db)
+    return resp
+}
+
+fn main() {
+    put("留言板已启动：请访问本地 8090 端口")
+    serve_fn(8090, 处理)
+}
