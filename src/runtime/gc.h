@@ -28,8 +28,13 @@ void *gc_alloc(size_t n);
 void gc_inc(void *p);
 void gc_dec(void *p, void (*free_fn)(void *));
 
+/* 标记对象元信息（容器构造时调用；kind: 0=其他 1=list 2=set 3=map；elem_ptr: 元素是否指针） */
+void gc_set_meta(void *p, long long kind, long long elem_ptr);
+
 /* 周期性环检测（阈值自动触发；也可手动调用） */
 void gc_collect_cycles(void);
+/* 开关：编译器完成引用计数插桩后才可置 1（默认 0，避免误回收） */
+void gc_set_collect(int on);
 
 /* 统计（可选） */
 long long gc_live_objects(void);

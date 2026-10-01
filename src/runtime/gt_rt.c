@@ -297,6 +297,7 @@ GtList *gt_list_new(long long elem_ptr) {
     l->len = 0;
     l->elem_ptr = elem_ptr;
     l->data = (long long *)gt_alloc(sizeof(long long) * (size_t)l->cap);
+    gc_set_meta(l, 1, elem_ptr);   /* kind=1(list) */
     return l;
 }
 
@@ -374,6 +375,7 @@ GtSet *gt_set_new(long long elem_ptr) {
     s->len = 0;
     s->elem_ptr = elem_ptr;
     s->data = (long long *)gt_alloc(sizeof(long long) * (size_t)s->cap);
+    gc_set_meta(s, 2, elem_ptr);   /* kind=2(set) */
     s->hcap = 8;
     s->ht = (long long *)gt_alloc(sizeof(long long) * (size_t)s->hcap);
     for (long long i = 0; i < s->hcap; i++) s->ht[i] = -1;
@@ -419,6 +421,7 @@ GtMap *gt_map_new(long long elem_ptr) {
     m->cap = 4;
     m->len = 0;
     m->elem_ptr = elem_ptr;
+    gc_set_meta(m, 3, elem_ptr);   /* kind=3(map) */
     m->keys = (long long *)gt_alloc(sizeof(long long) * (size_t)m->cap);
     m->vals = (long long *)gt_alloc(sizeof(long long) * (size_t)m->cap);
     m->hcap = 8;
