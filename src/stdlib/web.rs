@@ -506,6 +506,7 @@ fn handle_conn_fn(mut s: TcpStream, handler: extern "C" fn(*const c_char) -> *mu
         let path = parts.get(1).copied().unwrap_or("/");
         let mut content_len = 0usize;
         let mut keep_alive = true;
+        let mut headers: Vec<String> = Vec::new();
         loop {
             let l = read_line(&mut reader);
             if l.is_empty() { break; }
@@ -513,12 +514,14 @@ fn handle_conn_fn(mut s: TcpStream, handler: extern "C" fn(*const c_char) -> *mu
                 if k.trim().eq_ignore_ascii_case("content-length") { content_len = v.trim().parse::<usize>().unwrap_or(0); }
                 if k.trim().eq_ignore_ascii_case("connection") && v.trim().eq_ignore_ascii_case("close") { keep_alive = false; }
             }
+            headers.push(l.clone());
         }
         let mut body_buf = vec![0u8; content_len];
         if content_len > 0 { let _ = reader.read_exact(&mut body_buf); }
         let req_body = String::from_utf8_lossy(&body_buf).into_owned();
-        // 构造传给 GTLang 处理函数的请求串："METHOD /path\nbody"
-        let req_str = format!("{} {}\n{}", method, path, req_body);
+        // 构造传给 GTLang 处理函数的请求串（保持 "METHOD /path\nbody" 兼容）：
+        //   "METHOD /path\nbody\n---HEADERS---\nHeader: v\n..."
+        let req_str = format!("{} {}\n{}\n---HEADERS---\n{}", method, path, req_body, headers.join("\n"));
         let creq = match std::ffi::CString::new(req_str) { Ok(c) => c, Err(_) => break };
         let resp_ptr = handler(creq.as_ptr());
         let resp = if resp_ptr.is_null() { String::from("500 Internal Server Error") } else {

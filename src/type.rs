@@ -557,7 +557,7 @@ fn builtin_check(name: &str, args: &[Ty]) -> Result<Ty, String> {
         "has" | "contains" => {
             arity(2)?;
             match &args[0] {
-                Ty::Map(..) | Ty::Set(..) | Ty::List(..) | Ty::Str | Ty::Unknown => Ok(Ty::Bool),
+                Ty::Map(..) | Ty::Set(..) | Ty::List(..) | Ty::Unknown => Ok(Ty::Bool),
                 other => Err(crate::te!("{}() does not support {}", "{}() 不支持 {}", name, other)),
             }
         }

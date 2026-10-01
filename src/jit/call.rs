@@ -190,7 +190,7 @@ impl FnState {
                 }
                 Ok((b.ins().iconst(types::I64, 0), Ty::Void))
             }
-            "has" | "contains" => {
+            "has" | "contains" if matches!(args[0].ty, Ty::List(..) | Ty::Set(..) | Ty::Map(..) | Ty::Unknown) => {
                 let c = self.gen_expr(jit, b, &args[0])?;
                 let k = self.gen_expr(jit, b, &args[1])?;
                 let ik = self.convert(b, &k, &Ty::I64);
