@@ -848,6 +848,10 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "sql_query" => f("py_sql_query", Ty::Str, &[Ty::I64, Ty::Str]),
         "sql_run" => f("py_sql_run", Ty::I64, &[Ty::I64, Ty::Str]),
         "sql_error" => f("py_sql_error", Ty::Str, &[Ty::I64]),
+        "sql_begin" => f("py_sql_begin", Ty::I64, &[Ty::I64]),
+        "sql_commit" => f("py_sql_commit", Ty::I64, &[Ty::I64]),
+        "sql_rollback" => f("py_sql_rollback", Ty::I64, &[Ty::I64]),
+        "sql_exec_many" => f("py_sql_exec_many", Ty::I64, &[Ty::I64, Ty::Str]),
         // ---- crypto ----
         "sha256" => f("py_sha256", Ty::Str, &[Ty::Str]),
         "hmac_sha256" => f("py_hmac_sha256", Ty::Str, &[Ty::Str, Ty::Str]),
@@ -987,7 +991,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "read_text" | "write_text" | "append_text" | "read_lines" | "write_lines" | "file_exists" | "file_copy" | "file_size" | "file_rename" | "touch" | "args" | "exit" | "glob"
         | "strip" | "lstrip" | "rstrip" | "index" | "rindex" | "replace_all" | "join_list" | "split_str" | "format" | "isalnum" | "islower" | "isupper" | "partition" | "rpartition" | "is_ascii" | "utf8_len"
         | "tcp_connect" | "tcp_listen" | "accept" | "net_send" | "net_recv" | "recv_all" | "net_close" | "close_listener" | "peer_addr"
-        | "sql_open" | "sql_close" | "sql_exec" | "sql_query" | "sql_run" | "sql_error"
+        | "sql_open" | "sql_close" | "sql_exec" | "sql_query" | "sql_run" | "sql_error" | "sql_begin" | "sql_commit" | "sql_rollback" | "sql_exec_many"
         | "sha256" | "hmac_sha256" | "sha256_hexlen" | "sha512" | "sha1" | "md5" | "sha512_hexlen" | "random_hex" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
         | "entropy_random_hex" | "entropy_random_int" | "entropy_random_bytes" | "entropy_uuid"
         | "session_create" | "session_get" | "session_destroy" | "session_gc" | "session_count"

@@ -81,6 +81,7 @@ pub const MODULES: &[StdModule] = &[
         dll: "sql",
         funcs: &[
             "sql_open", "sql_close", "sql_exec", "sql_query", "sql_run", "sql_error",
+            "sql_begin", "sql_commit", "sql_rollback", "sql_exec_many",
         ],
     },
     StdModule {

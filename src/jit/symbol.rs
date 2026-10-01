@@ -147,6 +147,7 @@ pub(crate) const STDLIB_NAMES: &[&str] = &[
     "tcp_connect", "tcp_listen", "accept", "net_send", "net_recv", "recv_all", "net_close", "close_listener", "peer_addr",
     // sql
     "sql_open", "sql_close", "sql_exec", "sql_query", "sql_run", "sql_error",
+    "sql_begin", "sql_commit", "sql_rollback", "sql_exec_many",
     // crypto
     "sha256", "hmac_sha256", "sha256_hexlen", "sha512", "sha1", "md5", "sha512_hexlen", "random_hex", "hex_encode", "hex_decode", "password_hash", "password_verify",
     // entropy

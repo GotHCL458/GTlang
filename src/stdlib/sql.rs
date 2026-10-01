@@ -107,3 +107,67 @@ pub extern "C" fn py_sql_query(db: i64, sql: *const c_char) -> *mut c_char {
 pub extern "C" fn py_sql_run(db: i64, sql: *const c_char) -> i64 {
     if py_sql_exec(db, sql) == 0 { 1 } else { 0 }
 }
+
+/// sql_begin(db)：开启事务
+#[no_mangle]
+pub extern "C" fn py_sql_begin(db: i64) -> i64 {
+    if db == 0 { return -1; }
+    let c = CString::new("BEGIN").unwrap();
+    let mut err: *mut c_char = std::ptr::null_mut();
+    let rc = unsafe { sqlite3_exec(db as *mut c_void, c.as_ptr(), std::ptr::null_mut(), std::ptr::null_mut(), &mut err) };
+    if !err.is_null() { unsafe { sqlite3_free(err as *mut c_void); } }
+    rc as i64
+}
+
+/// sql_commit(db)：提交事务
+#[no_mangle]
+pub extern "C" fn py_sql_commit(db: i64) -> i64 {
+    if db == 0 { return -1; }
+    let c = CString::new("COMMIT").unwrap();
+    let mut err: *mut c_char = std::ptr::null_mut();
+    let rc = unsafe { sqlite3_exec(db as *mut c_void, c.as_ptr(), std::ptr::null_mut(), std::ptr::null_mut(), &mut err) };
+    if !err.is_null() { unsafe { sqlite3_free(err as *mut c_void); } }
+    rc as i64
+}
+
+/// sql_rollback(db)：回滚事务
+#[no_mangle]
+pub extern "C" fn py_sql_rollback(db: i64) -> i64 {
+    if db == 0 { return -1; }
+    let c = CString::new("ROLLBACK").unwrap();
+    let mut err: *mut c_char = std::ptr::null_mut();
+    let rc = unsafe { sqlite3_exec(db as *mut c_void, c.as_ptr(), std::ptr::null_mut(), std::ptr::null_mut(), &mut err) };
+    if !err.is_null() { unsafe { sqlite3_free(err as *mut c_void); } }
+    rc as i64
+}
+
+/// sql_exec_many(db, sql_text)：在单个事务里执行多行 SQL（每行一条），返回出错行号（0=全部成功）
+#[no_mangle]
+pub extern "C" fn py_sql_exec_many(db: i64, sql_text: *const c_char) -> i64 {
+    if db == 0 { return -1; }
+    let text = unsafe { to_string(sql_text) };
+    let d = db as *mut c_void;
+    // 开启事务
+    let b = CString::new("BEGIN").unwrap();
+    unsafe { sqlite3_exec(d, b.as_ptr(), std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut()); }
+    let mut lineno = 0i64;
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() { continue; }
+        lineno += 1;
+        let c = match CString::new(line) { Ok(c) => c, Err(_) => { lineno = -lineno; break; } };
+        let mut err: *mut c_char = std::ptr::null_mut();
+        let rc = unsafe { sqlite3_exec(d, c.as_ptr(), std::ptr::null_mut(), std::ptr::null_mut(), &mut err) };
+        if !err.is_null() { unsafe { sqlite3_free(err as *mut c_void); } }
+        if rc != 0 { lineno = -lineno; break; }
+    }
+    if lineno < 0 {
+        // 回滚
+        let rb = CString::new("ROLLBACK").unwrap();
+        unsafe { sqlite3_exec(d, rb.as_ptr(), std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut()); }
+        return -lineno;
+    }
+    let cm = CString::new("COMMIT").unwrap();
+    unsafe { sqlite3_exec(d, cm.as_ptr(), std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut()); }
+    0
+}
