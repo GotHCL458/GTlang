@@ -67,6 +67,9 @@ void *gc_alloc(size_t n) {
 
 static GcHdr *hdr_of(void *p) { return p ? ((GcHdr *)p - 1) : NULL; }
 
+/* 返回对象的 kind（0=其他 1=list 2=set 3=map）；供 gt_dispatch_free 分派。 */
+long long gc_kind_of(void *p) { GcHdr *h = hdr_of(p); return h ? h->kind : 0; }
+
 /* 标记对象元信息（由容器构造函数调用） */
 void gc_set_meta(void *p, long long kind, long long elem_ptr) {
     GcHdr *h = hdr_of(p);

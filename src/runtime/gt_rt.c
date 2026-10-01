@@ -23,6 +23,8 @@
  * （GTLang 与标准库 DLL 处于不同 CRT，serve_fn 等回调需要这种可跨 CRT 释放的内存。） */
 #define gt_alloc(n)   HeapAlloc(GetProcessHeap(), 0, (n))
 #define gt_free(p)    HeapFree(GetProcessHeap(), 0, (p))
+/* realloc 不能用于 HeapAlloc 内存（不同堆）；用 HeapReAlloc 替代。 */
+#define gt_realloc(p, n) HeapReAlloc(GetProcessHeap(), 0, (p), (n))
 
 /* 自动内存管理（引用计数 + 预留环检测）。--no-gc 时退化为裸分配。
  * 直接包含实现（gc.c 内含 gc.h），使 gt_rt.c 自成编译单元；
@@ -289,6 +291,12 @@ static long long gt_map_find(GtMap *m, long long k) {
     return -1;
 }
 
+/* 前向声明：容器释放与分派（定义在文件后部） */
+static void gt_dispatch_free(void *p);
+void gt_list_free(void *p);
+void gt_set_free(void *p);
+void gt_map_free(void *p);
+
 /* ---------- list ---------- */
 GtList *gt_list_new(long long elem_ptr) {
     GtList *l = (GtList *)gc_alloc(sizeof(GtList));
@@ -304,13 +312,15 @@ GtList *gt_list_new(long long elem_ptr) {
 static void gt_list_grow(GtList *l) {
     if (l->len >= l->cap) {
         l->cap *= 2;
-        l->data = (long long *)realloc(l->data, sizeof(long long) * (size_t)l->cap);
+        l->data = (long long *)gt_realloc(l->data, sizeof(long long) * (size_t)l->cap);
     }
 }
 
 void gt_list_push(GtList *l, long long v) {
     gt_list_grow(l);
     l->data[l->len++] = v;
+    /* 元素自动引用计数：元素是指针类型时 inc（容器持有它） */
+    if (l->elem_ptr && v) gc_inc((void *)(size_t)v);
 }
 
 long long gt_list_pop(GtList *l) {
@@ -324,7 +334,14 @@ long long gt_list_at(GtList *l, long long i) {
 }
 
 void gt_list_set(GtList *l, long long i, long long v) {
-    if (i >= 0 && i < l->len) l->data[i] = v;
+    if (i >= 0 && i < l->len) {
+        if (l->elem_ptr) {
+            long long old = l->data[i];
+            if (old) gc_dec((void *)(size_t)old, gt_dispatch_free);
+            if (v) gc_inc((void *)(size_t)v);
+        }
+        l->data[i] = v;
+    }
 }
 
 long long gt_list_len(GtList *l) { return l ? l->len : 0; }
@@ -389,11 +406,12 @@ void gt_set_insert(GtSet *s, long long v) {
     }
     if (s->len >= s->cap) {
         s->cap *= 2;
-        s->data = (long long *)realloc(s->data, sizeof(long long) * (size_t)s->cap);
+        s->data = (long long *)gt_realloc(s->data, sizeof(long long) * (size_t)s->cap);
     }
     long long idx = s->len;
     s->data[idx] = v;
     s->len++;
+    if (s->elem_ptr && v) gc_inc((void *)(size_t)v); /* 元素自动引用计数 */
     unsigned long long mask = (unsigned long long)(s->hcap - 1);
     unsigned long long h = gt_hash64((unsigned long long)v) & mask;
     while (s->ht[h] != -1) h = (h + 1) & mask;
@@ -442,13 +460,17 @@ void gt_map_insert(GtMap *m, long long k, long long v) {
     }
     if (m->len >= m->cap) {
         m->cap *= 2;
-        m->keys = (long long *)realloc(m->keys, sizeof(long long) * (size_t)m->cap);
-        m->vals = (long long *)realloc(m->vals, sizeof(long long) * (size_t)m->cap);
+        m->keys = (long long *)gt_realloc(m->keys, sizeof(long long) * (size_t)m->cap);
+        m->vals = (long long *)gt_realloc(m->vals, sizeof(long long) * (size_t)m->cap);
     }
     long long idx = m->len;
     m->keys[idx] = k;
     m->vals[idx] = v;
     m->len++;
+    if (m->elem_ptr) {
+        if (k) gc_inc((void *)(size_t)k);
+        if (v) gc_inc((void *)(size_t)v);
+    }
     unsigned long long mask = (unsigned long long)(m->hcap - 1);
     unsigned long long h = gt_hash64((unsigned long long)k) & mask;
     while (m->ht[h] != -1) h = (h + 1) & mask;
@@ -582,10 +604,10 @@ char *gt_str_replace(const char *s, const char *from, const char *to) {
     const char *p = s;
     while (*p) {
         if (strncmp(p, from, fl) == 0) {
-            if (used + tl + 1 > cap) { cap = (used + tl + 1) * 2; out = (char *)realloc(out, cap); }
+            if (used + tl + 1 > cap) { cap = (used + tl + 1) * 2; out = (char *)gt_realloc(out, cap); }
             memcpy(out + used, to, tl); used += tl; p += fl;
         } else {
-            if (used + 2 > cap) { cap = cap * 2; out = (char *)realloc(out, cap); }
+            if (used + 2 > cap) { cap = cap * 2; out = (char *)gt_realloc(out, cap); }
             out[used++] = *p++;
         }
     }
@@ -630,7 +652,7 @@ char *gt_str_join(GtList *l, const char *sep) {
             size_t el = strlen(e);
             if (used + el + sepl + 1 > cap) {
                 while (used + el + sepl + 1 > cap) cap *= 2;
-                out = (char *)realloc(out, cap);
+                out = (char *)gt_realloc(out, cap);
             }
             if (i > 0) { memcpy(out + used, sep, sepl); used += sepl; }
             memcpy(out + used, e, el); used += el;
@@ -960,10 +982,52 @@ long long gt_rc_dec(void *p, void (*free_fn)(void *)) {
     }
     return *rc;
 }
+/* 按对象类型分发 free（gc_dec 到 0 时用）。 */
+static void gt_dispatch_free(void *p) {
+    /* 用 gc 头的 kind 字段分派；字符串等无 kind 的由 gc_dec 默认路径处理 */
+    extern long long gc_kind_of(void *p);
+    long long k = gc_kind_of(p);
+    if (k == 1) { gt_list_free(p); return; }
+    if (k == 2) { gt_set_free(p); return; }
+    if (k == 3) { gt_map_free(p); return; }
+    /* 其他（字符串等）：gc_dec 已释放对象本身，这里不再处理 */
+}
+
 void gt_list_free(void *p) {
     GtList *l = (GtList *)p;
+    if (l->elem_ptr && l->data) {
+        for (long long i = 0; i < l->len; i++) {
+            if (l->data[i]) gc_dec((void *)(size_t)l->data[i], gt_dispatch_free);
+        }
+    }
     if (l->data) gt_free(l->data);
     gt_free(l);
+}
+
+void gt_set_free(void *p) {
+    GtSet *s = (GtSet *)p;
+    if (s->elem_ptr && s->data) {
+        for (long long i = 0; i < s->len; i++) {
+            if (s->data[i]) gc_dec((void *)(size_t)s->data[i], gt_dispatch_free);
+        }
+    }
+    if (s->data) gt_free(s->data);
+    if (s->ht) gt_free(s->ht);
+    gt_free(s);
+}
+
+void gt_map_free(void *p) {
+    GtMap *m = (GtMap *)p;
+    if (m->elem_ptr) {
+        for (long long i = 0; i < m->len; i++) {
+            if (m->keys[i]) gc_dec((void *)(size_t)m->keys[i], gt_dispatch_free);
+            if (m->vals[i]) gc_dec((void *)(size_t)m->vals[i], gt_dispatch_free);
+        }
+    }
+    if (m->keys) gt_free(m->keys);
+    if (m->vals) gt_free(m->vals);
+    if (m->ht) gt_free(m->ht);
+    gt_free(m);
 }
 
 /* ============================================================
