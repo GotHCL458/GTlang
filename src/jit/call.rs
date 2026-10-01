@@ -103,7 +103,7 @@ impl FnState {
             "int" | "i64" => { let v = self.gen_expr(jit, b, &args[0])?; self.gen_to_i64(jit, b, &v) }
             "f64" | "float" => { let v = self.gen_expr(jit, b, &args[0])?; self.gen_to_f64(jit, b, &v) }
             "bool" => { let v = self.gen_expr(jit, b, &args[0])?; self.gen_to_bool(jit, b, &v) }
-            "list" | "List" => { let f = self.rt_ref(jit, b, "list_new")?; let zero = b.ins().iconst(types::I64, 0); let call = b.ins().call(f, &[zero]); Ok((b.inst_results(call)[0], call_ty.clone())) }
+            "list" | "List" => { let f = self.rt_ref(jit, b, "list_new")?; let epv = match call_ty { Ty::List(e) => crate::codegen::elem_is_ptr(e), _ => 0 }; let ep = b.ins().iconst(types::I64, epv); let call = b.ins().call(f, &[ep]); Ok((b.inst_results(call)[0], call_ty.clone())) }
             "range" => {
                 let a = self.gen_expr(jit, b, &args[0])?;
                 let av = self.convert(b, &a, &Ty::I64);
@@ -158,8 +158,8 @@ impl FnState {
                 b.ins().call(f, &[cv, mv, lv]);
                 Ok((b.ins().iconst(types::I64, 0), Ty::Void))
             }
-            "set" | "Set" => { let f = self.rt_ref(jit, b, "set_new")?; let zero = b.ins().iconst(types::I64, 0); let call = b.ins().call(f, &[zero]); Ok((b.inst_results(call)[0], call_ty.clone())) }
-            "map" | "Map" | "dict" => { let f = self.rt_ref(jit, b, "map_new")?; let zero = b.ins().iconst(types::I64, 0); let call = b.ins().call(f, &[zero]); Ok((b.inst_results(call)[0], call_ty.clone())) }
+            "set" | "Set" => { let f = self.rt_ref(jit, b, "set_new")?; let epv = match call_ty { Ty::Set(e) => crate::codegen::elem_is_ptr(e), _ => 0 }; let ep = b.ins().iconst(types::I64, epv); let call = b.ins().call(f, &[ep]); Ok((b.inst_results(call)[0], call_ty.clone())) }
+            "map" | "Map" | "dict" => { let f = self.rt_ref(jit, b, "map_new")?; let epv = match call_ty { Ty::Map(k, v) => crate::codegen::elem_is_ptr(k) | crate::codegen::elem_is_ptr(v), _ => 0 }; let ep = b.ins().iconst(types::I64, epv); let call = b.ins().call(f, &[ep]); Ok((b.inst_results(call)[0], call_ty.clone())) }
             "push" | "append" => {
                 let l = self.gen_expr(jit, b, &args[0])?;
                 let v = self.gen_expr(jit, b, &args[1])?;

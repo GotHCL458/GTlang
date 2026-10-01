@@ -13,6 +13,15 @@ use std::collections::{HashMap, HashSet};
 use crate::ast::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+/// 容器的元素/键/值是否为"堆指针类型"（list/set/map/str/struct/enum → 1）。
+/// 供 GC 引用计数与环检测判断"是否需要遍历子引用"。
+pub fn elem_is_ptr(t: &Ty) -> i64 {
+    match t {
+        Ty::List(_) | Ty::Set(_) | Ty::Map(..) | Ty::Str | Ty::Struct(_) | Ty::Enum(_) | Ty::Tuple(_) => 1,
+        _ => 0,
+    }
+}
+
 /// 是否启用整数溢出检查（默认开）。`--no-overflow-check` 关闭后加减乘用回绕指令。
 static OVERFLOW_CHECK: AtomicBool = AtomicBool::new(true);
 

@@ -95,7 +95,14 @@ impl<'a> Codegen<'a> {
             "int" | "i64" => { let v = self.expr(&args[0])?; self.to_i64(&v, line) }
             "f64" | "float" => { let v = self.expr(&args[0])?; self.to_f64(&v, line) }
             "bool" => { let v = self.expr(&args[0])?; self.to_bool(&v, line) }
-            "list" | "List" => { self.declare("declare ptr @gt_list_new(i64)"); let r = self.new_reg(); self.body.push_str(&format!("  {} = call ptr @gt_list_new(i64 0)\n", r)); Ok(Val::new(call_ty, r)) }
+            "list" | "List" => {
+                // 元素引用计数：取 List 的元素类型判断是否堆指针（Unknown 保守取 0）
+                let ep = match call_ty { Ty::List(e) => elem_is_ptr(e), _ => 0 };
+                self.declare("declare ptr @gt_list_new(i64)");
+                let r = self.new_reg();
+                self.body.push_str(&format!("  {} = call ptr @gt_list_new(i64 {})\n", r, ep));
+                Ok(Val::new(call_ty, r))
+            }
             "chan" => {
                 self.declare("declare ptr @gt_chan_new()");
                 let p = self.new_reg();
@@ -164,8 +171,20 @@ impl<'a> Codegen<'a> {
                 self.body.push_str(&format!("  {} = call ptr @gt_range(i64 {}, i64 {})\n", r, lo, hi));
                 Ok(Val::new(call_ty, r))
             }
-            "set" | "Set" => { self.declare("declare ptr @gt_set_new(i64)"); let r = self.new_reg(); self.body.push_str(&format!("  {} = call ptr @gt_set_new(i64 0)\n", r)); Ok(Val::new(call_ty, r)) }
-            "map" | "Map" | "dict" => { self.declare("declare ptr @gt_map_new(i64)"); let r = self.new_reg(); self.body.push_str(&format!("  {} = call ptr @gt_map_new(i64 0)\n", r)); Ok(Val::new(call_ty, r)) }
+            "set" | "Set" => {
+                let ep = match call_ty { Ty::Set(e) => elem_is_ptr(e), _ => 0 };
+                self.declare("declare ptr @gt_set_new(i64)");
+                let r = self.new_reg();
+                self.body.push_str(&format!("  {} = call ptr @gt_set_new(i64 {})\n", r, ep));
+                Ok(Val::new(call_ty, r))
+            }
+            "map" | "Map" | "dict" => {
+                let ep = match call_ty { Ty::Map(k, v) => elem_is_ptr(k) | elem_is_ptr(v), _ => 0 };
+                self.declare("declare ptr @gt_map_new(i64)");
+                let r = self.new_reg();
+                self.body.push_str(&format!("  {} = call ptr @gt_map_new(i64 {})\n", r, ep));
+                Ok(Val::new(call_ty, r))
+            }
             "push" | "append" => { self.declare("declare void @gt_list_push(ptr, i64)"); let l = self.expr(&args[0])?; let v = self.expr(&args[1])?; let vs = self.to_slot(&v); self.body.push_str(&format!("  call void @gt_list_push(ptr {}, i64 {})\n", l.s, vs)); Ok(Val::new(&Ty::Void, "0")) }
             "pop" => { self.declare("declare i64 @gt_list_pop(ptr)"); let l = self.expr(&args[0])?; let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_list_pop(ptr {})\n", r, l.s)); let v = self.from_slot(&r, call_ty); Ok(Val::new(call_ty, v)) }
             "at" => { let c = self.expr(&args[0])?; let i = self.expr(&args[1])?; let i = self.as_i64(&i); match args[0].ty.clone() {
