@@ -25,6 +25,23 @@ impl FnState {
                 return Ok((b.inst_results(call)[0], call_ty.clone()));
             }
         }
+        // web.serve_fn(port, handler)：第二参数是 GTLang 函数名 → 取函数地址传给运行时
+        if name == "serve_fn" && args.len() == 2 {
+            let port_v = self.gen_expr(jit, b, &args[0])?;
+            let port = self.convert(b, &port_v, &Ty::I64);
+            let fname = match &args[1].kind {
+                ExprKind::Ident(n) => n.clone(),
+                _ => return Err(crate::lb!(line, "serve_fn second arg must be a function name", "serve_fn 第二参数须是函数名")),
+            };
+            let info = jit.fns.get(&fname).ok_or_else(|| crate::lb!(line, "serve_fn: function '{}' not found", "serve_fn: 未找到函数 '{}'", fname))?;
+            let fid = info.fid;
+            let fref = jit.module.declare_func_in_func(fid, b.func);
+            let faddr = b.ins().func_addr(types::I64, fref);
+            let fid = *jit.rt.get("py_serve_fn").ok_or_else(|| "标准库符号 py_serve_fn 未注册".to_string())?;
+            let f = jit.module.declare_func_in_func(fid, b.func);
+            let call = b.ins().call(f, &[port, faddr]);
+            return Ok((b.inst_results(call)[0], Ty::I64));
+        }
         let arg_tys: Vec<Ty> = args.iter().map(|a| a.ty.clone()).collect();
         if let Some(r) = builtin_ret(name, &arg_tys) { r.map_err(|why| crate::lb!(line, "{}", "{}", why))?; }
         match name {

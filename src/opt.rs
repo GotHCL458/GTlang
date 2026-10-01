@@ -585,7 +585,17 @@ fn collect_calls_block(b: &Block, out: &mut std::collections::HashSet<String>) {
 
 fn collect_calls(e: &Expr, out: &mut std::collections::HashSet<String>) {
     match &e.kind {
-        ExprKind::Call(name, args) => { out.insert(name.clone()); for a in args { collect_calls(a, out); } }
+        ExprKind::Call(name, args) => {
+            out.insert(name.clone());
+            for a in args { collect_calls(a, out); }
+            // serve_fn(port, handler)：第二参数是函数名（字符串字面量式引用），
+            // 视为"被调用"，避免死代码消除误删处理函数。
+            if name == "serve_fn" {
+                if let Some(Expr { kind: ExprKind::Ident(fname), .. }) = args.get(1) {
+                    out.insert(fname.clone());
+                }
+            }
+        }
         ExprKind::CallValue { callee, args } => { collect_calls(callee, out); for a in args { collect_calls(a, out); } }
         ExprKind::Unary(_, a) => collect_calls(a, out),
         ExprKind::Binary(_, a, b) | ExprKind::Index(a, b) => { collect_calls(a, out); collect_calls(b, out); }

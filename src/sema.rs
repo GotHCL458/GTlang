@@ -890,6 +890,18 @@ impl Ctx {
             }
             ExprKind::Call(name, args) => {
                 let name = name.clone();
+                // web.serve_fn(port, handler)：第二参数是函数名，不做表达式类型检查
+                if name == "serve_fn" && args.len() == 2 {
+                    let fname = match &args[1].kind {
+                        ExprKind::Ident(n) => n.clone(),
+                        _ => return Err(crate::lb!(e.line, "serve_fn second arg must be a function name", "serve_fn 第二参数须是函数名")),
+                    };
+                    if !self.fns.contains_key(&fname) {
+                        let keys: Vec<String> = self.fns.keys().cloned().collect();
+                        return Err(crate::lb!(e.line, "serve_fn: function '{}' not found; have: {:?}", "serve_fn: 未找到函数 '{}'; 现有: {:?}", fname, keys));
+                    }
+                    return Ok(Ty::I64);
+                }
                 // `s.方法(...)`：s 是 dyn Trait 对象 → 查 trait 方法
                 if let Some(dot) = name.find('.') {
                     let recv = self.lookup(&name[..dot]);

@@ -474,3 +474,98 @@ pub extern "C" fn py_match_route(routes: *const c_char, method: *const c_char, p
     let p = unsafe { to_string(path) };
     ret_string(resolve(&r, &m, &p, "", &[]).map(|h| h.body).unwrap_or_default())
 }
+/// web.serve_fn(port, handler_addr) -> int
+/// handler_addr 是 GTLang 处理函数的地址（i64）；签名约定：
+///   extern "C" fn(req: *const c_char) -> *mut c_char
+/// req 形如 "METHOD /path\n请求体"；返回完整响应体（可用 {status}{Header} 前缀）。
+/// 仅解释器（--run）支持（函数地址在 JIT 内已知）。
+#[no_mangle]
+pub extern "C" fn py_serve_fn(port: i64, handler_addr: i64) -> i64 {
+    if handler_addr == 0 { eprintln!("[web] serve_fn: handler 地址为空"); return -1; }
+    let handler: extern "C" fn(*const c_char) -> *mut c_char = unsafe { std::mem::transmute(handler_addr as usize) };
+    let listener = match TcpListener::bind(("127.0.0.1", port as u16)) {
+        Ok(l) => l,
+        Err(e) => { eprintln!("[web] 无法监听端口 {}：{}", port, e); return -1; }
+    };
+    for stream in listener.incoming() {
+        let s = match stream { Ok(s) => s, Err(_) => continue };
+        let h = handler;
+        std::thread::spawn(move || handle_conn_fn(s, h));
+    }
+    0
+}
+
+/// 用回调函数处理单个连接（支持 keep-alive）
+fn handle_conn_fn(mut s: TcpStream, handler: extern "C" fn(*const c_char) -> *mut c_char) {
+    let mut reader = match s.try_clone() { Ok(r) => BufReader::new(r), Err(_) => return };
+    loop {
+        let req = read_line(&mut reader);
+        if req.is_empty() { break; }
+        let parts: Vec<&str> = req.split(' ').collect();
+        let method = parts.get(0).copied().unwrap_or("GET");
+        let path = parts.get(1).copied().unwrap_or("/");
+        let mut content_len = 0usize;
+        let mut keep_alive = true;
+        loop {
+            let l = read_line(&mut reader);
+            if l.is_empty() { break; }
+            if let Some((k, v)) = l.split_once(':') {
+                if k.trim().eq_ignore_ascii_case("content-length") { content_len = v.trim().parse::<usize>().unwrap_or(0); }
+                if k.trim().eq_ignore_ascii_case("connection") && v.trim().eq_ignore_ascii_case("close") { keep_alive = false; }
+            }
+        }
+        let mut body_buf = vec![0u8; content_len];
+        if content_len > 0 { let _ = reader.read_exact(&mut body_buf); }
+        let req_body = String::from_utf8_lossy(&body_buf).into_owned();
+        // 构造传给 GTLang 处理函数的请求串："METHOD /path\nbody"
+        let req_str = format!("{} {}\n{}", method, path, req_body);
+        let creq = match std::ffi::CString::new(req_str) { Ok(c) => c, Err(_) => break };
+        let resp_ptr = handler(creq.as_ptr());
+        let resp = if resp_ptr.is_null() { String::from("500 Internal Server Error") } else {
+            let r = unsafe { std::ffi::CStr::from_ptr(resp_ptr).to_string_lossy().into_owned() };
+            // 释放 GTLang 返回的字符串（由运行时 malloc 分配，用 free 释放）
+            unsafe { libc_free(resp_ptr as *mut core::ffi::c_void); }
+            r
+        };
+        // 解析响应：可带 {status}{Header: v} 前缀 + 正文
+        let (status, content_type, extra, body) = parse_resp(&resp);
+        let reason = match status {
+            200 => "OK", 201 => "Created", 204 => "No Content", 301 => "Moved Permanently",
+            302 => "Found", 400 => "Bad Request", 403 => "Forbidden", 404 => "Not Found",
+            500 => "Internal Server Error", _ => "OK",
+        };
+        let conn = if keep_alive { "keep-alive" } else { "close" };
+        let mut hdrs = String::new();
+        for (k, v) in &extra { hdrs.push_str(&format!("{}: {}\r\n", k, v)); }
+        let out = format!(
+            "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: {}\r\n{}\r\n{}",
+            status, reason, content_type, body.as_bytes().len(), conn, hdrs, body
+        );
+        if s.write_all(out.as_bytes()).is_err() { break; }
+        if !keep_alive { break; }
+    }
+}
+
+/// 解析处理函数返回的响应串：{status}/{Header: v} 前缀 + 正文
+fn parse_resp(resp: &str) -> (u16, String, Vec<(String, String)>, String) {
+    let mut rest = resp.trim_start();
+    let mut status = 200u16;
+    let mut content_type = String::from("text/html; charset=utf-8");
+    let mut extra: Vec<(String, String)> = Vec::new();
+    loop {
+        if !rest.starts_with('{') { break; }
+        let close = match rest.find('}') { Some(i) => i, None => break };
+        let inner = &rest[1..close];
+        if let Ok(code) = inner.trim().parse::<u16>() { status = code; }
+        else if let Some(c) = inner.find(':') {
+            let h = inner[..c].trim().to_string();
+            let v = inner[c+1..].trim().to_string();
+            if h.eq_ignore_ascii_case("content-type") { content_type = v; } else { extra.push((h, v)); }
+        } else { break; }
+        rest = rest[close+1..].trim_start();
+    }
+    (status, content_type, extra, rest.to_string())
+}
+
+extern "C" { fn free(p: *mut core::ffi::c_void); }
+unsafe fn libc_free(p: *mut core::ffi::c_void) { free(p); }

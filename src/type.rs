@@ -849,6 +849,7 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "sql_run" => f("py_sql_run", Ty::I64, &[Ty::I64, Ty::Str]),
         "sql_error" => f("py_sql_error", Ty::Str, &[Ty::I64]),
         "serve" => f("py_serve", Ty::I64, &[Ty::I64, Ty::Str]),
+        "serve_fn" => f("py_serve_fn", Ty::I64, &[Ty::I64, Ty::I64]),
         "match_route" => f("py_match_route", Ty::Str, &[Ty::Str, Ty::Str, Ty::Str]),
         // ---- ast（纯 C，gto_ 前缀）----
         "ast_lit_int" => f("gto_ast_lit_int", Ty::I64, &[Ty::I64]),
@@ -975,7 +976,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "ast_sval" | "ast_name" | "ast_a" | "ast_b" | "ast_c" | "ast_d" | "ast_nkids" | "ast_kid"
         | "ast_type_name" | "ast_free" | "ast_dump" | "ast_str_free" | "ast_walk" | "ast_walk_next" | "ast_walk_free"
         | "http_get" | "http_post" | "http_put" | "http_delete" | "http_request" | "http_download" | "http_status"
-        | "html_escape" | "url_encode" | "url_decode" | "parse_query" | "build_query" | "html_page" | "route_match" | "query_get" | "serve" | "match_route"
+        | "html_escape" | "url_encode" | "url_decode" | "parse_query" | "build_query" | "html_page" | "route_match" | "query_get" | "serve" | "serve_fn" | "match_route"
     ) || stdlib_fn(name).is_some()
 }
 
