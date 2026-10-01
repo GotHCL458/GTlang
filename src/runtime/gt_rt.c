@@ -741,22 +741,81 @@ char *gt_fmt_int(long long x, long long width) {
 #ifdef _WIN32
 #include <windows.h>
 typedef struct { long long (*fn)(long long, long long, long long, long long); long long *args; long long n; } GtThreadArg;
-static DWORD WINAPI gt_thread_main(LPVOID p) {
-    GtThreadArg *ta = (GtThreadArg *)p;
+
+/* ---------- 线程池：固定 N 个 worker + FIFO 任务队列 ----------
+ * go 变成"入队"，避免每次 CreateThread 的开销（典型 10-100x）。
+ * 队列满时回退为"直接起线程"，保证语义正确（不阻塞调用方）。 */
+#define GT_POOL_MAX 256
+static CRITICAL_SECTION gt_pool_lock;
+static CONDITION_VARIABLE gt_pool_cv;
+static int gt_pool_init_done = 0;
+static GtThreadArg *gt_pool_q[GT_POOL_MAX];
+static int gt_pool_head = 0, gt_pool_tail = 0, gt_pool_len = 0;
+static int gt_pool_nworkers = 0;
+
+static void gt_pool_init(void) {
+    if (gt_pool_init_done) return;
+    InitializeCriticalSection(&gt_pool_lock);
+    InitializeConditionVariable(&gt_pool_cv);
+    SYSTEM_INFO si; GetSystemInfo(&si);
+    int n = (int)si.dwNumberOfProcessors;
+    if (n < 4) n = 4;
+    if (n > 64) n = 64;
+    gt_pool_nworkers = n;
+    gt_pool_init_done = 1;
+}
+
+static void gt_thread_run_one(GtThreadArg *ta) {
     long long a0 = ta->n > 0 ? ta->args[0] : 0;
     long long a1 = ta->n > 1 ? ta->args[1] : 0;
     long long a2 = ta->n > 2 ? ta->args[2] : 0;
     long long a3 = ta->n > 3 ? ta->args[3] : 0;
     ta->fn(a0, a1, a2, a3);
     gt_free(ta);
+}
+
+static DWORD WINAPI gt_pool_worker(LPVOID unused) {
+    (void)unused;
+    for (;;) {
+        EnterCriticalSection(&gt_pool_lock);
+        while (gt_pool_len == 0) {
+            SleepConditionVariableCS(&gt_pool_cv, &gt_pool_lock, INFINITE);
+        }
+        GtThreadArg *ta = gt_pool_q[gt_pool_head];
+        gt_pool_head = (gt_pool_head + 1) % GT_POOL_MAX;
+        gt_pool_len--;
+        LeaveCriticalSection(&gt_pool_lock);
+        gt_thread_run_one(ta);
+    }
     return 0;
 }
+
 void gt_thread_spawn(long long fn, long long *args, long long n) {
     GtThreadArg *ta = (GtThreadArg *)gt_alloc(sizeof(GtThreadArg));
     ta->fn = (long long (*)(long long, long long, long long, long long))fn;
     ta->args = args;
     ta->n = n;
-    HANDLE h = CreateThread(NULL, 0, gt_thread_main, ta, 0, NULL);
+    gt_pool_init();
+    EnterCriticalSection(&gt_pool_lock);
+    if (gt_pool_len < GT_POOL_MAX) {
+        gt_pool_q[gt_pool_tail] = ta;
+        gt_pool_tail = (gt_pool_tail + 1) % GT_POOL_MAX;
+        gt_pool_len++;
+        /* 队列从 0 变 1：若 worker 尚未全部起来，补一个（懒启动，最多 N 个） */
+        static int started = 0;
+        int need_start = (gt_pool_len == 1) || (started < gt_pool_nworkers && gt_pool_len > started);
+        if (started < gt_pool_nworkers) {
+            HANDLE h = CreateThread(NULL, 0, gt_pool_worker, NULL, 0, NULL);
+            if (h) { CloseHandle(h); started++; }
+        }
+        WakeConditionVariable(&gt_pool_cv);
+        LeaveCriticalSection(&gt_pool_lock);
+        (void)need_start;
+        return;
+    }
+    LeaveCriticalSection(&gt_pool_lock);
+    /* 队列满：回退为直接起线程（保证不阻塞、不丢任务） */
+    HANDLE h = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)gt_thread_run_one, ta, 0, NULL);
     if (h) CloseHandle(h);
 }
 #else
