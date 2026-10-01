@@ -164,7 +164,6 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "sha256" => f("py_sha256", Ty::Str, &[Ty::Str]),
         "hmac_sha256" => f("py_hmac_sha256", Ty::Str, &[Ty::Str, Ty::Str]),
         "sha256_hexlen" => f("py_sha256_hexlen", Ty::I64, &[]),
-        "random_hex" => f("py_random_hex", Ty::Str, &[Ty::I64]),
         "hex_encode" => f("py_hex_encode", Ty::Str, &[Ty::Str]),
         "hex_decode" => f("py_hex_decode", Ty::Str, &[Ty::Str]),
         "password_hash" => f("py_password_hash", Ty::Str, &[Ty::Str, Ty::Str]),
@@ -305,7 +304,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "tcp_connect" | "tcp_listen" | "accept" | "net_send" | "net_recv" | "recv_all" | "net_close" | "close_listener" | "peer_addr"
         | "sql_open" | "sql_close" | "sql_exec" | "sql_query" | "sql_run" | "sql_error" | "sql_begin" | "sql_commit" | "sql_rollback" | "sql_exec_many"
         | "core_free" | "core_version" | "core_echo"
-        | "sha256" | "hmac_sha256" | "sha256_hexlen" | "sha512" | "sha1" | "md5" | "sha512_hexlen" | "random_hex" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
+        | "sha256" | "hmac_sha256" | "sha256_hexlen" | "sha512" | "sha1" | "md5" | "sha512_hexlen" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
         | "entropy_random_hex" | "entropy_random_int" | "entropy_random_bytes" | "entropy_uuid"
         | "session_create" | "session_get" | "session_destroy" | "session_gc" | "session_count"
         | "seed" | "random" | "randint" | "randrange" | "uniform" | "choice" | "shuffle" | "sample" | "gauss"

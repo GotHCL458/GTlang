@@ -92,7 +92,7 @@ pub const MODULES: &[StdModule] = &[
         dll: "crypto",
         funcs: &[
             "sha256", "hmac_sha256", "sha256_hexlen", "sha512", "sha1", "md5", "sha512_hexlen",
-            "random_hex", "hex_encode", "hex_decode",
+            "hex_encode", "hex_decode",
             "password_hash", "password_verify",
         ],
     },

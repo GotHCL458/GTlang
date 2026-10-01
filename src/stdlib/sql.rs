@@ -151,7 +151,14 @@ pub extern "C" fn py_sql_exec_many(db: i64, sql_text: *const c_char) -> i64 {
     let b = CString::new("BEGIN").unwrap();
     unsafe { sqlite3_exec(d, b.as_ptr(), std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut()); }
     let mut lineno = 0i64;
-    for line in text.lines() {
+    // 支持两种分隔：以 ';' 分隔的多条语句；或每行一条（'.lines()'）。
+    // 优先按 ';' 拆（更标准）；无 ';' 时按行拆。
+    let stmts: Vec<&str> = if text.contains(';') {
+        text.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()).collect()
+    } else {
+        text.lines().map(|s| s.trim()).filter(|s| !s.is_empty()).collect()
+    };
+    for line in stmts {
         let line = line.trim();
         if line.is_empty() { continue; }
         lineno += 1;

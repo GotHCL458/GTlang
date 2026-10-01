@@ -561,6 +561,9 @@ fn parse_resp(resp: &str) -> (u16, String, Vec<(String, String)>, String) {
         if let Ok(code) = inner.trim().parse::<u16>() { status = code; }
         else if let Some(c) = inner.find(':') {
             let h = inner[..c].trim().to_string();
+            // 头名须是合法 token（字母/数字/连字符），避免把 JSON body（形如 {"a":1}）误当头
+            let is_header_name = !h.is_empty() && h.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_');
+            if !is_header_name { break; }
             let v = inner[c+1..].trim().to_string();
             if h.eq_ignore_ascii_case("content-type") { content_type = v; } else { extra.push((h, v)); }
         } else { break; }
