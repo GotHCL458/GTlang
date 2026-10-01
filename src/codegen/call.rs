@@ -650,7 +650,15 @@ pub(crate) fn scan_mutation(b: &Block, in_loop: bool, assigned: &mut std::collec
             Stmt::While { body, .. } => scan_mutation(body, true, assigned, declared),
             Stmt::ForRange { body, .. } => scan_mutation(body, true, assigned, declared),
             Stmt::ForEach { body, .. } => scan_mutation(body, true, assigned, declared),
+            Stmt::DoWhile { body, .. } => scan_mutation(body, true, assigned, declared),
             Stmt::Block(inner) => scan_mutation(inner, in_loop, assigned, declared),
+            Stmt::Labeled { inner, .. } => scan_mutation(&vec![(**inner).clone()], in_loop, assigned, declared),
+            Stmt::Try { body, catches, fin, .. } => {
+                scan_mutation(body, in_loop, assigned, declared);
+                for ca in catches { scan_mutation(&ca.body, in_loop, assigned, declared); }
+                if let Some(f) = fin { scan_mutation(f, in_loop, assigned, declared); }
+            }
+            Stmt::LocalFn(_) => {}
             _ => {}
         }
     }
