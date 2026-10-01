@@ -33,14 +33,10 @@ pub fn inline_and_fold(prog: &mut Program) {
 /// 递归收集块及其子块中被赋值（Assign）的变量名。
 fn collect_assigned(b: &Block, out: &mut std::collections::HashSet<String>) {
     for s in b {
-        match s {
-            Stmt::Assign { name, .. } => { out.insert(name.clone()); }
-            Stmt::If { then, els, .. } => { collect_assigned(then, out); if let Some(e) = els { collect_assigned(e, out); } }
-            Stmt::While { body, .. } => collect_assigned(body, out),
-            Stmt::ForRange { body, .. } | Stmt::ForEach { body, .. } => collect_assigned(body, out),
-            Stmt::Block(inner) => collect_assigned(inner, out),
-            _ => {}
-        }
+        if let Stmt::Assign { name, .. } = s { out.insert(name.clone()); }
+        // 遍历驱动：所有含块变体（含 DoWhile/Labeled/Try/LocalFn）统一走 each_block，
+        // 新增变体只需在 ast::Stmt::each_block 补一处。
+        s.each_block(&mut |blk| collect_assigned(blk, out));
     }
 }
 
@@ -303,13 +299,10 @@ fn collect_locals(b: &Block, out: &mut std::collections::HashSet<String>) {
     for s in b {
         match s {
             Stmt::Let { name, .. } | Stmt::Const { name, .. } => { out.insert(name.clone()); }
-            Stmt::ForEach { var, body, .. } => { out.insert(var.clone()); collect_locals(body, out); }
-            Stmt::ForRange { var, body, .. } => { out.insert(var.clone()); collect_locals(body, out); }
-            Stmt::If { then, els, .. } => { collect_locals(then, out); if let Some(e) = els { collect_locals(e, out); } }
-            Stmt::While { body, .. } => collect_locals(body, out),
-            Stmt::Block(inner) => collect_locals(inner, out),
+            Stmt::ForEach { var, .. } | Stmt::ForRange { var, .. } => { out.insert(var.clone()); }
             _ => {}
         }
+        s.each_block(&mut |blk| collect_locals(blk, out));
     }
 }
 
@@ -565,21 +558,18 @@ fn collect_calls_block(b: &Block, out: &mut std::collections::HashSet<String>) {
             Stmt::Let { value, .. } | Stmt::Const { value, .. } => collect_calls(value, out),
             Stmt::Assign { value, .. } | Stmt::FieldAssign { value, .. } => collect_calls(value, out),
             Stmt::Expr(e) | Stmt::Return(Some(e), _) => collect_calls(e, out),
-            Stmt::If { cond, then, els, .. } => { collect_calls(cond, out); collect_calls_block(then, out); if let Some(e) = els { collect_calls_block(e, out); } }
-            Stmt::While { cond, body, .. } => { collect_calls(cond, out); collect_calls_block(body, out); }
-            Stmt::ForRange { from, to, body, .. } => { collect_calls(from, out); collect_calls(to, out); collect_calls_block(body, out); }
-            Stmt::ForEach { iter, body, .. } => { collect_calls(iter, out); collect_calls_block(body, out); }
-            Stmt::Block(inner) => collect_calls_block(inner, out),
+            Stmt::If { cond, .. } => collect_calls(cond, out),
+            Stmt::While { cond, .. } => collect_calls(cond, out),
+            Stmt::DoWhile { cond, .. } => collect_calls(cond, out),
+            Stmt::ForRange { from, to, .. } => { collect_calls(from, out); collect_calls(to, out); }
+            Stmt::ForEach { iter, .. } => collect_calls(iter, out),
             // go 引用函数名，视为"被调用"（避免死代码消除误删）
             Stmt::Go { func, args, .. } => { out.insert(func.clone()); for a in args { collect_calls(a, out); } }
             Stmt::Throw(e, _) => collect_calls(e, out),
-            Stmt::Try { body, catches, fin, .. } => {
-                collect_calls_block(body, out);
-                for ca in catches { collect_calls_block(&ca.body, out); }
-                if let Some(f) = fin { collect_calls_block(f, out); }
-            }
             _ => {}
         }
+        // 遍历驱动：所有含块变体（含 ForRange/ForEach 的 els、Labeled、LocalFn）统一走 each_block
+        s.each_block(&mut |blk| collect_calls_block(blk, out));
     }
 }
 
