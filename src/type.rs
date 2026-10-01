@@ -866,6 +866,12 @@ pub fn stdlib_fn(name: &str) -> Option<StdFn> {
         "entropy_random_int" => f("py_entropy_random_int", Ty::I64, &[Ty::I64]),
         "entropy_random_bytes" => f("py_entropy_random_bytes", Ty::Str, &[Ty::I64]),
         "entropy_uuid" => f("py_entropy_uuid", Ty::Str, &[]),
+        // ---- session ----
+        "session_create" => f("py_session_create", Ty::Str, &[Ty::I64, Ty::Str, Ty::I64]),
+        "session_get" => f("py_session_get", Ty::Str, &[Ty::I64, Ty::Str]),
+        "session_destroy" => f("py_session_destroy", Ty::Void, &[Ty::I64, Ty::Str]),
+        "session_gc" => f("py_session_gc", Ty::Void, &[Ty::I64]),
+        "session_count" => f("py_session_count", Ty::I64, &[Ty::I64]),
         "serve" => f("py_serve", Ty::I64, &[Ty::I64, Ty::Str]),
         "serve_fn" => f("py_serve_fn", Ty::I64, &[Ty::I64, Ty::I64]),
         "match_route" => f("py_match_route", Ty::Str, &[Ty::Str, Ty::Str, Ty::Str]),
@@ -984,6 +990,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "sql_open" | "sql_close" | "sql_exec" | "sql_query" | "sql_run" | "sql_error"
         | "sha256" | "hmac_sha256" | "sha256_hexlen" | "sha512" | "sha1" | "md5" | "sha512_hexlen" | "random_hex" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
         | "entropy_random_hex" | "entropy_random_int" | "entropy_random_bytes" | "entropy_uuid"
+        | "session_create" | "session_get" | "session_destroy" | "session_gc" | "session_count"
         | "seed" | "random" | "randint" | "randrange" | "uniform" | "choice" | "shuffle" | "sample" | "gauss"
         | "ast_lit_int" | "ast_lit_float" | "ast_lit_str" | "ast_lit_char" | "ast_lit_bool"
         | "ast_id" | "ast_binary" | "ast_unary" | "ast_call" | "ast_add_arg"

@@ -98,6 +98,12 @@ pub const MODULES: &[StdModule] = &[
         ],
     },
     StdModule {
+        dll: "session",
+        funcs: &[
+            "session_create", "session_get", "session_destroy", "session_gc", "session_count",
+        ],
+    },
+    StdModule {
         dll: "random",
         funcs: &[
             "seed", "random", "randint", "randrange", "uniform",

@@ -299,6 +299,7 @@ fn link(clang: &Path, rt: &RtInput, srcs: &[PathBuf], ll: &Path, out: &Path, opt
         let mut syslibs: Vec<&str> = vec!["kernel32", "ws2_32", "ntdll", "userenv", "advapi32", "bcrypt", "synchronization"];
         // 用到 sql 模块时链接 Windows 自带的 SQLite
         if needed.contains(&"sql") { syslibs.push("winsqlite3"); }
+        if needed.contains(&"session") { syslibs.push("winsqlite3"); }
         for syslib in &syslibs {
             cmd.arg(format!("-l{}", syslib));
         }
