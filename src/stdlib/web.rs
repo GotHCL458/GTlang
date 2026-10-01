@@ -151,6 +151,7 @@ fn read_line(reader: &mut BufReader<TcpStream>) -> String {
 struct RouteHit {
     status: u16,
     content_type: String,
+    extra_headers: Vec<(String, String)>,
     body: String,
 }
 
@@ -190,8 +191,24 @@ fn split_routes(routes: &str) -> Vec<String> {
     out
 }
 
+/// URL 百分号解码（%XX 与 + ）
+fn url_dec(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out: Vec<u8> = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'%' && i + 2 < b.len() {
+            if let Ok(v) = u8::from_str_radix(&s[i+1..i+3], 16) { out.push(v); i += 3; continue; }
+        }
+        if b[i] == b'+' { out.push(b' '); i += 1; continue; }
+        out.push(b[i]); i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
 fn resolve(routes: &str, method: &str, path: &str, req_body: &str, headers: &[(String, String)]) -> Option<RouteHit> {
     let path_only = path.split('?').next().unwrap_or(path);
+    let query = path.splitn(2, '?').nth(1).unwrap_or("");
     for line in split_routes(routes) {
         let line = line.trim();
         if line.is_empty() || line.starts_with('#') { continue; }
@@ -224,16 +241,17 @@ fn resolve(routes: &str, method: &str, path: &str, req_body: &str, headers: &[(S
             }
         };
         if !matched { continue; }
-        return Some(build_hit(rhs, &dir_rel, req_body, headers, &params));
+        return Some(build_hit(rhs, &dir_rel, req_body, headers, &params, query));
     }
     None
 }
 
 /// 依据"响应描述"构造实际响应
-fn build_hit(rhs: &str, path_rel: &str, req_body: &str, headers: &[(String, String)], params: &[(String, String)]) -> RouteHit {
+fn build_hit(rhs: &str, path_rel: &str, req_body: &str, headers: &[(String, String)], params: &[(String, String)], query: &str) -> RouteHit {
     let mut rest = rhs.trim();
     let mut status = 200u16;
     let mut content_type = String::from("text/html; charset=utf-8");
+    let mut extra_headers: Vec<(String, String)> = Vec::new();
     loop {
         if !rest.starts_with('{') { break; }
         let close = match rest.find('}') { Some(i) => i, None => break };
@@ -241,9 +259,10 @@ fn build_hit(rhs: &str, path_rel: &str, req_body: &str, headers: &[(String, Stri
         if let Ok(code) = inner.trim().parse::<u16>() {
             status = code;
         } else if let Some(colon) = inner.find(':') {
-            let h = inner[..colon].trim().to_lowercase();
+            let h = inner[..colon].trim().to_string();
             let v = inner[colon+1..].trim().to_string();
-            if h == "content-type" { content_type = v; }
+            if h.eq_ignore_ascii_case("content-type") { content_type = v; }
+            else { extra_headers.push((h, v)); }
         } else {
             break;
         }
@@ -269,22 +288,22 @@ fn build_hit(rhs: &str, path_rel: &str, req_body: &str, headers: &[(String, Stri
         let fp = f.trim();
         if let Some((path, bytes)) = read_with_fallback(fp) {
             let ct = guess_ct(&path);
-            return RouteHit { status, content_type: ct, body: String::from_utf8_lossy(&bytes).into_owned() };
+            return RouteHit { status, content_type: ct, extra_headers: Vec::new(), body: String::from_utf8_lossy(&bytes).into_owned() };
         }
-        return RouteHit { status: 404, content_type: "text/plain; charset=utf-8".into(), body: "404 file not found".into() };
+        return RouteHit { status: 404, content_type: "text/plain; charset=utf-8".into(), extra_headers: Vec::new(), body: "404 file not found".into() };
     }
     if let Some(d) = rest.strip_prefix("@dir:") {
         let base = d.trim();
         let rel = path_rel.trim_start_matches('/');
         if rel.is_empty() || rel.contains("..") {
-            return RouteHit { status: 404, content_type: "text/plain; charset=utf-8".into(), body: "404".into() };
+            return RouteHit { status: 404, content_type: "text/plain; charset=utf-8".into(), extra_headers: Vec::new(), body: "404".into() };
         }
         let fp = format!("{}/{}", base.trim_end_matches('/'), rel);
         if let Some((path, bytes)) = read_with_fallback(&fp) {
             let ct = guess_ct(&path);
-            return RouteHit { status, content_type: ct, body: String::from_utf8_lossy(&bytes).into_owned() };
+            return RouteHit { status, content_type: ct, extra_headers: Vec::new(), body: String::from_utf8_lossy(&bytes).into_owned() };
         }
-        return RouteHit { status: 404, content_type: "text/plain; charset=utf-8".into(), body: "404 file not found".into() };
+        return RouteHit { status: 404, content_type: "text/plain; charset=utf-8".into(), extra_headers: Vec::new(), body: "404 file not found".into() };
     }
     // 占位替换：{{body}} → 请求体；{{header:Name}} → 请求头；{{cookie:Name}} → Cookie 值
     let mut body = rest.replace("{{body}}", req_body);
@@ -330,14 +349,30 @@ fn build_hit(rhs: &str, path_rel: &str, req_body: &str, headers: &[(String, Stri
             if let Some(j) = s.find("}}") {
                 let name = s[..j].trim();
                 let val = params.iter().find(|(k, _)| k == name).map(|(_, v)| v.as_str()).unwrap_or("");
-                out.push_str(val);
+                out.push_str(&url_dec(val));
                 s = &s[j + 2..];
             } else { out.push_str(s); s = ""; }
         }
         out.push_str(s);
         body = out;
     }
-    RouteHit { status, content_type, body }
+    if body.contains("{{query:") {
+        let mut out = String::with_capacity(body.len());
+        let mut s = body.as_str();
+        while let Some(i) = s.find("{{query:") {
+            out.push_str(&s[..i]);
+            s = &s[i + 8..];
+            if let Some(j) = s.find("}}") {
+                let name = s[..j].trim();
+                let val = query.split('&').filter_map(|p| p.split_once('=')).find(|(k, _)| *k == name).map(|(_, v)| v).unwrap_or("");
+                out.push_str(&url_dec(val));
+                s = &s[j + 2..];
+            } else { out.push_str(s); s = ""; }
+        }
+        out.push_str(s);
+        body = out;
+    }
+    RouteHit { status, content_type, extra_headers, body }
 }
 
 /// 由扩展名猜 Content-Type
@@ -394,7 +429,7 @@ fn handle_conn(mut s: TcpStream, routes: String) {
 
         let hit = match resolve(&routes, &method, &path, &req_body, &headers) {
             Some(h) => h,
-            None => RouteHit { status: 404, content_type: "text/html; charset=utf-8".into(), body: "404 Not Found".into() },
+            None => RouteHit { status: 404, content_type: "text/html; charset=utf-8".into(), extra_headers: Vec::new(), body: "404 Not Found".into() },
         };
         let reason = match hit.status {
             200 => "OK", 201 => "Created", 204 => "No Content", 301 => "Moved Permanently",
@@ -402,9 +437,13 @@ fn handle_conn(mut s: TcpStream, routes: String) {
             405 => "Method Not Allowed", 500 => "Internal Server Error", _ => "OK",
         };
         let conn = if keep_alive { "keep-alive" } else { "close" };
+        let mut extra = String::new();
+        for (k, v) in &hit.extra_headers {
+            extra.push_str(&format!("{}: {}\r\n", k, v));
+        }
         let resp = format!(
-            "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: {}\r\n\r\n{}",
-            hit.status, reason, hit.content_type, hit.body.as_bytes().len(), conn, hit.body
+            "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: {}\r\n{}\r\n{}",
+            hit.status, reason, hit.content_type, hit.body.as_bytes().len(), conn, extra, hit.body
         );
         if s.write_all(resp.as_bytes()).is_err() { break; }
         if !keep_alive { break; }
