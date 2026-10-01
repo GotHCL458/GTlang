@@ -1,4 +1,17 @@
 //! Codegen 的表达式代码生成。
+/// 判断 `cand` 是否比 `old` 更精确（元素类型细化回填用）。
+/// 仅当两者同构、old 含 Unknown、cand 不含时返回 true。
+fn is_more_precise(cand: &Ty, old: &Ty) -> bool {
+    match (cand, old) {
+        (Ty::List(a), Ty::List(b)) => !matches!(**a, Ty::Unknown) && matches!(**b, Ty::Unknown),
+        (Ty::Set(a), Ty::Set(b)) => !matches!(**a, Ty::Unknown) && matches!(**b, Ty::Unknown),
+        (Ty::Map(ak, av), Ty::Map(bk, bv)) => {
+            (!matches!(**ak, Ty::Unknown) && matches!(**bk, Ty::Unknown))
+                || (!matches!(**av, Ty::Unknown) && matches!(**bv, Ty::Unknown))
+        }
+        _ => false,
+    }
+}
 
 use super::*;
 
@@ -61,7 +74,13 @@ impl<'a> Codegen<'a> {
             ExprKind::Interp(_) => self.interp_value(e),
             ExprKind::Ident(n) => {
                 if let Some(loc) = self.lookup(n) {
-                    return self.load(&loc);
+                    let v = self.load(&loc)?;
+                    // 若 sema 回填了更精确的类型（如 list/map 元素被 push/m[k]=v 细化），
+                    // 用它覆盖变量声明时的类型 —— 让 for-in 等拿到精确元素类型。
+                    if e.ty != Ty::Unknown && e.ty != v.ty && is_more_precise(&e.ty, &v.ty) {
+                        return Ok(Val::new(&e.ty, v.s));
+                    }
+                    return Ok(v);
                 }
                 if let Some(c) = self.consts.get(n).cloned() {
                     return Ok(self.const_val(&c));

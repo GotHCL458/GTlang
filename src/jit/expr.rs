@@ -68,7 +68,11 @@ impl FnState {
                 Ok((b.inst_results(call)[0], Ty::Str))
             }
             ExprKind::Ident(n) => {
-                if let Some((var, ty)) = self.lookup(n) { return Ok((b.use_var(var), ty)); }
+                if let Some((var, ty)) = self.lookup(n) {
+                    // sema 可能回填了更精确的类型（list/map 元素细化）；优先用它。
+                    let ty = if e.ty != Ty::Unknown && e.ty != ty { e.ty.clone() } else { ty };
+                    return Ok((b.use_var(var), ty));
+                }
                 if let Some(c) = jit.consts.get(n) { let c = c.clone(); return Ok(self.gen_const(jit, b, &c)); }
                 Err(crate::lb!(e.line, "undefined variable '{}'", "未定义的变量 '{}'", n))
             }

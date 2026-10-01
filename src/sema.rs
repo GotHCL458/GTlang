@@ -626,7 +626,14 @@ fn check_stmt(ctx: &mut Ctx, s: &mut Stmt, errors: &mut Vec<String>) {
         }
         Stmt::ForEach { var, iter, body, els: _, line } => {
             match ctx.infer(iter) {
-                Ok(t) => {
+                Ok(mut t) => {
+                    // 若 iter 是变量引用，用变量表里（可能被 push/m[k]=v 细化过的）最新类型
+                    // 覆盖 expr.ty —— 让 codegen/jit 也能拿到精确的元素类型。语义等价。
+                    if let ExprKind::Ident(n) = &iter.kind {
+                        if let Some(vt) = ctx.lookup(n) {
+                            if !matches!(vt, Ty::Unknown) { t = vt.clone(); iter.ty = vt; }
+                        }
+                    }
                     let elem = match &t {
                         Ty::Array(el, _) => (**el).clone(),
                         Ty::List(el) => (**el).clone(),
