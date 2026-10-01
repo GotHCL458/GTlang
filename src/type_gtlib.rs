@@ -14,7 +14,7 @@ pub struct StdFn {
 /// 查询标准库函数。名字对齐 Python（sqrt/pow/floor/...）。
 ///
 /// 两个后端与 sema 共用此表：sema 做类型检查，codegen/jit 生成对 `py_*` 的调用。
-pub fn stdlib_fn(name: &str) -> Option<StdFn> {
+pub fn gtlib_fn(name: &str) -> Option<StdFn> {
     let f = |symbol, ret, params: &'static [Ty]| StdFn { symbol, ret, params };
     Some(match name {
         // ---- math ----
@@ -320,6 +320,6 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "ast_type_name" | "ast_free" | "ast_dump" | "ast_str_free" | "ast_walk" | "ast_walk_next" | "ast_walk_free"
         | "http_get" | "http_post" | "http_put" | "http_delete" | "http_request" | "http_download" | "http_status"
         | "html_escape" | "url_encode" | "url_decode" | "parse_query" | "build_query" | "html_page" | "route_match" | "query_get" | "serve" | "serve_fn" | "match_route"
-    ) || stdlib_fn(name).is_some()
+    ) || gtlib_fn(name).is_some()
 }
 

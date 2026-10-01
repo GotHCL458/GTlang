@@ -228,7 +228,7 @@ impl<'a> Codegen<'a> {
                     let argstr = ops.join(", ");
                     if info.ret == Ty::Void { self.body.push_str(&format!("  call void @{}({})\n", info.cname, argstr)); Ok(Val::new(&Ty::Void, "0")) }
                     else { let r = self.new_reg(); self.body.push_str(&format!("  {} = call {} @{}({})\n", r, info.ret.llvm(), info.cname, argstr)); Ok(Val::new(&info.ret, r)) }
-                } else if let Some(sf) = crate::types::stdlib_fn(name) {
+                } else if let Some(sf) = crate::types::gtlib_fn(name) {
                     let mut ops = Vec::new();
                     for (i, a) in args.iter().enumerate() { let want = sf.params.get(i).cloned().unwrap_or(Ty::I64); let v = self.expr(a)?; let v = self.coerce(&v, &want)?; ops.push(format!("{} {}", want.llvm(), v.s)); }
                     let ret = if sf.ret == Ty::Void { "void".to_string() } else { sf.ret.llvm() };

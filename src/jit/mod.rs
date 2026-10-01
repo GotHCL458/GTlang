@@ -321,7 +321,7 @@ impl<'a> Jit<'a> {
         jb.symbol("rt_mem_copy", rt_mem_copy as *const u8);
         jb.symbol("rt_mem_set", rt_mem_set as *const u8);
         // 标准库 libGT.dll：加载后取 py_* 符号地址注册
-        for (name, addr) in load_stdlib() {
+        for (name, addr) in load_gtlib() {
             jb.symbol(name, addr as *const u8);
         }
         // 内联 C 块的函数：TCC 编译出的机器码地址
@@ -513,8 +513,8 @@ impl<'a> Jit<'a> {
         }
 
         // 标准库 libGT.dll：为每个 py_* 符号按签名声明（返回类型用 cl_ty）
-        for name in STDLIB_NAMES {
-            if let Some(sf) = crate::types::stdlib_fn(name) {
+        for name in GTLIB_NAMES {
+            if let Some(sf) = crate::types::gtlib_fn(name) {
                 let params: Vec<Type> = sf.params.iter().map(cl_ty).collect();
                 let ret = if sf.ret == Ty::Void { None } else { Some(cl_ty(&sf.ret)) };
                 if let Ok(fid) = decl(&mut self.module, sf.symbol, &params, ret) {

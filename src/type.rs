@@ -386,8 +386,8 @@ pub fn is_printable(t: &Ty) -> bool {
 ///
 /// 语义分析与两个后端都调用本函数，因此"哪个调用合法"只有一处定义。
 pub fn builtin_ret(name: &str, args: &[Ty]) -> Option<Result<Ty, String>> {
-    // 标准库函数不在此表（由 sema 经 stdlib_fn 处理），故对它们返回 None
-    if stdlib_fn(name).is_some() {
+    // 标准库函数不在此表（由 sema 经 gtlib_fn 处理），故对它们返回 None
+    if gtlib_fn(name).is_some() {
         return None;
     }
     if !is_builtin_name(name) {
@@ -693,9 +693,9 @@ fn builtin_check(name: &str, args: &[Ty]) -> Result<Ty, String> {
 
 
 
-#[path = "type_stdlib.rs"]
-mod type_stdlib;
-pub use type_stdlib::*;
+#[path = "type_gtlib.rs"]
+mod type_gtlib;
+pub use type_gtlib::*;
 // ============================================================
 // 单元测试：类型规则必须稳定，两个后端共用
 // ============================================================

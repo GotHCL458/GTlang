@@ -1,4 +1,4 @@
-﻿//! 模块系统（方案 B：真模块）。
+//! 模块系统（方案 B：真模块）。
 //!
 //! 每个 `.gt` 文件是一个独立模块，拥有自己的顶层符号表；只有 `pub` 标记的
 //! 顶层项对外可见。`import a.b as x` 把模块绑定到本地别名 `x`。
@@ -70,7 +70,7 @@ pub struct Linker {
     /// 非致命错误暂存（供多错误报告合并）
     pending: Vec<ModError>,
     /// 已导入的内置标准库模块名（math/string/json/...）
-    imported_stdlib: Vec<String>,
+    imported_gtlib: Vec<String>,
 }
 
 impl Linker {
@@ -106,7 +106,7 @@ impl Linker {
             extra_roots,
             c_header_alias: Vec::new(),
             pending: Vec::new(),
-            imported_stdlib: Vec::new(),
+            imported_gtlib: Vec::new(),
         }
     }
 
@@ -220,8 +220,8 @@ impl Linker {
                 Some(t) => t,
                 None => {
                     // 找不到文件时，若为内置标准库（math/string/os/file/json/...）则跳过（运行时提供）
-                    if imp.path.len() == 1 && crate::stdlib::MODULES.iter().any(|m| m.dll == imp.path[0].as_str()) {
-                        self.imported_stdlib.push(imp.path[0].clone());
+                    if imp.path.len() == 1 && crate::gtlib::MODULES.iter().any(|m| m.dll == imp.path[0].as_str()) {
+                        self.imported_gtlib.push(imp.path[0].clone());
                         continue;
                     }
                     return Err(ModError::new(
@@ -433,7 +433,7 @@ impl Linker {
                 }
             }
         }
-        out.imported_stdlib = self.imported_stdlib.clone();
+        out.imported_gtlib = self.imported_gtlib.clone();
         out
     }
 }

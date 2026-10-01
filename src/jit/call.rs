@@ -346,7 +346,7 @@ impl FnState {
                     let fref = jit.module.declare_func_in_func(fid, b.func);
                     let call = b.ins().call(fref, &vals);
                     if ret == Ty::Void { Ok((b.ins().iconst(types::I64, 0), Ty::Void)) } else { Ok((b.inst_results(call)[0], ret)) }
-                } else if let Some(sf) = crate::types::stdlib_fn(name) {
+                } else if let Some(sf) = crate::types::gtlib_fn(name) {
                     let mut vals = Vec::new();
                     for (i, a) in args.iter().enumerate() {
                         let got = self.gen_expr(jit, b, a)?;

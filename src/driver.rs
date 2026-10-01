@@ -1,4 +1,4 @@
-﻿//! 驱动：定位内置工具链（clang / tcc），把 `.ll` 与内联 C 块编译链接为可执行文件。
+//! 驱动：定位内置工具链（clang / tcc），把 `.ll` 与内联 C 块编译链接为可执行文件。
 //!
 //! 所有中间产物都写进 `%TEMP%\gtc\<标签>_<pid>\`（见 `tmp.rs`），
 //! 结束后整体删除，源码目录只留下最终产物。
@@ -253,7 +253,7 @@ pub fn find_std_libs_for(needed: &[&'static str]) -> Vec<PathBuf> {
         let mut dir = Some(start);
         for _ in 0..8 {
             let d = match dir { Some(d) => d, None => break };
-            for lib in crate::stdlib::MODULES {
+            for lib in crate::gtlib::MODULES {
                 if !needed.is_empty() && !needed.contains(&lib.dll) { continue; }
                 let name = format!("{}.lib", lib.dll);
                 let name_dll = format!("{}.dll.lib", lib.dll);

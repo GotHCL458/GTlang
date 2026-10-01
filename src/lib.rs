@@ -52,7 +52,7 @@ pub mod range;
 pub mod sema;
 pub mod tcc;
 pub mod tmp;
-pub mod stdlib;
+pub mod gtlib;
 pub mod unit;
 pub mod unify;
 

@@ -1,4 +1,4 @@
-﻿//! 统一前端产物 `Unit`：一次前端处理的完整结果。
+//! 统一前端产物 `Unit`：一次前端处理的完整结果。
 //!
 //! 拿到 `Unit` 就说明词法/语法/类型检查全部通过；之后无论走编译后端还是
 //! 解释后端，看到的都是同一份 AST。
@@ -58,14 +58,14 @@ impl Unit {
     }
 
     /// 同 `compile_to`，`keep_tmp` 为真时保留临时目录（排查问题用）
-    /// 扫描 LLVM IR，返回用到的 stdlib dll 名（去重排序）。
-    pub fn used_stdlib_dlls_of(ir: &str) -> Vec<&'static str> {
+    /// 扫描 LLVM IR，返回用到的 gtlib dll 名（去重排序）。
+    pub fn used_gtlib_dlls_of(ir: &str) -> Vec<&'static str> {
         let ir = ir;
         let mut set: std::collections::HashSet<&'static str> = std::collections::HashSet::new();
-        for m in crate::stdlib::MODULES {
+        for m in crate::gtlib::MODULES {
             // 该模块的符号前缀 py_ 不统一（py_/gto_/gt_），改为按函数名查
             for f in m.funcs {
-                if let Some(sf) = crate::types::stdlib_fn(f) {
+                if let Some(sf) = crate::types::gtlib_fn(f) {
                     if ir.contains(sf.symbol) { set.insert(m.dll); }
                 }
             }
@@ -98,7 +98,7 @@ impl Unit {
              例如：set GTC_CLANG=D:\\LLVM\\bin\\clang.exe"
                 .to_string()
         })?;
-        let needed = Self::used_stdlib_dlls_of(&ir);
+        let needed = Self::used_gtlib_dlls_of(&ir);
         driver::compile_ll(&clang, &tmp, &ll, &exe, opt, &self.c_source(), &needed)?;
         Ok(exe)
     }

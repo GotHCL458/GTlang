@@ -1,4 +1,4 @@
-﻿//! 语义分析：常量求值、无标注形参推断、表达式类型推断与检查。
+//! 语义分析：常量求值、无标注形参推断、表达式类型推断与检查。
 //!
 //! 推断结果直接回写到 AST（`Expr::ty`、`Param::ty`、`FnDef::ret_ty`），
 //! 使代码生成阶段只有一个类型来源。
@@ -58,7 +58,7 @@ struct Ctx {
     /// trait 名 → [(方法名, 参数类型, 返回类型)]
     trait_methods: HashMap<String, Vec<(String, Vec<Ty>, Ty)>>,
     /// 已导入的内置标准库模块名（未导入则不能调用其函数）
-    imported_stdlib: Vec<String>,
+    imported_gtlib: Vec<String>,
 }
 
 pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
@@ -73,7 +73,7 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
         loop_depth: 0,
         try_depth: 0,
         trait_methods: HashMap::new(),
-        imported_stdlib: prog.imported_stdlib.clone(),
+        imported_gtlib: prog.imported_gtlib.clone(),
     };
 
     let mut errors: Vec<String> = Vec::new();
@@ -953,7 +953,7 @@ impl Ctx {
                     };
                     return Ok(Ty::Option(Box::new(t)));
                 }
-                // 用户函数优先于标准库（用户定义同名函数时遮蔽 stdlib）
+                // 用户函数优先于标准库（用户定义同名函数时遮蔽 gtlib）
                 if let Some(sig) = self.fns.get(&name).cloned() {
                     if sig.params.len() != arg_tys.len() {
                         return Err(crate::error::msg::arity_mismatch(
@@ -970,10 +970,10 @@ impl Ctx {
                     if sig.ret == Ty::Unknown { Ty::I64 } else { sig.ret }
                 } else if let Some(r) = builtin_ret(&name, &arg_tys) {
                     r.map_err(|why| crate::lb!(e.line, "{}", "{}", why))?
-                } else if let Some(sf) = crate::types::stdlib_fn(&name) {
+                } else if let Some(sf) = crate::types::gtlib_fn(&name) {
                     // 标准库需先 import 对应模块
-                    if let Some(dll) = crate::stdlib::dll_of(&name) {
-                        if !self.imported_stdlib.iter().any(|m| m == dll) {
+                    if let Some(dll) = crate::gtlib::dll_of(&name) {
+                        if !self.imported_gtlib.iter().any(|m| m == dll) {
                             return Err(crate::lb!(e.line, "module '{}' is not imported", "模块 '{}' 未导入（缺少 import）", dll));
                         }
                     }

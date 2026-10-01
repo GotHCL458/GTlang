@@ -6,7 +6,7 @@ REM Just run it -- no arguments needed.
 REM
 REM   1. Check Rust ^(^>= 1.75^) and LLVM/clang ^(^>= 15^) on PATH.
 REM   2. Build gtc + gtfmt (release).
-REM   3. Build the standard library (src\stdlib\*.rs -> *.dll + *.lib).
+REM   3. Build the standard library (src\gtlib\*.rs -> *.dll + *.lib).
 REM   4. Assemble a portable res\ directory.
 REM
 REM Env: GTC_CLANG (clang.exe path), GTC_TCC (TCC dir).
@@ -53,29 +53,29 @@ echo [build] cargo build --release
 cargo build --release
 if errorlevel 1 exit /b 1
 
-REM ---------- 4. stdlib ----------
-set "STDOUT=%ROOT%.build\stdlib"
+REM ---------- 4. gtlib ----------
+set "STDOUT=%ROOT%.build\gtlib"
 if exist "%STDOUT%" rmdir /s /q "%STDOUT%"
 mkdir "%STDOUT%" 2>nul
-REM Rust stdlib modules
-for %%F in ("%ROOT%src\stdlib\*.rs") do (
+REM Rust gtlib modules
+for %%F in ("%ROOT%src\gtlib\*.rs") do (
     set "MOD=%%~nF"
     if not "!MOD!"=="mod" (
-        echo [build] stdlib !MOD! (rust)
+        echo [build] gtlib !MOD! (rust)
         rustc --edition 2021 --crate-type cdylib --crate-name !MOD! "%%~fF" -o "%STDOUT%\!MOD!.dll" -O
-        if errorlevel 1 ( echo [ERROR] stdlib !MOD! dll failed. & exit /b 1 )
+        if errorlevel 1 ( echo [ERROR] gtlib !MOD! dll failed. & exit /b 1 )
         rustc --edition 2021 --crate-type staticlib --crate-name !MOD! "%%~fF" -o "%STDOUT%\!MOD!_static.lib" -O
-        if errorlevel 1 ( echo [ERROR] stdlib !MOD! static failed. & exit /b 1 )
+        if errorlevel 1 ( echo [ERROR] gtlib !MOD! static failed. & exit /b 1 )
     )
 )
-REM C stdlib modules
-for %%F in ("%ROOT%src\stdlib\*.c") do (
+REM C gtlib modules
+for %%F in ("%ROOT%src\gtlib\*.c") do (
     set "MOD=%%~nF"
-    echo [build] stdlib !MOD! ^(c^)
-    set "CFILE=%ROOT%src\stdlib\!MOD!.c"
+    echo [build] gtlib !MOD! ^(c^)
+    set "CFILE=%ROOT%src\gtlib\!MOD!.c"
     set "COBJ=%STDOUT%\!MOD!.obj"
     "%GTC_CLANG%" -c -O2 -o "!COBJ!" "!CFILE!"
-    if errorlevel 1 ( echo [ERROR] stdlib !MOD! ^(c^) compile failed. & exit /b 1 )
+    if errorlevel 1 ( echo [ERROR] gtlib !MOD! ^(c^) compile failed. & exit /b 1 )
     "%GTC_CLANG%" -shared -O2 -o "%STDOUT%\!MOD!.dll" "!COBJ!"
     del /q "!COBJ!" 2>nul
 )

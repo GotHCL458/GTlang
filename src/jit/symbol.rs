@@ -49,11 +49,11 @@ pub(crate) fn resolve_host_symbol(name: &str) -> Option<usize> {
 
 /// 加载标准库 dll（math.dll / string.dll），返回全部 py_* 符号的 (名字, 地址)。
 /// 失败时返回空表（纯 GTLang 程序不依赖标准库也能跑）。
-pub(crate) fn load_stdlib() -> Vec<(&'static str, usize)> {
-    use crate::types::stdlib_fn;
+pub(crate) fn load_gtlib() -> Vec<(&'static str, usize)> {
+    use crate::types::gtlib_fn;
     let dirs = std_dll_dirs();
     let mut handles: Vec<*mut core::ffi::c_void> = Vec::new();
-    for lib in crate::stdlib::MODULES {
+    for lib in crate::gtlib::MODULES {
         let name = format!("{}.dll", lib.dll);
         let mut loaded = false;
         for d in &dirs {
@@ -64,16 +64,16 @@ pub(crate) fn load_stdlib() -> Vec<(&'static str, usize)> {
                 if !h.is_null() { handles.push(h); loaded = true; break; }
             }
         }
-        if !loaded && std::env::var("GT_DEBUG_STDLIB").is_ok() {
-            eprintln!("[stdlib] FAILED to load {}.dll", lib.dll);
+        if !loaded && std::env::var("GT_DEBUG_GTLIB").is_ok() {
+            eprintln!("[gtlib] FAILED to load {}.dll", lib.dll);
         }
     }
     let mut out = Vec::new();
-    if std::env::var("GT_DEBUG_STDLIB").is_ok() {
-        eprintln!("[stdlib] loaded {} dll handles", handles.len());
+    if std::env::var("GT_DEBUG_GTLIB").is_ok() {
+        eprintln!("[gtlib] loaded {} dll handles", handles.len());
     }
-    for name in STDLIB_NAMES {
-        if let Some(sf) = stdlib_fn(name) {
+    for name in GTLIB_NAMES {
+        if let Some(sf) = gtlib_fn(name) {
             let c = std::ffi::CString::new(sf.symbol).unwrap();
             for h in &handles {
                 let p = unsafe { GetProcAddress(*h, c.as_ptr()) };
@@ -105,8 +105,8 @@ pub(crate) fn std_dll_dirs() -> Vec<std::path::PathBuf> {
     out
 }
 
-/// 标准库函数名的规范列表（与 type.rs::stdlib_fn 的键一致）
-pub(crate) const STDLIB_NAMES: &[&str] = &[
+/// 标准库函数名的规范列表（与 type.rs::gtlib_fn 的键一致）
+pub(crate) const GTLIB_NAMES: &[&str] = &[
     // os
     // os（环境 / 进程）
     "getcwd", "getenv", "setenv", "system", "args", "exit",
