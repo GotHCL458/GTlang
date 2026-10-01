@@ -308,16 +308,18 @@ pub(crate) extern "C" fn rt_sb_finish(h: i64) -> i64 {
 
 #[repr(C)]
 pub(crate) struct RtList {
+    rc: i64,
     data: *mut i64,
     len: i64,
     cap: i64,
+    elem_ptr: i64,
 }
 
-pub(crate) fn rt_list_new() -> *mut RtList {
+pub(crate) fn rt_list_new(elem_ptr: i64) -> *mut RtList {
     let mut v: Vec<i64> = Vec::with_capacity(4);
     let data = v.as_mut_ptr();
     std::mem::forget(v);
-    Box::into_raw(Box::new(RtList { data, len: 0, cap: 4 }))
+    Box::into_raw(Box::new(RtList { rc: 1, data, len: 0, cap: 4, elem_ptr }))
 }
 
 pub(crate) unsafe fn rt_list_grow(l: *mut RtList) {
@@ -431,7 +433,7 @@ unsafe fn rt_set_find(s: *mut RtSet, v: i64) -> i64 {
     }
 }
 
-pub(crate) fn rt_set_new() -> *mut RtSet {
+pub(crate) fn rt_set_new(_elem_ptr: i64) -> *mut RtSet {
     Box::into_raw(Box::new(RtSet { data: Vec::new(), ht: vec![-1i64; 8] }))
 }
 
@@ -516,7 +518,7 @@ pub(crate) unsafe fn rt_map_find(m: *mut RtMap, k: i64) -> i64 {
     }
 }
 
-pub(crate) fn rt_map_new() -> *mut RtMap {
+pub(crate) fn rt_map_new(_elem_ptr: i64) -> *mut RtMap {
     Box::into_raw(Box::new(RtMap { keys: Vec::new(), vals: Vec::new(), ht: vec![-1i64; 8] }))
 }
 
@@ -582,7 +584,7 @@ pub(crate) extern "C" fn rt_map_len(m: *mut RtMap) -> i64 {
 }
 
 pub(crate) extern "C" fn rt_map_keys(m: *mut RtMap) -> *mut RtList {
-    let out = rt_list_new();
+    let out = rt_list_new(0);
     if m.is_null() { return out; }
     unsafe {
         let m = &*m;
@@ -594,7 +596,7 @@ pub(crate) extern "C" fn rt_map_keys(m: *mut RtMap) -> *mut RtList {
 }
 
 pub(crate) extern "C" fn rt_map_values(m: *mut RtMap) -> *mut RtList {
-    let out = rt_list_new();
+    let out = rt_list_new(0);
     if m.is_null() { return out; }
     unsafe {
         let m = &*m;
@@ -696,7 +698,7 @@ pub(crate) extern "C" fn rt_str_replace(s: i64, from: i64, to: i64) -> i64 {
 }
 
 pub(crate) extern "C" fn rt_str_split(s: i64, sep: i64) -> *mut RtList {
-    let out = rt_list_new();
+    let out = rt_list_new(0);
     let hs = unsafe { cstr_bytes(s) };
     let sp = unsafe { cstr_bytes(sep) };
     if sp.is_empty() {
@@ -841,7 +843,7 @@ pub(crate) extern "C" fn rt_mem_set(p: i64, byte: i64, n: i64) {
 
 
 pub(crate) extern "C" fn rt_range(a: i64, b: i64) -> i64 {
-    let out = rt_list_new();
+    let out = rt_list_new(0);
     let mut i = a;
     while i < b {
         rt_list_push(out, i);

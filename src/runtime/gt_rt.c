@@ -236,7 +236,7 @@ void gt_flush(void) {
  * 线性扫描对小规模容器足够，且实现简单、行为可预测。
  * ============================================================ */
 
-typedef struct { long long rc; long long *data; long long len; long long cap; } GtList;
+typedef struct { long long rc; long long *data; long long len; long long cap; long long elem_ptr; } GtList;
 typedef struct {
     long long rc;
     long long *data;   /* 插入顺序数组（for 遍历按此顺序） */
@@ -244,14 +244,17 @@ typedef struct {
     long long cap;
     long long *ht;     /* 开放寻址哈希桶：存 data 下标，-1 表示空；hcap 为 2 的幂 */
     long long hcap;
+    long long elem_ptr; /* 元素是否为指针（GC 环检测用） */
 } GtSet;
 typedef struct {
+    long long rc;
     long long *keys;   /* 插入顺序数组（keys/vals/for 遍历按此顺序） */
     long long *vals;
     long long len;
     long long cap;
     long long *ht;     /* 开放寻址哈希桶：存 keys 下标，-1 表示空；大小 hcap 为 2 的幂 */
     long long hcap;
+    long long elem_ptr; /* 键/值是否为指针（GC 环检测用） */
 } GtMap;
 
 /* map 哈希：64 位键 → 桶下标（Fibonacci hashing） */
@@ -287,11 +290,12 @@ static long long gt_map_find(GtMap *m, long long k) {
 }
 
 /* ---------- list ---------- */
-GtList *gt_list_new(void) {
+GtList *gt_list_new(long long elem_ptr) {
     GtList *l = (GtList *)gc_alloc(sizeof(GtList));
     l->rc = 1;
     l->cap = 4;
     l->len = 0;
+    l->elem_ptr = elem_ptr;
     l->data = (long long *)gt_alloc(sizeof(long long) * (size_t)l->cap);
     return l;
 }
@@ -363,10 +367,12 @@ static long long gt_set_find(GtSet *s, long long v) {
     return -1;
 }
 
-GtSet *gt_set_new(void) {
-    GtSet *s = (GtSet *)gt_alloc(sizeof(GtSet));
+GtSet *gt_set_new(long long elem_ptr) {
+    GtSet *s = (GtSet *)gc_alloc(sizeof(GtSet));
+    s->rc = 1;
     s->cap = 4;
     s->len = 0;
+    s->elem_ptr = elem_ptr;
     s->data = (long long *)gt_alloc(sizeof(long long) * (size_t)s->cap);
     s->hcap = 8;
     s->ht = (long long *)gt_alloc(sizeof(long long) * (size_t)s->hcap);
@@ -407,10 +413,12 @@ void gt_set_remove(GtSet *s, long long v) {
 long long gt_set_len(GtSet *s) { return s ? s->len : 0; }
 
 /* ---------- map ---------- */
-GtMap *gt_map_new(void) {
-    GtMap *m = (GtMap *)gt_alloc(sizeof(GtMap));
+GtMap *gt_map_new(long long elem_ptr) {
+    GtMap *m = (GtMap *)gc_alloc(sizeof(GtMap));
+    m->rc = 1;
     m->cap = 4;
     m->len = 0;
+    m->elem_ptr = elem_ptr;
     m->keys = (long long *)gt_alloc(sizeof(long long) * (size_t)m->cap);
     m->vals = (long long *)gt_alloc(sizeof(long long) * (size_t)m->cap);
     m->hcap = 8;
@@ -469,13 +477,13 @@ long long gt_map_len(GtMap *m) { return m ? m->len : 0; }
 
 /* keys/values 返回新的 list */
 GtList *gt_map_keys(GtMap *m) {
-    GtList *l = gt_list_new();
+    GtList *l = gt_list_new(0);
     for (long long i = 0; i < m->len; i++) gt_list_push(l, m->keys[i]);
     return l;
 }
 
 GtList *gt_map_values(GtMap *m) {
-    GtList *l = gt_list_new();
+    GtList *l = gt_list_new(0);
     for (long long i = 0; i < m->len; i++) gt_list_push(l, m->vals[i]);
     return l;
 }
@@ -584,7 +592,7 @@ char *gt_str_replace(const char *s, const char *from, const char *to) {
 
 /* split(s, sep) → list<str>（元素是指针，存 i64 槽） */
 GtList *gt_str_split(const char *s, const char *sep) {
-    GtList *l = gt_list_new();
+    GtList *l = gt_list_new(0);
     if (s == NULL) return l;
     if (sep == NULL || sep[0] == 0) {
         /* 分隔符为空：整串作为单元素 */
@@ -681,7 +689,7 @@ void gt_mem_set(void *p, long long byte, long long n) {
 
 /* range(a, b)：生成 [a, b) 的整数列表。 */
 GtList *gt_range(long long a, long long b) {
-    GtList *l = gt_list_new();
+    GtList *l = gt_list_new(0);
     for (long long i = a; i < b; i++) gt_list_push(l, i);
     return l;
 }

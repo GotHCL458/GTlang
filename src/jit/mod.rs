@@ -441,7 +441,7 @@ impl<'a> Jit<'a> {
         // 容器运行时（参数/返回一律 I64，指针即地址）
         let i64v = types::I64;
         for (key, sym, params, ret) in [
-            ("list_new", "rt_list_new", vec![], Some(i64v)),
+            ("list_new", "rt_list_new", vec![i64v], Some(i64v)),
             ("range", "rt_range", vec![i64v, i64v], Some(i64v)),
             ("assert", "rt_assert", vec![i64v, i64v, i64v], None),
             ("thread_spawn", "rt_thread_spawn", vec![i64v, i64v, i64v], None),
@@ -463,12 +463,12 @@ impl<'a> Jit<'a> {
             ("list_len", "rt_list_len", vec![i64v], Some(i64v)),
             ("list_has", "rt_list_has", vec![i64v, i64v], Some(i64v)),
             ("list_remove", "rt_list_remove", vec![i64v, i64v], None),
-            ("set_new", "rt_set_new", vec![], Some(i64v)),
+            ("set_new", "rt_set_new", vec![i64v], Some(i64v)),
             ("set_insert", "rt_set_insert", vec![i64v, i64v], None),
             ("set_has", "rt_set_has", vec![i64v, i64v], Some(i64v)),
             ("set_remove", "rt_set_remove", vec![i64v, i64v], None),
             ("set_len", "rt_set_len", vec![i64v], Some(i64v)),
-            ("map_new", "rt_map_new", vec![], Some(i64v)),
+            ("map_new", "rt_map_new", vec![i64v], Some(i64v)),
             ("map_insert", "rt_map_insert", vec![i64v, i64v, i64v], None),
             ("map_get", "rt_map_get", vec![i64v, i64v], Some(i64v)),
             ("map_has", "rt_map_has", vec![i64v, i64v], Some(i64v)),
