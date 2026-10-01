@@ -919,6 +919,7 @@ impl Ctx {
                         let ret = self.trait_methods.get(&tr).and_then(|ms| ms.iter().find(|(n, _, _)| *n == mname).map(|(_, _, r)| r.clone()));
                         if let Some(ret) = ret {
                             for a in args.iter_mut().skip(1) { let _ = self.infer(a); }
+                            e.ty = ret.clone();
                             return Ok(ret);
                         }
                     }

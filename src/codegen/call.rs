@@ -31,8 +31,15 @@ impl<'a> Codegen<'a> {
                         ops.push(av);
                     }
                     let argstr: Vec<String> = ops.chunks(2).map(|c| format!("{} {}", c[0], c[1])).collect();
+                    // 返回类型按方法签名（f64 → double，其余 i64）
+                    let ret_llvm = call_ty.llvm();
+                    let ret_llvm = if ret_llvm == "double" { "double" } else if ret_llvm == "void" { "void" } else { "i64" };
                     let r = self.new_reg();
-                    self.body.push_str(&format!("  {} = call i64 {}({})\n", r, fp, argstr.join(", ")));
+                    if ret_llvm == "void" {
+                        self.body.push_str(&format!("  call void {}({})\n", fp, argstr.join(", ")));
+                        return Ok(Val::new(&Ty::Void, "0"));
+                    }
+                    self.body.push_str(&format!("  {} = call {} {}({})\n", r, ret_llvm, fp, argstr.join(", ")));
                     return Ok(Val::new(&call_ty.clone(), r));
                 }
             }
