@@ -482,3 +482,60 @@ pub mod msg {
         CompileError::new(code, line, msg.into())
     }
 }
+
+/// 错误码说明（`gtc --explain EXXX`）。返回 (标题, 含义, 常见原因, 修法)。
+pub fn explain(code: &str) -> Option<(&'static str, String, String, String)> {
+    use ErrorCode::*;
+    let c = match code.to_ascii_uppercase().as_str() {
+        "E001" => Lex, "E002" => Syntax,
+        "E101" => UndefinedVar, "E102" => UndefinedFn, "E103" => UndefinedType,
+        "E201" => TypeMismatch, "E202" => AssignMismatch, "E203" => BadOperand,
+        "E204" => ImmutableAssign, "E205" => NonBoolCondition, "E206" => CannotInfer,
+        "E301" => MissingReturn, "E302" => ReturnOutsideFn, "E303" => LoopControlOutside, "E304" => UnreachableCode,
+        "E401" => IndexNotInt, "E402" => NotIndexable, "E403" => IndexAssignImmutable,
+        "E404" => NotIterable, "E405" => BadBuiltinCall,
+        "E501" => NotAStruct, "E502" => NoSuchField, "E503" => BadStructLit, "E504" => NonExhaustiveMatch,
+        "E601" => ArityMismatch, "E602" => ArgTypeMismatch, "E603" => NotCallable,
+        "E701" => ModuleNotFound, "E702" => ModuleCycle, "E703" => ModulePrivate,
+        "E801" => UseAfterMove, "E802" => BorrowConflict,
+        _ => return None,
+    };
+    let zh = crate::lang::is_zh();
+    let (title, meaning, cause, fix) = match c {
+        Lex => ("词法错误", "源码中出现无法识别的字符或记号的写法错误。", "非法字符、未闭合的字符串/注释。", "检查该行的字符与引号是否配对。"),
+        Syntax => ("语法错误", "代码结构不符合语法规则。", "缺少括号/分隔符、关键字拼错、表达式不完整。", "对照报错位置补齐语法元素。"),
+        UndefinedVar => ("未定义的变量", "使用了未声明（或不在作用域内）的变量。", "拼写错误，或忘了用 := / let 声明。", "检查拼写；先声明再用（:= 自动声明）。"),
+        UndefinedFn => ("未定义的函数", "调用了不存在的函数。", "名字拼错、未定义、或未 import。", "检查名字；定义它或用 import 引入。"),
+        UndefinedType => ("未定义的类型", "使用了不存在的结构体/类型名。", "名字拼错，或未定义/未导入。", "确认类型已定义或已导入。"),
+        TypeMismatch => ("类型不匹配", "表达式类型与期望类型不一致。", "赋值、传参、返回时类型不符；混用 str 与数值。", "用 int()/f64()/str() 显式转换，或修正类型标注。"),
+        AssignMismatch => ("赋值类型错误", "赋值的类型与变量声明的类型不兼容。", "给固定类型变量赋了别的类型。", "修正值或变量类型。"),
+        BadOperand => ("运算符类型错误", "运算符用在了不支持的类型上。", "对字符串做算术、对非整数做位运算等。", "转换为数值，或改用字符串拼接。"),
+        ImmutableAssign => ("不可变赋值", "试图修改不可变变量或常量。", "用 let 声明的变量、const 常量不可改。", "用 := 或 let mut 声明可变变量。"),
+        NonBoolCondition => ("条件非布尔", "if/while 的条件不是 bool。", "条件写了数值或字符串。", "用比较运算符，或 bool(x) 转换。"),
+        CannotInfer => ("无法推断类型", "编译器无法确定表达式类型。", "缺少标注或上下文信息不足。", "补上类型标注。"),
+        MissingReturn => ("缺少返回值", "函数声明了返回类型却没有返回值。", "分支未覆盖、忘了 return。", "确保所有路径都返回值。"),
+        ReturnOutsideFn => ("return 位置错误", "在函数外使用 return。", "顶层或错误位置写了 return。", "把 return 放进函数体。"),
+        LoopControlOutside => ("循环控制位置错误", "break/continue 不在循环内。", "在循环外使用。", "移到循环体内。"),
+        UnreachableCode => ("不可达代码", "该语句永远不会执行。", "return/break 之后还有代码。", "删除或调整。"),
+        IndexNotInt => ("下标非整数", "下标不是整数类型。", "用了字符串/浮点做下标。", "下标用整数（int）。"),
+        NotIndexable => ("不支持下标", "对该类型使用了 []。", "对非容器/非字符串取下标。", "确认对象可下标；或改用字段访问。"),
+        IndexAssignImmutable => ("下标赋值不可变", "对不可变容器的元素赋值。", "容器本身不可变。", "用可变容器（:= / let mut）。"),
+        NotIterable => ("不可遍历", "for 遍历了不支持的类型。", "遍历了非容器。", "遍历 list/set/map/str/数组。"),
+        BadBuiltinCall => ("内置函数调用错误", "内置函数的参数个数或类型不对。", "传错参数。", "对照内置函数签名调整。"),
+        NotAStruct => ("不是结构体", "对非结构体访问字段。", "对普通值用了 .字段。", "确认对象是结构体。"),
+        NoSuchField => ("没有该字段", "结构体不存在该字段。", "字段名拼错。", "检查字段名（编译器会给拼写建议）。"),
+        BadStructLit => ("结构体字面量错误", "构造结构体时字段缺失或多余。", "字段不匹配。", "补齐所有字段。"),
+        NonExhaustiveMatch => ("match 不穷尽", "match 未覆盖所有情况。", "枚举缺变体、bool 缺 true/false。", "补全分支或用 _ 兜底。"),
+        ArityMismatch => ("参数个数不匹配", "调用时参数个数与定义不符。", "多传或少传。", "对照函数原型调整（编译器会给出签名）。"),
+        ArgTypeMismatch => ("参数类型不匹配", "某个参数的类型不对。", "传错类型。", "转换为期望类型。"),
+        NotCallable => ("不可调用", "对非函数/闭包的值做了调用。", "把变量当函数调用。", "确认被调用的值是可调用的。"),
+        ModuleNotFound => ("找不到模块", "import 的文件不存在。", "路径错。", "检查 import 路径。"),
+        ModuleCycle => ("模块循环", "import 形成环。", "互相导入。", "打破循环依赖。"),
+        ModulePrivate => ("模块私有", "访问了未导出的项。", "项未公开。", "导出该名字。"),
+        UseAfterMove => ("移动后使用", "值被移动（所有权转移）后又使用。", "把值传给了会消耗它的地方。", "重新绑定，或避免移动。"),
+        BorrowConflict => ("借用冲突", "同时存在不兼容的借用。", "& 与 &mut 冲突、多个 &mut。", "缩短借用作用域，或改用值语义。"),
+        Other => ("其他错误", "未分类的错误。", "—", "看具体消息。"),
+    };
+    let _ = zh;
+    Some((title, meaning.to_string(), cause.to_string(), fix.to_string()))
+}

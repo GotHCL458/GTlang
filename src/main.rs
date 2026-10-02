@@ -106,6 +106,30 @@ fn main() -> ExitCode {
         return ExitCode::from(1);
     }
 
+    // `gtc --explain EXXX`：查询错误码含义（最先处理，不当作编译）。
+    if args[0] == "--explain" || args[0] == "-e" {
+        if args.len() < 2 {
+            eprintln!("用法：gtc --explain EXXX  (usage: gtc --explain EXXX)");
+            return ExitCode::from(2);
+        }
+        let code = args[1].as_str();
+        return match gtc_rust::error::explain(code) {
+            Some((t, m, c, f)) => {
+                // explain() 内的文本已按语言生成；标签同样跟随语言。
+                if lang::is_zh() {
+                    println!("[{}] {}\n  含义：{}\n  常见原因：{}\n  修法：{}", code.to_uppercase(), t, m, c, f);
+                } else {
+                    println!("[{}] {}\n  meaning: {}\n  common cause: {}\n  fix: {}", code.to_uppercase(), t, m, c, f);
+                }
+                ExitCode::SUCCESS
+            }
+            None => {
+                eprintln!("未知错误码：{}  (unknown error code)", code);
+                ExitCode::from(2)
+            }
+        };
+    }
+
     let mut mode = Mode::Compile;
     let mut out: Option<PathBuf> = None;
     let mut opt: u8 = 2;
@@ -137,6 +161,7 @@ fn main() -> ExitCode {
             "--json" => lint_json = true,
             "--test" | "test" => mode = Mode::Test,
             "--emit-llvm" => mode = Mode::EmitLlvm,
+
             "--emit-llvm-opt" | "--ir-ugly" => mode = Mode::EmitLlvmOpt,
             "--no-color" => no_color = true,
             "--keep-tmp" => keep_tmp = true,
