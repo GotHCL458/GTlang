@@ -144,8 +144,22 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
                 trait_required_methods.insert(t.name.clone(), t.methods.iter().map(|(n, _, _)| n.clone()).collect());
             }
         }
+        // trait 名 → 父 trait 列表
+        let mut trait_supers: HashMap<String, Vec<String>> = HashMap::new();
+        for item in &prog.items {
+            if let Item::Trait(t) = item { trait_supers.insert(t.name.clone(), t.supers.clone()); }
+        }
         for item in &prog.items {
             if let Item::TraitImpl { trait_name, ty, assoc_bind, line, .. } = item {
+                // 父 trait 必须也被 impl
+                if let Some(supers) = trait_supers.get(trait_name) {
+                    for sup in supers {
+                        let has = prog.items.iter().any(|it| matches!(it, Item::TraitImpl { trait_name: tn, ty: tty, .. } if tn == sup && tty == ty));
+                        if !has {
+                            errors.push(crate::lb!(line, "impl of '{}' for '{}' requires supertrait '{}'", "为 '{}' 实现 '{}' 要求它也实现父 trait '{}'", ty, trait_name, sup));
+                        }
+                    }
+                }
                 if let Some(declared) = trait_assoc.get(trait_name) {
                     for an in declared {
                         if !assoc_bind.iter().any(|(n, _)| n == an) {

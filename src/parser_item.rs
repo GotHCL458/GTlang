@@ -257,6 +257,14 @@ impl Parser {
     pub(crate) fn trait_def(&mut self, is_pub: bool) -> Result<TraitDef, String> {
         let line = self.line();
         let name = self.ident("trait 名")?;
+        // 父 trait：`trait A: B, C { ... }`
+        let mut supers: Vec<String> = Vec::new();
+        if self.eat_punct(":") {
+            loop {
+                supers.push(self.ident("父 trait 名")?);
+                if !self.eat_punct(",") { break; }
+            }
+        }
         self.expect_punct("{")?;
         let mut methods = Vec::new();
         let mut defaults: Vec<(String, Vec<(String, Ty)>, Ty, Block)> = Vec::new();
@@ -326,7 +334,7 @@ impl Parser {
             methods.push((mname, ptypes, ret));
         }
         self.expect_punct("}")?;
-        Ok(TraitDef { name, methods, defaults, assoc, line, is_pub })
+        Ok(TraitDef { name, methods, defaults, assoc, supers, line, is_pub })
     }
 
     /// `struct Name { f: T, ... }`（字段类型可省略）

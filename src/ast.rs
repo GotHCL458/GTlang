@@ -448,6 +448,8 @@ pub struct TraitDef {
     pub defaults: Vec<(String, Vec<(String, Ty)>, Ty, Block)>,
     /// 关联类型名列表 `type Item`
     pub assoc: Vec<String>,
+    /// 父 trait 名列表 `trait A: B, C`
+    pub supers: Vec<String>,
     pub line: usize,
     pub is_pub: bool,
 }
