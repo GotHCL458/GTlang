@@ -101,8 +101,8 @@ impl Parser {
     /// 递归深度检查（防深嵌套栈溢出）。返回 Err 时应向上传播。
     fn enter_depth(&mut self) -> Result<(), String> {
         self.depth += 1;
-        if self.depth > 100 {
-            return Err(crate::lb!(self.line(), "expression/block nesting too deep (max 100)", "表达式/块的嵌套过深（上限 100）"));
+        if self.depth > 128 {
+            return Err(crate::lb!(self.line(), "expression/block nesting too deep (max 128)", "表达式/块的嵌套过深（上限 128）"));
         }
         Ok(())
     }
