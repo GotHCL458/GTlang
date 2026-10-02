@@ -1,16 +1,16 @@
-//! 泛型单态化：把泛型函数按调用点的具体类型实例化为独立函数。
+//! 泛型单态化：把泛型函数按调用点的具体类型实例化为独立函数�?
 //!
-//! 例：`fn 恒等[T](x: T) -> T { x }` 被 `恒等(1)` 与 `恒等("a")` 调用，
-//! 生成 `恒等$i` 与 `恒等$s` 两个具体函数，调用点改写为对应实例名。
+//! 例：`fn 恒等[T](x: T) -> T { x }` �?`恒等(1)` �?`恒等("a")` 调用�?
+//! 生成 `恒等$i` �?`恒等$s` 两个具体函数，调用点改写为对应实例名�?
 //!
-//! 实例名编码：i64→i, f64→f, str→s, bool→b, Struct(X)→X, 其它→名字。
-//! 支持泛型调用泛型（迭代到不动点）。
+//! 实例名编码：i64→i, f64→f, str→s, bool→b, Struct(X)→X, 其它→名字�?
+//! 支持泛型调用泛型（迭代到不动点）�?
 
 use std::collections::{HashMap, HashSet};
 
 use crate::ast::*;
 
-/// 对整份程序做单态化（就地修改）；返回 `where` 约束违规的诊断。
+/// 对整份程序做单态化（就地修改）；返�?`where` 约束违规的诊断�?
 pub fn monomorphize(prog: &mut Program) -> Vec<String> {
     // 收集泛型函数
     let mut generics: HashMap<String, FnDef> = HashMap::new();
@@ -21,14 +21,14 @@ pub fn monomorphize(prog: &mut Program) -> Vec<String> {
             }
         }
     }
-    // trait 表：(trait 名) → { 实现了它的类型名 }
-    // blanket 表：(trait 名) 被 `impl[T] Trait for T` 覆盖 → 任意类型都满足
+    // trait 表：(trait �? �?{ 实现了它的类型名 }
+    // blanket 表：(trait �? �?`impl[T] Trait for T` 覆盖 �?任意类型都满�?
     let mut trait_impls: HashMap<String, HashSet<String>> = HashMap::new();
     let mut blanket_traits: HashSet<String> = HashSet::new();
     for item in &prog.items {
         if let Item::TraitImpl { type_params, trait_name, ty, .. } = item {
             if !type_params.is_empty() && type_params.iter().any(|t| t == ty) {
-                // `impl[T] Trait for T`：blanket，任意 T 满足
+                // `impl[T] Trait for T`：blanket，任�?T 满足
                 blanket_traits.insert(trait_name.clone());
             } else {
                 trait_impls
@@ -41,12 +41,31 @@ pub fn monomorphize(prog: &mut Program) -> Vec<String> {
     let mut errors: Vec<String> = Vec::new();
 
     // ---------- 泛型 struct 单态化 ----------
-    // 扫描所有 StructLit，按字段类型推导类型参数，生成 `名$编码` 具体 struct。
-    // 例：`struct 盒[T] { v: T }` + `盒 { v: 42 }` → `盒$i { v: i64 }`，字面量改名为 `盒$i`
+    // 扫描所�?StructLit，按字段类型推导类型参数，生�?`�?编码` 具体 struct�?
+    // 例：`struct 盒[T] { v: T }` + `�?{ v: 42 }` �?`�?i { v: i64 }`，字面量改名�?`�?i`
     errors.extend(monomorphize_structs(prog));
-
     if generics.is_empty() {
         return errors;
+    }
+
+    // trait 名 → 方法名列表（在 drain 之前收集）
+    let mut trait_methods: HashMap<String, Vec<String>> = HashMap::new();
+    for item in &prog.items {
+        if let Item::Trait(t) = item {
+            let mut names: Vec<String> = t.methods.iter().map(|(n, _, _)| n.clone()).collect();
+            for (n, _, _, _) in &t.defaults { if !names.contains(n) { names.push(n.clone()); } }
+            trait_methods.insert(t.name.clone(), names);
+        }
+    }
+    // (类型, trait) → 展平方法名（在 drain 之前收集）
+    let mut trait_impl_methods: HashMap<(String, String), Vec<String>> = HashMap::new();
+    for item in &prog.items {
+        if let Item::TraitImpl { trait_name, ty, type_params, .. } = item {
+            if !type_params.is_empty() { continue; }
+            let ms = trait_methods.get(trait_name).cloned().unwrap_or_default();
+            let flat: Vec<String> = ms.iter().map(|m| format!("{}__{}", ty, m)).collect();
+            trait_impl_methods.insert((ty.clone(), trait_name.clone()), flat);
+        }
     }
 
     // 拆分：非泛型函数、其它顶层项、泛型函数（丢弃原泛型）
@@ -60,7 +79,7 @@ pub fn monomorphize(prog: &mut Program) -> Vec<String> {
         }
     }
 
-    // 迭代扫描：从 plain_fns + 已生成实例中收集泛型调用，生成实例
+    // 迭代扫描：从 plain_fns + 已生成实例中收集泛型调用，生成实�?
     let mut instances: Vec<FnDef> = Vec::new();
     let mut emitted: HashSet<String> = HashSet::new();
     let mut subst_map: HashMap<String, String> = HashMap::new();
@@ -79,7 +98,7 @@ pub fn monomorphize(prog: &mut Program) -> Vec<String> {
             subst_map.insert(format!("{}<{}>", gname, tys_key(&tys)), inst.clone());
             if emitted.insert(inst.clone()) {
                 if let Some(gf) = generics.get(&gname) {
-                    // 校验 where 约束：每个 (类型参数, trait) 的实参类型须 impl 该 trait
+                    // 校验 where 约束：每�?(类型参数, trait) 的实参类型须 impl �?trait
                     for (tp, tr) in &gf.bounds {
                         if let Some(actual) = gf.type_params.iter().position(|t| t == tp) {
                             if let Some(aty) = tys.get(actual) {
@@ -90,15 +109,15 @@ pub fn monomorphize(prog: &mut Program) -> Vec<String> {
                                     errors.push(crate::lb!(
                                         0,
                                         "type '{}' does not satisfy bound '{}: {}'",
-                                        "类型 '{}' 不满足约束 '{}: {}'",
+                                        "类型 '{}' 不满足约�?'{}: {}'",
                                         tname, tp, tr
                                     ));
                                 }
                             }
                         }
                     }
-                    let mut inst_fn = instantiate(gf, &tys, &inst);
-                    // 实例体内的**自递归调用** `gname(...)` 改写为实例名
+                    let mut inst_fn = instantiate(gf, &tys, &inst, &trait_methods, &trait_impl_methods);
+                    // 实例体内�?*自递归调用** `gname(...)` 改写为实例名
                     rewrite_self_calls(&mut inst_fn.body, &gname, &inst);
                     instances.push(inst_fn);
                     changed = true;
@@ -110,12 +129,12 @@ pub fn monomorphize(prog: &mut Program) -> Vec<String> {
         }
     }
 
-    // 改写所有非泛型函数体内的泛型调用
+    // 改写所有非泛型函数体内的泛型调�?
     for f in plain_fns.iter_mut() {
         rewrite_calls(&mut f.body, &generics, &subst_map);
     }
 
-    // 组装最终 items：非函数项 + 非泛型函数 + 实例函数
+    // 组装最�?items：非函数�?+ 非泛型函�?+ 实例函数
     let mut out: Vec<Item> = others;
     for f in plain_fns {
         out.push(Item::Fn(f));
@@ -127,7 +146,7 @@ pub fn monomorphize(prog: &mut Program) -> Vec<String> {
     errors
 }
 
-/// 取类型的"trait 实现名"（用于匹配 `impl Trait for 类型` 里的 `类型`）。
+/// 取类型的"trait 实现�?（用于匹�?`impl Trait for 类型` 里的 `类型`）�?
 fn type_name_for_trait(t: &Ty) -> String {
     match t {
         Ty::Struct(n) => n.clone(),
@@ -181,7 +200,7 @@ fn collect_generic_calls(b: &Block, generics: &HashMap<String, FnDef>, out: &mut
 fn collect_expr(e: &Expr, generics: &HashMap<String, FnDef>, out: &mut Vec<(String, Vec<Ty>)>) {
     if let ExprKind::Call(name, args) = &e.kind {
         if let Some(gf) = generics.get(name) {
-            // 从实参类型推断类型实参
+            // 从实参类型推断类型实�?
             if let Some(tys) = infer_type_args(gf, args) {
                 out.push((name.clone(), tys));
             }
@@ -214,11 +233,11 @@ fn collect_expr(e: &Expr, generics: &HashMap<String, FnDef>, out: &mut Vec<(Stri
     }
 }
 
-/// 从实参类型推断泛型参数。
+/// 从实参类型推断泛型参数�?
 ///
-/// 用 HM `Unifier`：把每个 `Generic(T)` 换成一个 fresh 类型变量，
-/// 与实参类型合一；再读回变量绑定。比"字符串直接替换"更可靠——
-/// 同一 `T` 出现在多个形参时会强制它们一致（如 `fn f[T](x: T, y: T)`）。
+/// �?HM `Unifier`：把每个 `Generic(T)` 换成一�?fresh 类型变量�?
+/// 与实参类型合一；再读回变量绑定。比"字符串直接替�?更可靠—�?
+/// 同一 `T` 出现在多个形参时会强制它们一致（�?`fn f[T](x: T, y: T)`）�?
 fn infer_type_args(gf: &FnDef, args: &[Expr]) -> Option<Vec<Ty>> {
     use crate::unify::Unifier;
     use std::collections::HashMap as Map;
@@ -228,7 +247,7 @@ fn infer_type_args(gf: &FnDef, args: &[Expr]) -> Option<Vec<Ty>> {
     for tp in &gf.type_params {
         vars.insert(tp.clone(), u.fresh());
     }
-    // 把形参类型里的 Generic 替换成对应 var
+    // 把形参类型里�?Generic 替换成对�?var
     fn subst(t: &Ty, vars: &Map<String, Ty>) -> Ty {
         match t {
             Ty::Generic(n) => vars.get(n).cloned().unwrap_or(Ty::I64),
@@ -246,7 +265,7 @@ fn infer_type_args(gf: &FnDef, args: &[Expr]) -> Option<Vec<Ty>> {
         let at = args.get(i)?.ty.clone();
         if let Some(pty) = &p.ty {
             let want = subst(pty, &vars);
-            // 合一失败则退回宽松处理（避免误报）
+            // 合一失败则退回宽松处理（避免误报�?
             let _ = u.unify(&want, &at);
         }
     }
@@ -260,9 +279,9 @@ fn infer_type_args(gf: &FnDef, args: &[Expr]) -> Option<Vec<Ty>> {
     Some(out)
 }
 
-/// 泛型 struct 单态化：扫描 `StructLit`，推导类型参数，生成具体 struct 定义并改名引用。
+/// 泛型 struct 单态化：扫�?`StructLit`，推导类型参数，生成具体 struct 定义并改名引用�?
 fn monomorphize_structs(prog: &mut Program) -> Vec<String> {
-    // 收集泛型 struct：名字 → StructDef
+    // 收集泛型 struct：名�?�?StructDef
     let mut gen_structs: HashMap<String, StructDef> = HashMap::new();
     for item in &prog.items {
         if let Item::Struct(s) = item {
@@ -275,7 +294,7 @@ fn monomorphize_structs(prog: &mut Program) -> Vec<String> {
         return Vec::new();
     }
 
-    // 扫描所有函数体，收集 (泛型名, 推导出的类型实参)
+    // 扫描所有函数体，收�?(泛型�? 推导出的类型实参)
     let mut sites: Vec<(String, Vec<Ty>)> = Vec::new();
     for item in &prog.items {
         if let Item::Fn(f) = item {
@@ -285,7 +304,7 @@ fn monomorphize_structs(prog: &mut Program) -> Vec<String> {
     // 去重 + 生成实例
     let mut emitted: HashSet<String> = HashSet::new();
     let mut new_structs: Vec<Item> = Vec::new();
-    let mut rename: HashMap<(String, String), String> = HashMap::new(); // (名, 类型key) → 实例名
+    let mut rename: HashMap<(String, String), String> = HashMap::new(); // (�? 类型key) �?实例�?
     for (sname, tys) in &sites {
         let gs = match gen_structs.get(sname) { Some(g) => g, None => continue };
         // 类型参数顺序对应结构体声明的 type_params；tys 来自字段推导
@@ -302,8 +321,8 @@ fn monomorphize_structs(prog: &mut Program) -> Vec<String> {
             new_structs.push(Item::Struct(sd));
         }
     }
-    // 改写函数体里的 StructLit 名（按字段类型选实例）
-    // 每个 (sname) → (实例名列表, 对应类型实参列表)
+    // 改写函数体里�?StructLit 名（按字段类型选实例）
+    // 每个 (sname) �?(实例名列�? 对应类型实参列表)
     let mut to_rename: HashMap<String, (Vec<String>, Vec<Vec<Ty>>)> = HashMap::new();
     for (sname, tys) in &sites {
         if let Some(insts) = to_rename.get_mut(sname) {
@@ -321,12 +340,12 @@ fn monomorphize_structs(prog: &mut Program) -> Vec<String> {
             rewrite_struct_lits(&mut f.body, &to_rename);
         }
     }
-    // 追加新 struct 定义
+    // 追加�?struct 定义
     prog.items.extend(new_structs);
     Vec::new()
 }
 
-/// 收集函数体里泛型 struct 字面量的类型实参（按字段类型推导）
+/// 收集函数体里泛型 struct 字面量的类型实参（按字段类型推导�?
 fn collect_struct_sites(b: &Block, gen: &HashMap<String, StructDef>, out: &mut Vec<(String, Vec<Ty>)>) {
     for s in b {
         match s {
@@ -350,7 +369,7 @@ fn collect_struct_sites(b: &Block, gen: &HashMap<String, StructDef>, out: &mut V
 fn collect_struct_sites_expr(e: &Expr, gen: &HashMap<String, StructDef>, out: &mut Vec<(String, Vec<Ty>)>) {
     if let ExprKind::StructLit(name, fields) = &e.kind {
         if let Some(gs) = gen.get(name) {
-            // 按结构体字段顺序，从字面量取对应字段的类型
+            // 按结构体字段顺序，从字面量取对应字段的类�?
             let mut tys: Vec<Ty> = Vec::new();
             for tp in &gs.type_params {
                 // 找结构体里类型为 Generic(tp) 的字段，取字面量对应值的类型
@@ -381,7 +400,7 @@ fn collect_struct_sites_expr(e: &Expr, gen: &HashMap<String, StructDef>, out: &m
     }
 }
 
-/// 把函数体里的 `盒`（泛型 struct 字面量）改名为 `盒$i`（按字段类型选实例）
+/// 把函数体里的 `盒`（泛�?struct 字面量）改名�?`�?i`（按字段类型选实例）
 fn rewrite_struct_lits(b: &mut Block, map: &HashMap<String, (Vec<String>, Vec<Vec<Ty>>)>) {
     for s in b.iter_mut() {
         match s {
@@ -429,7 +448,7 @@ fn rewrite_struct_lit_expr(e: &mut Expr, map: &HashMap<String, (Vec<String>, Vec
     }
 }
 
-/// 实例名：泛型名 + 类型编码
+/// 实例名：泛型�?+ 类型编码
 fn instance_name(gname: &str, tys: &[Ty]) -> String {
     let mut s = gname.to_string();
     for t in tys {
@@ -458,8 +477,8 @@ fn ty_code(t: &Ty) -> String {
     }
 }
 
-/// 实例化：克隆泛型函数，替换 Ty::Generic 为具体类型，重命名为 inst
-fn instantiate(gf: &FnDef, tys: &[Ty], inst: &str) -> FnDef {
+/// 实例化：克隆泛型函数，替�?Ty::Generic 为具体类型，重命名为 inst
+fn instantiate(gf: &FnDef, tys: &[Ty], inst: &str, trait_methods: &HashMap<String, Vec<String>>, trait_impl_methods: &HashMap<(String, String), Vec<String>>) -> FnDef {
     let map: HashMap<String, Ty> = gf
         .type_params
         .iter()
@@ -469,6 +488,13 @@ fn instantiate(gf: &FnDef, tys: &[Ty], inst: &str) -> FnDef {
     let mut f = gf.clone();
     f.name = inst.to_string();
     f.type_params = Vec::new();
+    // 先建"形参名 → 类型参数名"映射（在替换 p.ty 之前，基于原始泛型签名）
+    let mut pname_to_tp: HashMap<String, String> = HashMap::new();
+    for p in &gf.params {
+        if let Some(Ty::Generic(tp)) = &p.ty {
+            pname_to_tp.insert(p.name.clone(), tp.clone());
+        }
+    }
     // 参数类型替换
     for p in f.params.iter_mut() {
         if let Some(t) = &p.ty {
@@ -480,6 +506,7 @@ fn instantiate(gf: &FnDef, tys: &[Ty], inst: &str) -> FnDef {
     }
     // 体内类型替换（数组字面量等已回填的类型）
     subst_block_ty(&mut f.body, &map);
+    rewrite_generic_trait_calls(&mut f.body, &gf.bounds, &map, &pname_to_tp, trait_methods, trait_impl_methods);
     f
 }
 
@@ -496,10 +523,10 @@ fn subst_ty(t: &Ty, map: &HashMap<String, Ty>) -> Ty {
 }
 
 fn subst_block_ty(_b: &mut Block, _map: &HashMap<String, Ty>) {
-    // 类型替换主要在签名层；体内的 Ty 由 sema 重新推断，这里不深入
+    // 类型替换主要在签名层；体内的 Ty �?sema 重新推断，这里不深入
 }
 
-/// 改写函数体内的泛型调用为实例名
+/// 改写函数体内的泛型调用为实例�?
 fn rewrite_calls(b: &mut Block, generics: &HashMap<String, FnDef>, subst: &HashMap<String, String>) {
     for s in b.iter_mut() {
         match s {
@@ -570,20 +597,20 @@ fn rewrite_expr(e: &mut Expr, generics: &HashMap<String, FnDef>, subst: &HashMap
 
 
 // ============================================================
-// 方法调用降级：`obj.方法(args)` → `类型__方法(obj, args)`
-// 与 `obj.字段` 区分：字段访问读/写字段；方法调用传 self。
-// 依据：obj 的静态类型是 Struct(T)，且 T 有方法 `方法`。
+// 方法调用降级：`obj.方法(args)` �?`类型__方法(obj, args)`
+// �?`obj.字段` 区分：字段访问读/写字段；方法调用�?self�?
+// 依据：obj 的静态类型是 Struct(T)，且 T 有方�?`方法`�?
 // ============================================================
 
-/// 对整份程序做方法调用降级（就地修改）。
+/// 对整份程序做方法调用降级（就地修改）�?
 pub fn lower_method_calls(prog: &mut Program, methods: &HashMap<String, Vec<String>>) {
-    // methods: 类型名 → 方法名列表
+    // methods: 类型�?�?方法名列�?
     let struct_types: HashMap<String, ()> = prog
         .items
         .iter()
         .filter_map(|it| if let Item::Struct(s) = it { Some((s.name.clone(), ())) } else { None })
         .collect();
-    // 变量名 → 结构体类型（作用域内）
+    // 变量�?�?结构体类型（作用域内�?
     for item in &mut prog.items {
         if let Item::Fn(f) = item {
             lower_block(&mut f.body, methods, &struct_types, &mut HashMap::new());
@@ -677,7 +704,7 @@ fn lower_expr(
             }
         }
     }
-    // 一元运算符重载：`-a` → `类型__neg(a)`
+    // 一元运算符重载：`-a` �?`类型__neg(a)`
     if let ExprKind::Unary(op, a) = &e.kind {
         if let Some(m) = crate::types::unary_op_method(*op) {
             if let ExprKind::Ident(v) = &a.kind {
@@ -695,7 +722,7 @@ fn lower_expr(
         if let Some(dot) = name.find('.') {
             let obj = name[..dot].to_string();
             let method = name[dot + 1..].to_string();
-            // obj 是变量且其类型有该方法
+            // obj 是变量且其类型有该方�?
             if let Some(ty) = vars.get(&obj) {
                 if let Some(ms) = methods.get(ty) {
                     if ms.contains(&method) {
@@ -711,7 +738,74 @@ fn lower_expr(
     }
 }
 
-/// 把函数体内对 `gname` 的调用改写为 `inst`（用于泛型自递归）
+/// 把函数体内对 `gname` 的调用改写为 `inst`（用于泛型自递归�?
+/// 遍历块：�?`recv.方法(...)` 改写�?`具体类型__方法(recv, ...)`�?
+fn rewrite_trait_calls_block(b: &mut Block, bounds: &[(String, String)], map: &HashMap<String, Ty>, pname_to_tp: &HashMap<String, String>, trait_methods: &HashMap<String, Vec<String>>) {
+    for s in b.iter_mut() { rewrite_trait_calls_stmt(s, bounds, map, pname_to_tp, trait_methods); }
+}
+
+/// 实例体内"约束 trait 的方法调�?改写的入口�?
+fn rewrite_generic_trait_calls(b: &mut Block, bounds: &[(String, String)], map: &HashMap<String, Ty>, pname_to_tp: &HashMap<String, String>, trait_methods: &HashMap<String, Vec<String>>, _im: &HashMap<(String, String), Vec<String>>) {
+    rewrite_trait_calls_block(b, bounds, map, pname_to_tp, trait_methods);
+}
+
+fn rewrite_trait_calls_stmt(s: &mut Stmt, bounds: &[(String, String)], map: &HashMap<String, Ty>, pname_to_tp: &HashMap<String, String>, trait_methods: &HashMap<String, Vec<String>>) {
+    match s {
+        Stmt::Let { value, .. } | Stmt::Const { value, .. } => rewrite_trait_calls_expr(value, bounds, map, pname_to_tp, trait_methods),
+        Stmt::Assign { value, index, .. } => { rewrite_trait_calls_expr(value, bounds, map, pname_to_tp, trait_methods); if let Some(i) = index { rewrite_trait_calls_expr(i, bounds, map, pname_to_tp, trait_methods); } }
+        Stmt::FieldAssign { value, .. } => rewrite_trait_calls_expr(value, bounds, map, pname_to_tp, trait_methods),
+        Stmt::Expr(e) | Stmt::Throw(e, _) => rewrite_trait_calls_expr(e, bounds, map, pname_to_tp, trait_methods),
+        Stmt::Return(Some(e), _) => rewrite_trait_calls_expr(e, bounds, map, pname_to_tp, trait_methods),
+        Stmt::If { cond, then, els, .. } => { rewrite_trait_calls_expr(cond, bounds, map, pname_to_tp, trait_methods); rewrite_trait_calls_block(then, bounds, map, pname_to_tp, trait_methods); if let Some(e) = els { rewrite_trait_calls_block(e, bounds, map, pname_to_tp, trait_methods); } }
+        Stmt::While { cond, body, .. } => { rewrite_trait_calls_expr(cond, bounds, map, pname_to_tp, trait_methods); rewrite_trait_calls_block(body, bounds, map, pname_to_tp, trait_methods); }
+        Stmt::DoWhile { body, cond, .. } => { rewrite_trait_calls_block(body, bounds, map, pname_to_tp, trait_methods); rewrite_trait_calls_expr(cond, bounds, map, pname_to_tp, trait_methods); }
+        Stmt::ForRange { from, to, body, els, .. } => { rewrite_trait_calls_expr(from, bounds, map, pname_to_tp, trait_methods); rewrite_trait_calls_expr(to, bounds, map, pname_to_tp, trait_methods); rewrite_trait_calls_block(body, bounds, map, pname_to_tp, trait_methods); if let Some(e) = els { rewrite_trait_calls_block(e, bounds, map, pname_to_tp, trait_methods); } }
+        Stmt::ForEach { iter, body, els, .. } => { rewrite_trait_calls_expr(iter, bounds, map, pname_to_tp, trait_methods); rewrite_trait_calls_block(body, bounds, map, pname_to_tp, trait_methods); if let Some(e) = els { rewrite_trait_calls_block(e, bounds, map, pname_to_tp, trait_methods); } }
+        Stmt::Block(inner) => rewrite_trait_calls_block(inner, bounds, map, pname_to_tp, trait_methods),
+        Stmt::Go { args, .. } => for a in args { rewrite_trait_calls_expr(a, bounds, map, pname_to_tp, trait_methods); },
+        _ => {}
+    }
+}
+
+fn rewrite_trait_calls_expr(e: &mut Expr, bounds: &[(String, String)], map: &HashMap<String, Ty>, pname_to_tp: &HashMap<String, String>, trait_methods: &HashMap<String, Vec<String>>) {
+    // 先递归子表达式
+    match &mut e.kind {
+        ExprKind::Unary(_, a) => rewrite_trait_calls_expr(a, bounds, map, pname_to_tp, trait_methods),
+        ExprKind::Binary(_, a, b) => { rewrite_trait_calls_expr(a, bounds, map, pname_to_tp, trait_methods); rewrite_trait_calls_expr(b, bounds, map, pname_to_tp, trait_methods); }
+        ExprKind::Call(_, args) => for a in args { rewrite_trait_calls_expr(a, bounds, map, pname_to_tp, trait_methods); },
+        ExprKind::Index(a, b) => { rewrite_trait_calls_expr(a, bounds, map, pname_to_tp, trait_methods); rewrite_trait_calls_expr(b, bounds, map, pname_to_tp, trait_methods); }
+        ExprKind::If { cond, then, els } => { rewrite_trait_calls_expr(cond, bounds, map, pname_to_tp, trait_methods); rewrite_trait_calls_block(then, bounds, map, pname_to_tp, trait_methods); if let Some(x) = els { rewrite_trait_calls_block(x, bounds, map, pname_to_tp, trait_methods); } }
+        ExprKind::Field(base, _) => rewrite_trait_calls_expr(base, bounds, map, pname_to_tp, trait_methods),
+        ExprKind::StructLit(_, fields) => for (_, v) in fields { rewrite_trait_calls_expr(v, bounds, map, pname_to_tp, trait_methods); },
+        ExprKind::Match { subject, arms } => {
+            rewrite_trait_calls_expr(subject, bounds, map, pname_to_tp, trait_methods);
+            for arm in arms { if let Some(p) = &mut arm.pat { rewrite_trait_calls_expr(p, bounds, map, pname_to_tp, trait_methods); } if let Some(g) = &mut arm.guard { rewrite_trait_calls_expr(g, bounds, map, pname_to_tp, trait_methods); } rewrite_trait_calls_block(&mut arm.body, bounds, map, pname_to_tp, trait_methods); }
+        }
+        _ => {}
+    }
+    // 改写：`recv.方法(...)`，recv 的类型参数有 trait 约束
+    if let ExprKind::Call(name, args) = &mut e.kind {
+        if let Some(dot) = name.find('.') {
+            let recv = name[..dot].to_string();
+            let mname = name[dot + 1..].to_string();
+            // recv 是否�?类型参数"（bound 中的 tp）？�?map 应指向具体类�?
+            if let Some(tp) = pname_to_tp.get(&recv) {
+                if let Some(tr) = bounds.iter().find(|(t, _)| t == tp).map(|(_, tr)| tr.clone()) {
+                    if let Some(conc) = map.get(tp).and_then(|t| if let Ty::Struct(s) = t { Some(s.clone()) } else { None }) {
+                        if trait_methods.get(&tr).map(|ms| ms.contains(&mname)).unwrap_or(false) {
+                            let self_expr = Expr::new(ExprKind::Ident(recv.clone()), e.line);
+                            let mut new_args = vec![self_expr];
+                            new_args.extend(args.drain(..));
+                            *args = new_args;
+                            *name = format!("{}__{}", conc, mname);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn rewrite_self_calls(b: &mut Block, gname: &str, inst: &str) {
     for s in b.iter_mut() {
         match s {

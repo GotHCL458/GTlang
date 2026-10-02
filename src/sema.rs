@@ -73,6 +73,8 @@ struct Ctx {
     trait_methods: HashMap<String, Vec<(String, Vec<Ty>, Ty)>>,
     /// 已导入的内置标准库模块名（未导入则不能调用其函数）
     imported_gtlib: Vec<String>,
+    /// 当前函数的泛型约束：类型参数名 → trait 名（供 `x.方法()` 静态分发推断）
+    generic_bounds: Vec<(String, String)>,
 }
 
 pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
@@ -88,6 +90,7 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
         try_depth: 0,
         trait_methods: HashMap::new(),
         imported_gtlib: prog.imported_gtlib.clone(),
+        generic_bounds: Vec::new(),
     };
 
     let mut errors: Vec<String> = Vec::new();
@@ -302,6 +305,7 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
     for item in &mut prog.items {
         let Item::Fn(f) = item else { continue };
         ctx.cur_ret = f.ret_ty.clone();
+        ctx.generic_bounds = f.bounds.clone();
         ctx.scopes.push(HashMap::new());
         for p in &f.params {
             ctx.scopes
@@ -594,6 +598,22 @@ impl Ctx {
                             for a in args.iter_mut().skip(1) { let _ = self.infer(a); }
                             e.ty = ret.clone();
                             return Ok(ret);
+                        }
+                    }
+                }
+                // `x.方法(...)`：x 是泛型参数 T 且 T 有 trait 约束 → 查该 trait 的方法
+                if let Some(dot) = name.find('.') {
+                    let rname = name[..dot].to_string();
+                    if let Some(Ty::Generic(tp)) = self.lookup(&rname) {
+                        // 找 T 的约束 trait
+                        if let Some(tr) = self.generic_bounds.iter().find(|(t, _)| t == &tp).map(|(_, tr)| tr.clone()) {
+                            let mname = name[dot+1..].to_string();
+                            let ret = self.trait_methods.get(&tr).and_then(|ms| ms.iter().find(|(n, _, _)| *n == mname).map(|(_, _, r)| r.clone()));
+                            if let Some(ret) = ret {
+                                for a in args.iter_mut() { let _ = self.infer(a); }
+                                e.ty = ret.clone();
+                                return Ok(ret);
+                            }
                         }
                     }
                 }
