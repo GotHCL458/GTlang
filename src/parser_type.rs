@@ -20,6 +20,11 @@ impl Parser {
             let tname = self.ident("trait 名")?;
             return Ok(Ty::Dyn(tname));
         }
+        // `impl Trait`（返回位置）：擦除为 trait 对象（等价 dyn Trait）
+        if self.eat_ident("impl") {
+            let tname = self.ident("trait 名")?;
+            return Ok(Ty::Dyn(tname));
+        }
         // 定长数组 [T; N]
         if self.eat_punct("[") {
             let elem = self.parse_type()?;
