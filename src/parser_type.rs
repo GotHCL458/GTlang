@@ -4,6 +4,13 @@ use super::*;
 
 impl Parser {
     pub(crate) fn parse_type(&mut self) -> Result<Ty, String> {
+        self.enter_depth()?;
+        let r = self.parse_type_inner();
+        self.leave_depth();
+        r
+    }
+
+    fn parse_type_inner(&mut self) -> Result<Ty, String> {
         // 可选类型 `?T` → Option[T]
         if self.eat_punct("?") {
             let inner = self.parse_type()?;
