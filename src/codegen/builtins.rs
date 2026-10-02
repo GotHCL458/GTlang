@@ -66,6 +66,7 @@ impl<'a> Codegen<'a> {
                 return Ok(Val::new(call_ty, r));
             }
             "Some" => {
+                eprintln!("[Some] call_ty={:?}", call_ty);
                 let v = self.expr(&args[0])?;
                 let slotv = self.to_slot(&v);
                 self.declare("declare ptr @gt_result_new(i64, i64)");

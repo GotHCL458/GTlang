@@ -123,8 +123,6 @@ pub enum ExprKind {
     Some(Box<Expr>),
     /// `None`：空 Option
     None,
-    /// `expr or { 默认值 }` / `expr or 默认值`：None/Err 时取默认值
-    TryOr { inner: Box<Expr>, default: Box<Expr> },
     /// `try { ... } expt ... fily ...` 作为**表达式**（块值）
     TryBlock { body: Block, catches: Vec<CatchArm>, fin: Option<Block> },
 }

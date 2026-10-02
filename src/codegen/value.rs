@@ -107,16 +107,18 @@ impl<'a> Codegen<'a> {
                     None => match &arm.guard { None => "true".to_string(), Some(g) => self.cond(g)? },
                     Some(p) => {
                         // Result/Option 变体绑定：Ok(v) / Err(e) / Some(v)
-                        let ctor: Option<(&str, &Expr)> = match &p.kind {
-                            ExprKind::Ok(a) => Some(("Ok", a)),
-                            ExprKind::Err(a) => Some(("Err", a)),
-                            ExprKind::Some(a) => Some(("Some", a)),
+                        let ctor: Option<(&str, Option<&Expr>)> = match &p.kind {
+                            ExprKind::Ok(a) => Some(("Ok", Some(a))),
+                            ExprKind::Err(a) => Some(("Err", Some(a))),
+                            ExprKind::Some(a) => Some(("Some", Some(a))),
+                            // `None`：Option 的空值，tag=1，无绑定
+                            ExprKind::None => Some(("None", None)),
                             // `Ok(v)` 在 parser 中是 Call("Ok", [Ident])
-                            ExprKind::Call(n, args) if matches!(n.as_str(), "Ok" | "Err" | "Some") && args.len() == 1 => Some((n.as_str(), &args[0])),
+                            ExprKind::Call(n, args) if matches!(n.as_str(), "Ok" | "Err" | "Some") && args.len() == 1 => Some((n.as_str(), Some(&args[0]))),
                             _ => None,
                         };
                         if let Some((cname, carg)) = ctor {
-                            let want_tag: i64 = if cname == "Err" { 1 } else { 0 };
+                            let want_tag: i64 = if cname == "Err" || cname == "None" { 1 } else { 0 };
                             self.declare("declare i64 @gt_result_tag(ptr)");
                             // subj 可能是 ptr（Result）或 i64（句柄），统一转成 ptr
                             let sp = if subj.ty.llvm() == "ptr" {
@@ -130,6 +132,7 @@ impl<'a> Codegen<'a> {
                             self.body.push_str(&format!("  {} = call i64 @gt_result_tag(ptr {})\n", tag, sp));
                             let eq = self.new_reg();
                             self.body.push_str(&format!("  {} = icmp eq i64 {}, {}\n", eq, tag, want_tag));
+                            if let Some(carg) = carg {
                             if let ExprKind::Ident(bn) = &carg.kind {
                                 let bty = match &subj.ty {
                                     Ty::Result(t, e) => if cname == "Ok" { (**t).clone() } else { (**e).clone() },
@@ -144,10 +147,16 @@ impl<'a> Codegen<'a> {
                                     let d = self.new_reg();
                                     self.body.push_str(&format!("  {} = bitcast i64 {} to double\n", d, val));
                                     self.body.push_str(&format!("  store double {}, ptr {}\n", d, slot));
+                                } else if bty.llvm() == "ptr" {
+                                    // 载荷是 ptr 类（str/容器/结构体）：运行时以 i64 存放，取出后 inttoptr 再存
+                                    let p = self.new_reg();
+                                    self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, val));
+                                    self.body.push_str(&format!("  store ptr {}, ptr {}\n", p, slot));
                                 } else {
                                     self.body.push_str(&format!("  store i64 {}, ptr {}\n", val, slot));
                                 }
                                 pending_binds.push((bn.clone(), Local { ptr: slot, ty: bty }));
+                            }
                             }
                             match &arm.guard { None => eq, Some(g) => { let gv = self.cond(g)?; let r = self.new_reg(); self.body.push_str(&format!("  {} = and i1 {}, {}\n", r, eq, gv)); r } }
                         } else if let ExprKind::EnumLit(en, var, binds) = &p.kind {

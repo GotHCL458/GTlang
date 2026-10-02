@@ -131,6 +131,7 @@ impl FnState {
                         let lc = b.ins().call(f, &[bs.0]);
                         let len = b.inst_results(lc)[0];
                         let i = self.norm_idx(b, i0, len);
+                        self.gen_bounds(jit, b, i, len, e.line)?;
                         let f = self.rt_ref(jit, b, "list_at")?;
                         let call = b.ins().call(f, &[bs.0, i]);
                         Ok((b.inst_results(call)[0], (**el).clone()))
@@ -277,31 +278,6 @@ impl FnState {
                     self.gen_block(jit, b, f)?;
                     self.pop_scope();
                 }
-                let r = b.ins().load(types::I64, MemFlags::new(), saddr, 0);
-                return Ok((r, Ty::I64));
-            }
-            ExprKind::TryOr { inner, default } => {
-                // expr or 默认值：Some/Ok 取值，None/Err 取默认值
-                let v = self.gen_expr(jit, b, inner)?;
-                let f_tag = self.rt_ref(jit, b, "result_tag")?;
-                let call = b.ins().call(f_tag, &[v.0]);
-                let tag = b.inst_results(call)[0];
-                let f_val = self.rt_ref(jit, b, "result_val")?;
-                let call = b.ins().call(f_val, &[v.0]);
-                let val = b.inst_results(call)[0];
-                let is_err = b.ins().icmp_imm(IntCC::NotEqual, tag, 0);
-                let slot = b.func.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, 8, 3));
-                let saddr = b.ins().stack_addr(types::I64, slot, 0);
-                b.ins().store(MemFlags::new(), val, saddr, 0);
-                let l_def = self.new_block(b);
-                let l_end = self.new_block(b);
-                b.ins().brif(is_err, l_def, &[], l_end, &[]);
-                b.switch_to_block(l_def); self.terminated = false;
-                let dv = self.gen_expr(jit, b, default)?;
-                let div = self.convert(b, &dv, &Ty::I64);
-                b.ins().store(MemFlags::new(), div, saddr, 0);
-                b.ins().jump(l_end, &[]);
-                b.switch_to_block(l_end); self.terminated = false;
                 let r = b.ins().load(types::I64, MemFlags::new(), saddr, 0);
                 return Ok((r, Ty::I64));
             }

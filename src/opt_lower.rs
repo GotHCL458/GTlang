@@ -150,7 +150,6 @@ pub(crate) fn expand_expr(e: &mut Expr) {
         ExprKind::ClosureNew { captures, .. } => for c in captures { expand_expr(c); },
         ExprKind::Borrow { inner, .. } => expand_expr(inner),
         ExprKind::Ok(x) | ExprKind::Err(x) | ExprKind::Some(x) | ExprKind::Try(x) => expand_expr(x),
-        ExprKind::TryOr { inner, default } => { expand_expr(inner); expand_expr(default); }
         ExprKind::TryBlock { body, catches, fin } => {
             expand_block(body);
             for ca in catches { expand_block(&mut ca.body); }
@@ -259,7 +258,6 @@ pub(crate) fn macro_expand_expr(e: &mut Expr, macros: &std::collections::HashMap
         ExprKind::ClosureNew { captures, .. } => for c in captures { macro_expand_expr(c, macros); },
         ExprKind::Borrow { inner, .. } => macro_expand_expr(inner, macros),
         ExprKind::Ok(x) | ExprKind::Err(x) | ExprKind::Some(x) | ExprKind::Try(x) => macro_expand_expr(x, macros),
-        ExprKind::TryOr { inner, default } => { macro_expand_expr(inner, macros); macro_expand_expr(default, macros); }
         ExprKind::TryBlock { body, catches, fin } => {
             macro_expand_block(body, macros);
             for ca in catches { macro_expand_block(&mut ca.body, macros); }
@@ -310,7 +308,6 @@ pub(crate) fn macro_subst(e: &mut Expr, subst: &std::collections::HashMap<String
         ExprKind::Interp(parts) => for p in parts { if let StrPart::Expr(i) = p { macro_subst(i, subst); } },
         ExprKind::Ok(x) | ExprKind::Err(x) | ExprKind::Some(x) | ExprKind::Try(x) => macro_subst(x, subst),
         ExprKind::EnumLit(_, _, args) => for a in args { macro_subst(a, subst); },
-        ExprKind::TryOr { inner, default } => { macro_subst(inner, subst); macro_subst(default, subst); }
         ExprKind::Slice(a, b, c) => { macro_subst(a, subst); macro_subst(b, subst); macro_subst(c, subst); }
         ExprKind::If { cond, then, els } => {
             macro_subst(cond, subst);

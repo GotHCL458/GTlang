@@ -511,16 +511,30 @@ impl FnState {
         let oob = b.ins().icmp(IntCC::UnsignedGreaterThanOrEqual, idx, len);
         b.ins().brif(oob, bad, &[], cont, &[]);
         b.switch_to_block(bad); self.terminated = false;
-        let f = self.rt_ref(jit, b, "bounds")?;
-        let l = b.ins().iconst(types::I64, line as i64);
-        b.ins().call(f, &[idx, len, l]);
-        b.ins().trap(TrapCode::user(1).unwrap());
+        // 在 try 内：写错误码到捕获变量并跳捕获块；否则打印诊断并 trap。
+        if let Some((blk, var)) = self.fault_stack.last().cloned() {
+            let code = b.ins().iconst(types::I64, 1); // 1 = 越界
+            b.def_var(var, code);
+            b.ins().jump(blk, &[]);
+        } else {
+            let f = self.rt_ref(jit, b, "bounds")?;
+            let l = b.ins().iconst(types::I64, line as i64);
+            b.ins().call(f, &[idx, len, l]);
+            b.ins().trap(TrapCode::user(1).unwrap());
+        }
         b.switch_to_block(cont); self.terminated = false;
         Ok(())
     }
 
     /// 阶段 4C 预留：故障中止（try 内跳捕获块）。当前统一运行时终止。
-    pub(crate) fn emit_fault(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, _code: i64, line: usize, rt_key: &str, trap_code: u8) -> Result<(), String> {
+    pub(crate) fn emit_fault(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, code: i64, line: usize, rt_key: &str, trap_code: u8) -> Result<(), String> {
+        // 在 try 内：写错误码到捕获变量并跳捕获块；否则打印诊断并 trap。
+        if let Some((blk, var)) = self.fault_stack.last().cloned() {
+            let c = b.ins().iconst(types::I64, code);
+            b.def_var(var, c);
+            b.ins().jump(blk, &[]);
+            return Ok(());
+        }
         let f = self.rt_ref(jit, b, rt_key)?;
         let l = b.ins().iconst(types::I64, line as i64);
         b.ins().call(f, &[l]);
@@ -666,7 +680,6 @@ pub(crate) fn collect_strs(e: &Expr, out: &mut Vec<Vec<u8>>) {
         ExprKind::StructLit(_, fields) => for (_, v) in fields { collect_strs(v, out); },
         ExprKind::Closure { body, .. } => collect_strs(body, out),
         ExprKind::ClosureNew { captures, .. } => for c in captures { collect_strs(c, out); },
-        ExprKind::TryOr { inner, default } => { collect_strs(inner, out); collect_strs(default, out); }
         ExprKind::DynBox { value, .. } => collect_strs(value, out),
         ExprKind::Ok(v) | ExprKind::Err(v) | ExprKind::Some(v) | ExprKind::Try(v) => collect_strs(v, out),
         ExprKind::Borrow { inner, .. } => collect_strs(inner, out),

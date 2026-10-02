@@ -45,7 +45,6 @@ pub const KEYWORDS: &[&str] = &[
     // 异常控制流（try/expt/fily 与 try/except/finally 互为别名）
     "try", "expt", "except", "fily", "finally", "throw", "raise",
     // 兜底
-    "or",
     // 内联汇编
     // 泛型约束
     "where",

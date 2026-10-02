@@ -39,6 +39,7 @@ pub(crate) fn check_match_exhaustive(st: &Ty, arms: &[MatchArm], ctx: &Ctx) -> O
                 _ => {}
             },
             ExprKind::Some(_) => has_some = true,
+            ExprKind::None => has_none = true,
             ExprKind::Ok(_) => has_ok = true,
             ExprKind::Err(_) => has_err = true,
             ExprKind::Bool(b) => { if *b { has_true = true; } else { has_false = true; } }

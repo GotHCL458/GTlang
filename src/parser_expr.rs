@@ -119,26 +119,6 @@ impl Parser {
                 e = Expr::new(ExprKind::Try(Box::new(e)), line);
                 continue;
             }
-            // 兜底：`expr or { 默认值 }` / `expr or 默认值`
-            if self.at_ident("or") {
-                self.bump();
-                let default = if self.at_punct("{") {
-                    // `{ block }` 作为默认值块：用 `if true { block }` 承载块值语义
-                    let blk = self.block()?;
-                    Expr::new(
-                        ExprKind::If {
-                            cond: Box::new(Expr::new(ExprKind::Bool(true), line)),
-                            then: blk,
-                            els: None,
-                        },
-                        line,
-                    )
-                } else {
-                    self.expr(0)?
-                };
-                e = Expr::new(ExprKind::TryOr { inner: Box::new(e), default: Box::new(default) }, line);
-                continue;
-            }
             // 字段访问：`expr.field`（但不要吞掉限定名 `mod.fn`，那已在 primary 折叠）
             if self.at_punct(".") {
                 self.bump();

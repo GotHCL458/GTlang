@@ -423,18 +423,20 @@ impl FnState {
                     None => match &arm.guard { None => b.ins().iconst(types::I8, 1), Some(g) => self.gen_cond(jit, b, g)? },
                     Some(p) => {
                         // Result/Option 变体绑定：Ok(v) / Err(e) / Some(v)
-                        let ctor: Option<(&str, &Expr)> = match &p.kind {
-                            ExprKind::Ok(a) => Some(("Ok", a)),
-                            ExprKind::Err(a) => Some(("Err", a)),
-                            ExprKind::Some(a) => Some(("Some", a)),
+                        let ctor: Option<(&str, Option<&Expr>)> = match &p.kind {
+                            ExprKind::Ok(a) => Some(("Ok", Some(a))),
+                            ExprKind::Err(a) => Some(("Err", Some(a))),
+                            ExprKind::Some(a) => Some(("Some", Some(a))),
+                            ExprKind::None => Some(("None", None)),
                             // `Ok(v)` 在 parser 中是 Call("Ok", [Ident])
-                            ExprKind::Call(n, args) if matches!(n.as_str(), "Ok" | "Err" | "Some") && args.len() == 1 => Some((n.as_str(), &args[0])),
+                            ExprKind::Call(n, args) if matches!(n.as_str(), "Ok" | "Err" | "Some") && args.len() == 1 => Some((n.as_str(), Some(&args[0]))),
                             _ => None,
                         };
                         if let Some((cname, carg)) = ctor {
-                            let want_tag: i64 = if cname == "Err" { 1 } else { 0 };
+                            let want_tag: i64 = if cname == "Err" || cname == "None" { 1 } else { 0 };
                             let tag = b.ins().load(types::I64, MemFlags::new(), subj.0, 0);
                             let eq = b.ins().icmp_imm(IntCC::Equal, tag, want_tag);
+                            if let Some(carg) = carg {
                             if let ExprKind::Ident(bn) = &carg.kind {
                                 let bty = match &subj.1 {
                                     Ty::Result(t, e) => if cname == "Ok" { (**t).clone() } else { (**e).clone() },
@@ -445,6 +447,7 @@ impl FnState {
                                 let var = self.new_var(b, &bty);
                                 b.def_var(var, lv);
                                 self.scopes.last_mut().unwrap().push((bn.clone(), VarBind { var, ty: bty }));
+                            }
                             }
                             match &arm.guard { None => eq, Some(g) => { let gv = self.gen_cond(jit, b, g)?; b.ins().band(eq, gv) } }
                         } else if let ExprKind::EnumLit(en, var, binds) = &p.kind {

@@ -153,7 +153,6 @@ fn collect_expr(e: &Expr, out: &mut HashSet<String>) {
         }
         ExprKind::CallValue { callee, args } => { collect_expr(callee, out); for a in args { collect_expr(a, out); } }
         ExprKind::ClosureNew { captures, .. } => for c in captures { collect_expr(c, out); }
-        ExprKind::TryOr { inner, default } => { collect_expr(inner, out); collect_expr(default, out); }
         ExprKind::TryBlock { body, catches, fin } => {
             collect_used(body, out);
             for c in catches { collect_used(&c.body, out); }
@@ -252,7 +251,6 @@ fn collect_idents_expr(e: &Expr, out: &mut HashSet<String>) {
         }
         ExprKind::CallValue { callee, args } => { collect_idents_expr(callee, out); for a in args { collect_idents_expr(a, out); } }
         ExprKind::ClosureNew { captures, .. } => for c in captures { collect_idents_expr(c, out); }
-        ExprKind::TryOr { inner, default } => { collect_idents_expr(inner, out); collect_idents_expr(default, out); }
         ExprKind::TryBlock { body, catches, fin } => {
             collect_idents_block(body, out);
             for c in catches { collect_idents_block(&c.body, out); }

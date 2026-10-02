@@ -712,10 +712,6 @@ fn rewrite_expr(e: &mut Expr, own: &HashMap<String, String>, visible: &HashMap<S
                 rewrite_expr(v, own, visible);
             }
         }
-        ExprKind::TryOr { inner, default } => {
-            rewrite_expr(inner, own, visible);
-            rewrite_expr(default, own, visible);
-        }
         ExprKind::TryBlock { body, catches, fin } => {
             rewrite_block(body, own, visible);
             for ca in catches {

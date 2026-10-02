@@ -380,10 +380,6 @@ fn rewrite_calls_expr(e: &mut Expr, scope: &HashMap<String, String>) {
             rewrite_calls_expr(inner, scope);
         }
         ExprKind::None => {}
-        ExprKind::TryOr { inner, default } => {
-            rewrite_calls_expr(inner, scope);
-            rewrite_calls_expr(default, scope);
-        }
         ExprKind::TryBlock { body, catches, fin } => {
             rewrite_calls_block(body, scope);
             for ca in catches {

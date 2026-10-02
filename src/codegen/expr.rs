@@ -185,6 +185,8 @@ impl<'a> Codegen<'a> {
                         let ln = self.new_reg();
                         self.body.push_str(&format!("  {} = call i64 @gt_list_len(ptr {})\n", ln, bp));
                         let i = self.norm_idx(&i, &ln);
+                        // 越界检查：try 内 → 捕获；否则打印诊断并终止。
+                        self.emit_bounds_check(&i, &ln, e.line);
                         self.declare("declare i64 @gt_list_at(ptr, i64)");
                         let v = self.new_reg();
                         self.body.push_str(&format!("  {} = call i64 @gt_list_at(ptr {}, i64 {})\n", v, bp, i));
@@ -394,35 +396,6 @@ impl<'a> Codegen<'a> {
                 self.body.push_str(&format!("  {} = load i64, ptr {}\n", r, slot));
                 Ok(Val::new(&Ty::I64, r))
             }
-            ExprKind::TryOr { inner, default } => {
-                // `expr or 默认值`：expr 为 Some/Ok 取值，None/Err 取默认值
-                let v = self.expr(inner)?;
-                self.declare("declare i64 @gt_result_tag(ptr)");
-                self.declare("declare i64 @gt_result_val(ptr)");
-                let tag = self.new_reg();
-                self.body.push_str(&format!("  {} = call i64 @gt_result_tag(ptr {})\n", tag, v.s));
-                let is_err = self.new_reg();
-                self.body.push_str(&format!("  {} = icmp ne i64 {}, 0\n", is_err, tag));
-                let l_def = self.new_label();
-                let l_ok = self.new_label();
-                let l_end = self.new_label();
-                let slot = self.new_alloca(&Ty::I64);
-                self.body.push_str(&format!("  br i1 {}, label %{}, label %{}\n", is_err, l_def, l_ok));
-                self.emit_label(&l_ok);
-                let val = self.new_reg();
-                self.body.push_str(&format!("  {} = call i64 @gt_result_val(ptr {})\n", val, v.s));
-                self.body.push_str(&format!("  store i64 {}, ptr {}\n", val, slot));
-                self.body.push_str(&format!("  br label %{}\n", l_end));
-                self.emit_label(&l_def);
-                let dv = self.expr(default)?;
-                let ds = self.as_i64(&dv);
-                self.body.push_str(&format!("  store i64 {}, ptr {}\n", ds, slot));
-                self.body.push_str(&format!("  br label %{}\n", l_end));
-                self.emit_label(&l_end);
-                let r = self.new_reg();
-                self.body.push_str(&format!("  {} = load i64, ptr {}\n", r, slot));
-                Ok(Val::new(&Ty::I64, r))
-            }
             ExprKind::Borrow { inner, .. } => self.expr(inner),
             ExprKind::Closure { .. } => {
                 Err(crate::lb!(e.line, "closure was not hoisted (internal error)", "闭包未被提升（内部错误）"))
@@ -511,7 +484,7 @@ impl<'a> Codegen<'a> {
                 let t = e.ty.clone();
                 self.if_value(cond, then, els.as_ref(), &t, e.line)
             }
-            ExprKind::Ok(inner) => self.result_new(inner, false, e),
+            ExprKind::Ok(inner) => { eprintln!("[ok] e.ty={:?}", e.ty); self.result_new(inner, false, e) },
             ExprKind::Err(inner) => self.result_new(inner, true, e),
             ExprKind::Some(inner) => self.result_new(inner, false, e),
             ExprKind::None => self.result_new_none(e),
@@ -608,12 +581,17 @@ impl<'a> Codegen<'a> {
         self.body
             .push_str(&format!("  br i1 {}, label %{}, label %{}\n", ok, l_ok, l_bad));
         self.emit_label(&l_bad);
-        self.declare("declare void @gt_bounds(i64, i64, i64)");
-        self.body.push_str(&format!(
-            "  call void @gt_bounds(i64 {}, i64 {}, i64 {})\n",
-            i, n_operand, line
-        ));
-        self.body.push_str("  unreachable\n");
+        if let Some((lbl, slot)) = self.err_stack.last().cloned() {
+            self.body.push_str(&format!("  store i64 1, ptr {}\n", slot));
+            self.body.push_str(&format!("  br label %{}\n", lbl));
+        } else {
+            self.declare("declare void @gt_bounds(i64, i64, i64)");
+            self.body.push_str(&format!(
+                "  call void @gt_bounds(i64 {}, i64 {}, i64 {})\n",
+                i, n_operand, line
+            ));
+            self.body.push_str("  unreachable\n");
+        }
         self.emit_label(&l_ok);
     }
 
@@ -873,11 +851,15 @@ impl<'a> Codegen<'a> {
         self.body
             .push_str(&format!("  br i1 {}, label %{}, label %{}\n", ovf, l_bad, l_ok));
         self.emit_label(&l_bad);
-        // 冷路径集中在函数末尾（这里简化：直接内联，标 cold）
-        self.declare("declare void @gt_overflow(i64) noreturn");
-        self.body
-            .push_str(&format!("  call void @gt_overflow(i64 {})\n", line));
-        self.body.push_str("  unreachable\n");
+        if let Some((lbl, slot)) = self.err_stack.last().cloned() {
+            self.body.push_str(&format!("  store i64 3, ptr {}\n", slot));
+            self.body.push_str(&format!("  br label %{}\n", lbl));
+        } else {
+            self.declare("declare void @gt_overflow(i64) noreturn");
+            self.body
+                .push_str(&format!("  call void @gt_overflow(i64 {})\n", line));
+            self.body.push_str("  unreachable\n");
+        }
         self.emit_label(&l_ok);
     }
 
@@ -893,10 +875,15 @@ impl<'a> Codegen<'a> {
             nz, l_ok, l_bad
         ));
         self.emit_label(&l_bad);
-        self.declare("declare void @gt_div_zero(i64)");
-        self.body
-            .push_str(&format!("  call void @gt_div_zero(i64 {})\n", line));
-        self.body.push_str("  unreachable\n");
+        if let Some((lbl, slot)) = self.err_stack.last().cloned() {
+            self.body.push_str(&format!("  store i64 2, ptr {}\n", slot));
+            self.body.push_str(&format!("  br label %{}\n", lbl));
+        } else {
+            self.declare("declare void @gt_div_zero(i64)");
+            self.body
+                .push_str(&format!("  call void @gt_div_zero(i64 {})\n", line));
+            self.body.push_str("  unreachable\n");
+        }
         self.emit_label(&l_ok);
     }
 

@@ -397,10 +397,6 @@ impl<'a> Ctx<'a> {
                 self.use_expr(inner, st, depth);
             }
             ExprKind::None => {}
-            ExprKind::TryOr { inner, default } => {
-                self.use_expr(inner, st, depth);
-                self.use_expr(default, st, depth);
-            }
             ExprKind::TryBlock { body, catches, fin } => {
                 let _ = self.check_block(body, st, depth);
                 for ca in catches {

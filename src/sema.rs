@@ -557,21 +557,6 @@ impl Ctx {
                     _ => Ty::Void,
                 }
             }
-            ExprKind::TryOr { inner, default } => {
-                let it = self.infer(inner)?;
-                let dt = self.infer(default)?;
-                match it {
-                    Ty::Option(t) => {
-                        if dt == Ty::Unknown { (*t).clone() } else { numeric_join(&t, &dt) }
-                    }
-                    Ty::Result(t, _) => {
-                        if dt == Ty::Unknown { (*t).clone() } else { numeric_join(&t, &dt) }
-                    }
-                    Ty::Unknown => dt,
-                    other => return Err(crate::lb!(e.line,
-                        "'or' requires an Option or Result, found {}", "'or' 需要 Option 或 Result，实际是 {}", other)),
-                }
-            }
             ExprKind::Ok(inner) | ExprKind::Err(inner) => {
                 let it = self.infer(inner)?;
                 let (t, er) = match &self.cur_ret {
@@ -635,7 +620,9 @@ impl Ctx {
                         Ty::Result(rt, re) => ((**rt).clone(), (**re).clone()),
                         _ => (inner.clone(), inner.clone()),
                     };
-                    return Ok(Ty::Result(Box::new(t), Box::new(er)));
+                    let ty = Ty::Result(Box::new(t), Box::new(er));
+                    e.ty = ty.clone();
+                    return Ok(ty);
                 }
                 // Option 构造：Some(v) / None
                 if name == "Some" {
@@ -647,7 +634,9 @@ impl Ctx {
                         Ty::Option(ot) => (**ot).clone(),
                         _ => inner,
                     };
-                    return Ok(Ty::Option(Box::new(t)));
+                    let ty = Ty::Option(Box::new(t));
+                    e.ty = ty.clone();
+                    return Ok(ty);
                 }
                 if name == "None" {
                     if !arg_tys.is_empty() {
@@ -657,7 +646,9 @@ impl Ctx {
                         Ty::Option(ot) => (**ot).clone(),
                         _ => Ty::Unknown,
                     };
-                    return Ok(Ty::Option(Box::new(t)));
+                    let ty = Ty::Option(Box::new(t));
+                    e.ty = ty.clone();
+                    return Ok(ty);
                 }
                 // 用户函数优先于标准库（用户定义同名函数时遮蔽 gtlib）
                 if let Some(sig) = self.fns.get(&name).cloned() {

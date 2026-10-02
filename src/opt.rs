@@ -609,7 +609,6 @@ fn collect_calls(e: &Expr, out: &mut std::collections::HashSet<String>) {
         ExprKind::Ok(inner) | ExprKind::Err(inner) | ExprKind::Some(inner) => collect_calls(inner, out),
         ExprKind::Closure { body, .. } => collect_calls(body, out),
         ExprKind::ClosureNew { captures, .. } => for c in captures { collect_calls(c, out); },
-        ExprKind::TryOr { inner, default } => { collect_calls(inner, out); collect_calls(default, out); }
         ExprKind::TryBlock { body, catches, fin } => {
             collect_calls_block(body, out);
             for ca in catches { collect_calls_block(&ca.body, out); }
