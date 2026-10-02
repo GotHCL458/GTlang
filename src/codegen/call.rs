@@ -62,8 +62,13 @@ impl<'a> Codegen<'a> {
             _ => v.s.clone(),
         }
     }
+    /// 确保 Val 是 LLVM `ptr` 值：若已是 ptr 直接返回，否则 inttoptr（容器句柄常以 i64 流转）。
+    pub(crate) fn as_ptr(&mut self, v: &Val) -> String {
+        if v.is_ptr { v.s.clone() }
+        else { let r = self.new_reg(); self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", r, v.s)); r }
+    }
     pub(crate) fn to_slot(&mut self, v: &Val) -> String {
-        if v.ty.llvm() == "ptr" { let r = self.new_reg(); self.body.push_str(&format!("  {} = ptrtoint ptr {} to i64\n", r, v.s)); r }
+        if v.is_ptr { let r = self.new_reg(); self.body.push_str(&format!("  {} = ptrtoint ptr {} to i64\n", r, v.s)); r }
         else if v.ty == Ty::F64 { let r = self.new_reg(); self.body.push_str(&format!("  {} = bitcast double {} to i64\n", r, v.s)); r }
         else if v.ty == Ty::Bool { let r = self.new_reg(); self.body.push_str(&format!("  {} = zext i1 {} to i64\n", r, v.s)); r }
         else { v.s.clone() }
@@ -287,3 +292,4 @@ impl<'a> Codegen<'a> {
         Ok(Val::new(&e.ty.clone(), base))
     }
 }
+

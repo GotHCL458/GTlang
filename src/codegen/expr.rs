@@ -180,20 +180,23 @@ impl<'a> Codegen<'a> {
                         Ok(Val::new(&Ty::I64, v))
                     }
                     Ty::List(el) => {
+                        let bp = self.as_ptr(&b);
                         self.declare("declare i64 @gt_list_len(ptr)");
                         let ln = self.new_reg();
-                        self.body.push_str(&format!("  {} = call i64 @gt_list_len(ptr {})\n", ln, b.s));
+                        self.body.push_str(&format!("  {} = call i64 @gt_list_len(ptr {})\n", ln, bp));
                         let i = self.norm_idx(&i, &ln);
                         self.declare("declare i64 @gt_list_at(ptr, i64)");
                         let v = self.new_reg();
-                        self.body.push_str(&format!("  {} = call i64 @gt_list_at(ptr {}, i64 {})\n", v, b.s, i));
-                        Ok(Val::new(&el, v))
+                        self.body.push_str(&format!("  {} = call i64 @gt_list_at(ptr {}, i64 {})\n", v, bp, i));
+                        // 容器元素取出后以 i64 形态流转；再索引时由 as_ptr 转回 ptr
+                        Ok(Val::new_slot(&el, v))
                     }
                     Ty::Map(_, v) => {
+                        let bp = self.as_ptr(&b);
                         self.declare("declare i64 @gt_map_get(ptr, i64)");
                         let r = self.new_reg();
-                        self.body.push_str(&format!("  {} = call i64 @gt_map_get(ptr {}, i64 {})\n", r, b.s, key_slot));
-                        Ok(Val::new(&v, r))
+                        self.body.push_str(&format!("  {} = call i64 @gt_map_get(ptr {}, i64 {})\n", r, bp, key_slot));
+                        Ok(Val::new_slot(&v, r))
                     }
                     other => Err(crate::lb!(e.line, "{} does not support indexing", "{} 不支持下标访问", other)),
                 }
@@ -206,9 +209,10 @@ impl<'a> Codegen<'a> {
                 let h = self.as_i64(&hv);
                 // list 切片：返回新 list（[lo, hi)）
                 if matches!(b.ty, Ty::List(_)) {
+                    let bp = self.as_ptr(&b);
                     self.declare("declare ptr @gt_list_slice(ptr, i64, i64)");
                     let r = self.new_reg();
-                    self.body.push_str(&format!("  {} = call ptr @gt_list_slice(ptr {}, i64 {}, i64 {})\n", r, b.s, l, h));
+                    self.body.push_str(&format!("  {} = call ptr @gt_list_slice(ptr {}, i64 {}, i64 {})\n", r, bp, l, h));
                     return Ok(Val::new(&Ty::List(Box::new(Ty::I64)), r));
                 }
                 let len = self.new_reg();

@@ -102,11 +102,18 @@ struct Val {
     ty: Ty,
     /// 可直接作为 LLVM 操作数使用的字符串（字面量 / 全局标签 / `%tN`）
     s: String,
+    /// `s` 当前的 LLVM 表示：true 表示 `ptr`，false 表示 `i64`（含容器句柄以 i64 流转的情形）。
+    is_ptr: bool,
 }
 
 impl Val {
     pub(crate) fn new(ty: &Ty, s: impl Into<String>) -> Val {
-        Val { ty: ty.clone(), s: s.into() }
+        let is_ptr = ty.llvm() == "ptr";
+        Val { ty: ty.clone(), s: s.into(), is_ptr }
+    }
+    /// 以 i64（slot）形态构造：容器句柄从容器取出/存入时用。
+    pub(crate) fn new_slot(ty: &Ty, s: impl Into<String>) -> Val {
+        Val { ty: ty.clone(), s: s.into(), is_ptr: false }
     }
 }
 
