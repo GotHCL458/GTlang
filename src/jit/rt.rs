@@ -922,6 +922,30 @@ pub(crate) extern "C" fn rt_fmt_int(x: i64, width: i64) -> i64 {
 }
 
 
+/// JIT 侧的 `go` 线程池（固定 N worker + FIFO 队列），避免每次 spawn 的开销。
+/// 队列满时回退为"直接 spawn"，保证语义（不阻塞调用方）。
+struct RtJob {
+    f: extern "C" fn(i64, i64, i64, i64) -> i64,
+    a: [i64; 4],
+}
+static RT_POOL: std::sync::OnceLock<std::sync::mpsc::Sender<RtJob>> = std::sync::OnceLock::new();
+
+fn rt_pool_sender() -> &'static std::sync::mpsc::Sender<RtJob> {
+    RT_POOL.get_or_init(|| {
+        let n = std::thread::available_parallelism().map(|x| x.get()).unwrap_or(4).clamp(4, 64);
+        let (tx, rx) = std::sync::mpsc::channel::<RtJob>();
+        let rx = std::sync::Arc::new(std::sync::Mutex::new(rx));
+        for _ in 0..n {
+            let rx = rx.clone();
+            std::thread::spawn(move || loop {
+                let job = { let g = rx.lock().unwrap(); g.recv() };
+                match job { Ok(j) => { let _ = (j.f)(j.a[0], j.a[1], j.a[2], j.a[3]); }, Err(_) => break }
+            });
+        }
+        tx
+    })
+}
+
 pub(crate) extern "C" fn rt_thread_spawn(fn_ptr: i64, args: i64, n: i64) {
     unsafe {
         let f: extern "C" fn(i64, i64, i64, i64) -> i64 = std::mem::transmute(fn_ptr as usize);
@@ -929,9 +953,10 @@ pub(crate) extern "C" fn rt_thread_spawn(fn_ptr: i64, args: i64, n: i64) {
         for i in 0..(n as usize).min(4) {
             vals[i] = *((args as *const i64).add(i));
         }
-        std::thread::spawn(move || {
-            f(vals[0], vals[1], vals[2], vals[3]);
-        });
+        // 通过共享接收端的线程池执行；失败（通道关闭）则直接 spawn
+        if rt_pool_sender().send(RtJob { f, a: vals }).is_err() {
+            std::thread::spawn(move || { f(vals[0], vals[1], vals[2], vals[3]); });
+        }
     }
 }
 
