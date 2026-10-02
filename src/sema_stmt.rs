@@ -271,8 +271,12 @@ pub(crate) fn check_stmt(ctx: &mut Ctx, s: &mut Stmt, errors: &mut Vec<String>) 
                     Ok(t) => {
                         let want = ctx.cur_ret.clone();
                         if want != Ty::Void {
+                            // impl Trait 返回位置：具体类型自动装箱为 dyn Trait，不报类型错
+                            let auto_box = matches!(want, Ty::Dyn(_)) && matches!(t, Ty::Struct(_) | Ty::Enum(_));
+                            if !auto_box {
                             if let Err(why) = check_annotation("函数返回值", &want, &t) {
                                 errors.push(crate::lb!(line, "{}", "{}", why));
+                            }
                             }
                         }
                     }

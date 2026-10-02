@@ -356,6 +356,17 @@ impl FnState {
                 b.switch_to_block(exit); self.terminated = false;
             }
             Stmt::Return(Some(e), _) => {
+                // impl Trait 返回位置：具体类型自动装箱为 dyn Trait
+                if let Ty::Dyn(tr) = self.cur_ret.clone() {
+                    if matches!(e.ty, Ty::Struct(_) | Ty::Enum(_)) {
+                        let v = self.gen_expr(jit, b, e)?;
+                        let boxed = self.gen_dyn_box(jit, b, &tr, e)?;
+                        let _ = v;
+                        b.ins().return_(&[boxed.0]);
+                        self.terminated = true;
+                        return Ok(());
+                    }
+                }
                 let v = self.gen_expr(jit, b, e)?;
                 let want = self.cur_ret.clone();
                 let v = self.convert(b, &v, &want);

@@ -970,6 +970,13 @@ impl<'a> Codegen<'a> {
                 } else if self.cur_ret == Ty::Void {
                     self.body.push_str("  ret void\n");
                 } else {
+                    // impl Trait 返回位置：具体类型自动装箱为 dyn Trait
+                    if let (Ty::Dyn(tr), Some(inner), Ty::Struct(_) | Ty::Enum(_)) = (self.cur_ret.clone(), e.as_ref(), &e.as_ref().map(|x| x.ty.clone()).unwrap_or(Ty::Unknown)) {
+                        let boxed = self.dyn_box(&tr, inner, inner)?;
+                        self.body.push_str(&format!("  ret {} {}\n", self.cur_ret.llvm(), boxed.s));
+                        self.terminated = true;
+                        return Ok(());
+                    }
                     let v = match e {
                         Some(e) => self.expr(e)?,
                         None => Val::new(&self.cur_ret.clone(), self.cur_ret.zero()),
