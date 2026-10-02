@@ -118,6 +118,8 @@ pub fn hoist(prog: &mut Program) {
             }
             // impl 方法展平为顶层函数 `类型__方法`
             Item::Impl { type_params: _, ty, methods, line: _ } => {
+                // 先收集本 impl 的原始方法名（供 `self.方法()` 改写用；下面会改名）
+                let mnames: std::collections::HashSet<String> = methods.iter().map(|x| x.name.clone()).collect();
                 for mut m in methods {
                     impl_scope
                         .insert(format!("{}.{}", ty, m.name), format!("{}__{}", ty, m.name));
@@ -133,6 +135,8 @@ pub fn hoist(prog: &mut Program) {
                     if !scope.is_empty() {
                         rewrite_calls_block(&mut m.body, &scope);
                     }
+                    // impl 内自调用：`self.方法(...)` → `类型__方法(self, ...)`
+                    rewrite_self_calls_in_block(&mut m.body, &ty, &mnames);
                     lift_closures_in_fn(&mut m, &mut closure_counter, &mut closures);
                     let mut cv: Vec<String> = m.params.iter().map(|p| p.name.clone()).collect();
                     convert_closure_calls(&mut m.body, &mut cv);
@@ -171,6 +175,80 @@ pub fn hoist(prog: &mut Program) {
 }
 
 /// 找出块中直接声明的 `fn`，登记唯一名，递归处理其体，并从块中移除。
+/// 把方法体里的 `self.方法(...)` 改写为 `类型__方法(self, ...)`（仅当方法属于本类型）。
+fn rewrite_self_calls_in_block(b: &mut Block, ty: &str, mnames: &std::collections::HashSet<String>) {
+    for s in b.iter_mut() {
+        rewrite_self_calls_in_stmt(s, ty, mnames);
+    }
+}
+
+fn rewrite_self_calls_in_stmt(s: &mut Stmt, ty: &str, mnames: &std::collections::HashSet<String>) {
+    match s {
+        Stmt::Let { value, .. } | Stmt::Const { value, .. } => rewrite_self_calls_in_expr(value, ty, mnames),
+        Stmt::Assign { value, index, .. } => { rewrite_self_calls_in_expr(value, ty, mnames); if let Some(i) = index { rewrite_self_calls_in_expr(i, ty, mnames); } }
+        Stmt::FieldAssign { value, .. } => rewrite_self_calls_in_expr(value, ty, mnames),
+        Stmt::Expr(e) | Stmt::Throw(e, _) => rewrite_self_calls_in_expr(e, ty, mnames),
+        Stmt::Return(Some(e), _) => rewrite_self_calls_in_expr(e, ty, mnames),
+        Stmt::If { cond, then, els, .. } => { rewrite_self_calls_in_expr(cond, ty, mnames); rewrite_self_calls_in_block(then, ty, mnames); if let Some(e) = els { rewrite_self_calls_in_block(e, ty, mnames); } }
+        Stmt::While { cond, body, .. } => { rewrite_self_calls_in_expr(cond, ty, mnames); rewrite_self_calls_in_block(body, ty, mnames); }
+        Stmt::DoWhile { body, cond, .. } => { rewrite_self_calls_in_block(body, ty, mnames); rewrite_self_calls_in_expr(cond, ty, mnames); }
+        Stmt::ForRange { from, to, body, els, .. } => { rewrite_self_calls_in_expr(from, ty, mnames); rewrite_self_calls_in_expr(to, ty, mnames); rewrite_self_calls_in_block(body, ty, mnames); if let Some(e) = els { rewrite_self_calls_in_block(e, ty, mnames); } }
+        Stmt::ForEach { iter, body, els, .. } => { rewrite_self_calls_in_expr(iter, ty, mnames); rewrite_self_calls_in_block(body, ty, mnames); if let Some(e) = els { rewrite_self_calls_in_block(e, ty, mnames); } }
+        Stmt::Block(inner) => rewrite_self_calls_in_block(inner, ty, mnames),
+        Stmt::Try { body, catches, fin, .. } => {
+            rewrite_self_calls_in_block(body, ty, mnames);
+            for ca in catches { if let Some(g) = &mut ca.guard { rewrite_self_calls_in_expr(g, ty, mnames); } rewrite_self_calls_in_block(&mut ca.body, ty, mnames); }
+            if let Some(f) = fin { rewrite_self_calls_in_block(f, ty, mnames); }
+        }
+        Stmt::Go { args, .. } => for a in args { rewrite_self_calls_in_expr(a, ty, mnames); },
+        _ => {}
+    }
+}
+
+fn rewrite_self_calls_in_expr(e: &mut Expr, ty: &str, mnames: &std::collections::HashSet<String>) {
+    // 递归子表达式
+    match &mut e.kind {
+        ExprKind::Unary(_, a) => rewrite_self_calls_in_expr(a, ty, mnames),
+        ExprKind::Binary(_, a, b) => { rewrite_self_calls_in_expr(a, ty, mnames); rewrite_self_calls_in_expr(b, ty, mnames); }
+        ExprKind::Call(_, args) => for a in args { rewrite_self_calls_in_expr(a, ty, mnames); },
+        ExprKind::CallValue { callee, args } => { rewrite_self_calls_in_expr(callee, ty, mnames); for a in args { rewrite_self_calls_in_expr(a, ty, mnames); } }
+        ExprKind::Index(a, b) => { rewrite_self_calls_in_expr(a, ty, mnames); rewrite_self_calls_in_expr(b, ty, mnames); }
+        ExprKind::Slice(a, b, c) => { rewrite_self_calls_in_expr(a, ty, mnames); rewrite_self_calls_in_expr(b, ty, mnames); rewrite_self_calls_in_expr(c, ty, mnames); }
+        ExprKind::ArrayLit(xs) | ExprKind::TupleLit(xs) => for a in xs { rewrite_self_calls_in_expr(a, ty, mnames); },
+        ExprKind::Interp(parts) => for p in parts { if let StrPart::Expr(i) = p { rewrite_self_calls_in_expr(i, ty, mnames); } },
+        ExprKind::If { cond, then, els } => { rewrite_self_calls_in_expr(cond, ty, mnames); rewrite_self_calls_in_block(then, ty, mnames); if let Some(x) = els { rewrite_self_calls_in_block(x, ty, mnames); } }
+        ExprKind::Field(base, _) => rewrite_self_calls_in_expr(base, ty, mnames),
+        ExprKind::StructLit(_, fields) => for (_, v) in fields { rewrite_self_calls_in_expr(v, ty, mnames); },
+        ExprKind::EnumLit(_, _, payload) => for a in payload { rewrite_self_calls_in_expr(a, ty, mnames); },
+        ExprKind::DynBox { value, .. } => rewrite_self_calls_in_expr(value, ty, mnames),
+        ExprKind::Ok(x) | ExprKind::Err(x) | ExprKind::Some(x) | ExprKind::Try(x) | ExprKind::Borrow { inner: x, .. } => rewrite_self_calls_in_expr(x, ty, mnames),
+        ExprKind::Closure { body, .. } => rewrite_self_calls_in_expr(body, ty, mnames),
+        ExprKind::ClosureNew { captures, .. } => for c in captures { rewrite_self_calls_in_expr(c, ty, mnames); },
+        ExprKind::TryBlock { body, catches, fin } => {
+            rewrite_self_calls_in_block(body, ty, mnames);
+            for ca in catches { if let Some(g) = &mut ca.guard { rewrite_self_calls_in_expr(g, ty, mnames); } rewrite_self_calls_in_block(&mut ca.body, ty, mnames); }
+            if let Some(f) = fin { rewrite_self_calls_in_block(f, ty, mnames); }
+        }
+        ExprKind::Match { subject, arms } => {
+            rewrite_self_calls_in_expr(subject, ty, mnames);
+            for arm in arms { if let Some(p) = &mut arm.pat { rewrite_self_calls_in_expr(p, ty, mnames); } if let Some(g) = &mut arm.guard { rewrite_self_calls_in_expr(g, ty, mnames); } rewrite_self_calls_in_block(&mut arm.body, ty, mnames); }
+        }
+        _ => {}
+    }
+    // 改写 `self.方法(...)`
+    if let ExprKind::Call(name, args) = &mut e.kind {
+        if let Some(rest) = name.strip_prefix("self.") {
+            if mnames.contains(rest) {
+                let self_expr = Expr::new(ExprKind::Ident("self".to_string()), e.line);
+                let mut new_args = vec![self_expr];
+                new_args.extend(args.drain(..));
+                *args = new_args;
+                *name = format!("{}__{}", ty, rest);
+            }
+        }
+    }
+}
+
 fn hoist_block(
     b: &mut Block,
     outer: &str,
