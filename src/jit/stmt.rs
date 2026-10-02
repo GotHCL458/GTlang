@@ -91,13 +91,14 @@ impl FnState {
                     // Ok 分支（l_ok 由后面统一处理，这里直接跳 l_end）
                     b.switch_to_block(l_ok); self.terminated = false;
                     b.ins().jump(l_end, &[]);
+                    // l_ok 已在上面 switch 并 jump（跳到 l_end），无需重复。
                 } else {
                     // body 无值（如以 throw 结束，已跳到 l_err）：跳 l_ok（空）避免块未终结
                     if !self.terminated { b.ins().jump(l_ok, &[]); }
+                    // l_ok：正常路径（无额外动作）
+                    b.switch_to_block(l_ok); self.terminated = false;
+                    b.ins().jump(l_end, &[]);
                 }
-                // l_ok：正常路径（无额外动作）
-                b.switch_to_block(l_ok); self.terminated = false;
-                b.ins().jump(l_end, &[]);
                 // ---- l_err 统一入口 ----
                 b.switch_to_block(l_err); self.terminated = false;
                 let fv = b.use_var(fvar);

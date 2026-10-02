@@ -107,16 +107,30 @@ struct Val {
 }
 
 impl Val {
+    /// 自动形态：按类型的 LLVM 表示确定。**要求 `s` 的实际形态与之一致**
+    /// （ptr 类类型必须传 ptr 值，数值/布尔必须传 i64/i1 值）。
     pub(crate) fn new(ty: &Ty, s: impl Into<String>) -> Val {
         let is_ptr = ty.llvm() == "ptr";
         Val { ty: ty.clone(), s: s.into(), is_ptr }
     }
-    /// 以 i64（slot）形态构造：容器句柄从容器取出/存入时用。
+    /// 以 i64（slot）形态构造：仅用于**非 ptr 类**类型。
+    /// 容器/字符串句柄在运行期以 i64 流转，但取出后应立即 inttoptr 成 ptr 形态，
+    /// 不应把 ptr 类类型标成 slot —— 这里用断言固化该不变式。
     pub(crate) fn new_slot(ty: &Ty, s: impl Into<String>) -> Val {
+        debug_assert!(
+            ty.llvm() != "ptr" || matches!(ty, Ty::Unknown),
+            "Val::new_slot 不应作用于 ptr 类类型（{:?}）——请先 inttoptr 并用 Val::new",
+            ty
+        );
         Val { ty: ty.clone(), s: s.into(), is_ptr: false }
     }
-    /// 以 ptr 形态构造。
+    /// 以 ptr 形态构造：仅用于 ptr 类类型。
     pub(crate) fn new_ptr(ty: &Ty, s: impl Into<String>) -> Val {
+        debug_assert!(
+            ty.llvm() == "ptr" || matches!(ty, Ty::Unknown),
+            "Val::new_ptr 只应用于 ptr 类类型（{:?}）",
+            ty
+        );
         Val { ty: ty.clone(), s: s.into(), is_ptr: true }
     }
 }

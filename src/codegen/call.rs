@@ -78,8 +78,16 @@ impl<'a> Codegen<'a> {
     }
     /// 确保 Val 是 LLVM `ptr` 值：若已是 ptr 直接返回，否则 inttoptr（容器句柄常以 i64 流转）。
     pub(crate) fn as_ptr(&mut self, v: &Val) -> String {
-        if v.is_ptr { v.s.clone() }
-        else { let r = self.new_reg(); self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", r, v.s)); r }
+        if v.is_ptr { return v.s.clone(); }
+        // 不变式：类型是 ptr 类却标成 slot，说明上游构造有误（本可 inttoptr，但多半是 bug）。
+        debug_assert!(
+            v.ty.llvm() != "ptr" || matches!(v.ty, Ty::Unknown),
+            "as_ptr: 类型 {:?} 是 ptr 类但值被标为 slot —— 上游应已转成 ptr 形态",
+            v.ty
+        );
+        let r = self.new_reg();
+        self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", r, v.s));
+        r
     }
     pub(crate) fn to_slot(&mut self, v: &Val) -> String {
         if v.is_ptr { let r = self.new_reg(); self.body.push_str(&format!("  {} = ptrtoint ptr {} to i64\n", r, v.s)); r }
