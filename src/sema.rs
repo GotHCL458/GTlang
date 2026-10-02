@@ -508,6 +508,15 @@ impl Ctx {
                 ret.unwrap_or(Ty::Unknown)
             }
             ExprKind::EnumLit(name, variant, args) => {
+                // 关联函数 `类型::函数(args)`（不是枚举变体）：查 `类型__函数`
+                if !self.enums.contains_key(name) && self.structs.contains_key(name) {
+                    let fname = format!("{}__{}", name, variant);
+                    if let Some(sig) = self.fns.get(&fname).cloned() {
+                        for a in args.iter_mut() { self.infer(a)?; }
+                        e.ty = sig.ret.clone();
+                        return Ok(sig.ret);
+                    }
+                }
                 let ets: Vec<Ty> = match self.enums.get(name) {
                     Some(vs) => vs.iter().find(|(n, _)| n == variant).map(|(_, ts)| ts.clone()).unwrap_or_default(),
                     None => return Err(crate::lb!(e.line, "undefined enum '{}'", "未定义的枚举 '{}'", name)),

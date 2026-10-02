@@ -689,6 +689,17 @@ fn lower_expr(
         }
         ExprKind::Field(base, _) => lower_expr(base, methods, structs, vars),
         ExprKind::StructLit(_, fields) => for (_, v) in fields { lower_expr(v, methods, structs, vars); },
+        ExprKind::EnumLit(en, var, args) => {
+            // 关联函数 `类型::函数(args)` → `类型__函数(args)`（enum 构造保持）
+            if structs.contains_key(en) {
+                let fname = format!("{}__{}", en, var);
+                let mut new_args = Vec::new();
+                for a in args.iter_mut() { lower_expr(a, methods, structs, vars); new_args.push(a.clone()); }
+                e.kind = ExprKind::Call(fname, new_args);
+            } else {
+                for a in args.iter_mut() { lower_expr(a, methods, structs, vars); }
+            }
+        }
         ExprKind::MethodOn { recv, method, args } => {
             lower_expr(recv, methods, structs, vars);
             for a in args.iter_mut() { lower_expr(a, methods, structs, vars); }
