@@ -6,6 +6,7 @@ import sql
 import string
 import crypto
 import session
+import entropy
 
 // ---------- 工具：HTML 页面骨架 ----------
 fn 页面(标题: str, 内容: str) -> str {
@@ -179,7 +180,7 @@ fn 处理(req: str) -> str {
             sql_close(db)
             return 注册页("<p class=\"err\">用户名已存在</p>")
         }
-        salt := random_hex(8)
+        salt := entropy_random_hex(8)
         h := password_hash(p, salt)
         sql_exec(db, "INSERT INTO users (username, password) VALUES ('" + sql转义(u) + "', '" + sql转义(h) + "')")
         sql_close(db)

@@ -75,6 +75,8 @@ struct Ctx {
     imported_gtlib: Vec<String>,
     /// 当前函数的泛型约束：类型参数名 → trait 名（供 `x.方法()` 静态分发推断）
     generic_bounds: Vec<(String, String)>,
+    /// 当前函数的形参名（无标注形参可能实为闭包/函数，调用时放行）
+    param_names: Vec<String>,
 }
 
 pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
@@ -91,6 +93,7 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
         trait_methods: HashMap::new(),
         imported_gtlib: prog.imported_gtlib.clone(),
         generic_bounds: Vec::new(),
+        param_names: Vec::new(),
     };
 
     let mut errors: Vec<String> = Vec::new();
@@ -283,13 +286,7 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
                                     break;
                                 }
                                 if sig.params[i] == Ty::Unknown {
-                                    // 变量实参：直接取其类型（guess 只认常量/字面量）
-                                    let t = if let ExprKind::Ident(v) = &a.kind {
-                                        ctx.lookup(v).or_else(|| guess(a, &ctx.consts))
-                                    } else {
-                                        guess(a, &ctx.consts)
-                                    };
-                                    if let Some(t) = t {
+                                    if let Some(t) = guess(a, &ctx.consts) {
                                         hints.push((name.clone(), i, t));
                                     }
                                 }
@@ -364,6 +361,7 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
         let Item::Fn(f) = item else { continue };
         ctx.cur_ret = f.ret_ty.clone();
         ctx.generic_bounds = f.bounds.clone();
+        ctx.param_names = f.params.iter().map(|p| p.name.clone()).collect();
         ctx.scopes.push(HashMap::new());
         for p in &f.params {
             ctx.scopes
@@ -726,6 +724,12 @@ impl Ctx {
                         }
                     }
                 }
+                // 形参当函数调用（高阶函数）：`f(x)` 中 f 是无标注形参 → 放行
+                if !name.contains('.') && self.param_names.contains(&name) {
+                    for a in args.iter_mut() { let _ = self.infer(a); }
+                    e.ty = Ty::Unknown;
+                    return Ok(Ty::Unknown);
+                }
                 let mut arg_tys = Vec::with_capacity(args.len());
                 for a in args.iter_mut() {
                     arg_tys.push(self.infer(a)?);
@@ -1040,6 +1044,14 @@ impl Ctx {
                 Ty::Closure(params, Box::new(if ret == Ty::Void { Ty::I64 } else { ret }))
             }
             ExprKind::CallValue { callee, args } => {
+                // 形参当闭包调用：`f(x)` 中 f 是无标注形参 → 返回类型未知（放行）
+                if let ExprKind::Ident(n) = &callee.kind {
+                    if self.param_names.contains(n) {
+                        for a in args.iter_mut() { let _ = self.infer(a); }
+                        e.ty = Ty::Unknown;
+                        return Ok(Ty::Unknown);
+                    }
+                }
                 let ct = self.infer(callee)?;
                 for a in args.iter_mut() {
                     self.infer(a)?;
