@@ -107,6 +107,9 @@ pub enum ExprKind {
     Closure { params: Vec<String>, param_tys: Vec<Option<Ty>>, ret_ty: Option<Ty>, body: Box<Expr>, line: usize },
     /// 间接调用 `f(args)`，其中 f 是闭包值（而非函数名）
     CallValue { callee: Box<Expr>, args: Vec<Expr> },
+    /// 方法链 `recv.方法(args)`：recv 是任意表达式（如另一个调用结果）。
+    /// 由 mono 降级为 `类型__方法(recv, ...args)`。
+    MethodOn { recv: Box<Expr>, method: String, args: Vec<Expr> },
     /// 闭包构造（由 lifting 从 Closure 降级而来）：
     /// 分配 `[fn_ptr, env_ptr]` 块，env 里按顺序存 captures。
     ClosureNew { fn_name: String, captures: Vec<Expr> },

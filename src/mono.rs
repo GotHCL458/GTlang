@@ -559,6 +559,7 @@ fn rewrite_calls(b: &mut Block, generics: &HashMap<String, FnDef>, subst: &HashM
 }
 
 fn rewrite_expr(e: &mut Expr, generics: &HashMap<String, FnDef>, subst: &HashMap<String, String>) {
+    // 方法链 `recv.方法(args)` 降级为 `类型__方法(recv, ...args)`
     if let ExprKind::Call(name, args) = &mut e.kind {
         if let Some(gf) = generics.get(name.as_str()) {
             if let Some(tys) = infer_type_args(gf, args) {
@@ -688,6 +689,18 @@ fn lower_expr(
         }
         ExprKind::Field(base, _) => lower_expr(base, methods, structs, vars),
         ExprKind::StructLit(_, fields) => for (_, v) in fields { lower_expr(v, methods, structs, vars); },
+        ExprKind::MethodOn { recv, method, args } => {
+            lower_expr(recv, methods, structs, vars);
+            for a in args.iter_mut() { lower_expr(a, methods, structs, vars); }
+            // 用 recv 的静态类型（sema(1) 已回填）降级为 类型__方法(recv, ...)
+            if let Ty::Struct(sname) = recv.ty.clone() {
+                let self_expr = (**recv).clone();
+                let mut new_args = vec![self_expr];
+                new_args.append(args);
+                let m = method.clone();
+                e.kind = ExprKind::Call(format!("{}__{}", sname, m), new_args);
+            }
+        }
         _ => {}
     }
     // 运算符重载：`a + b`（a 是结构体且有 add 方法）→ `类型__add(a, b)`

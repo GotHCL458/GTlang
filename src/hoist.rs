@@ -385,6 +385,7 @@ fn rewrite_calls_expr(e: &mut Expr, scope: &HashMap<String, String>) {
         ExprKind::ListComp { expr, iter, cond, .. } => { rewrite_calls_expr(expr, scope); rewrite_calls_expr(iter, scope); if let Some(c) = cond { rewrite_calls_expr(c, scope); } },
         ExprKind::EnumLit(_, _, args) => for a in args.iter_mut() { rewrite_calls_expr(a, scope); },
         ExprKind::DynBox { value, .. } => rewrite_calls_expr(value, scope),
+        ExprKind::MethodOn { recv, args, .. } => { rewrite_calls_expr(recv, scope); for a in args.iter_mut() { rewrite_calls_expr(a, scope); } }
         ExprKind::Call(name, args) => {
             if let Some(uniq) = scope.get(name) {
                 *name = uniq.clone();

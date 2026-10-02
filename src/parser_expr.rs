@@ -160,7 +160,14 @@ impl Parser {
                     }
                     _ => None,
                 };
-                if let Some(name) = callee {
+                // 方法链 `expr.方法(...)`（expr 是任意表达式，如另一个调用结果）
+                let chain: Option<(Box<Expr>, String)> = match &e.kind {
+                    ExprKind::Field(base, f) if !matches!(base.kind, ExprKind::Ident(_)) => {
+                        Some((base.clone(), f.clone()))
+                    }
+                    _ => None,
+                };
+                if callee.is_some() || chain.is_some() {
                     self.bump();
                     let saved = self.no_struct_lit;
                     self.no_struct_lit = false;
@@ -193,14 +200,20 @@ impl Parser {
                     }
                     self.no_struct_lit = saved;
                     self.expect_punct(")")?;
-                    if named.is_empty() {
-                        e = Expr::new(ExprKind::Call(name, args), line);
+                    if let Some((recv, method)) = chain {
+                        // 方法链：`expr.方法(args)` → MethodOn（mono 降级为 类型__方法(recv, ...)）
+                        e = Expr::new(ExprKind::MethodOn { recv, method, args }, line);
                     } else {
-                        // 混用位置 + 命名：位置参数放前
-                        let mut all: Vec<(String, Expr)> = Vec::new();
-                        for a in args { all.push((String::new(), a)); }
-                        all.extend(named);
-                        e = Expr::new(ExprKind::CallNamed(name, all), line);
+                        let name = callee.unwrap();
+                        if named.is_empty() {
+                            e = Expr::new(ExprKind::Call(name, args), line);
+                        } else {
+                            // 混用位置 + 命名：位置参数放前
+                            let mut all: Vec<(String, Expr)> = Vec::new();
+                            for a in args { all.push((String::new(), a)); }
+                            all.extend(named);
+                            e = Expr::new(ExprKind::CallNamed(name, all), line);
+                        }
                     }
                     continue;
                 }

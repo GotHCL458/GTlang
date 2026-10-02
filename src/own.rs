@@ -318,6 +318,7 @@ impl<'a> Ctx<'a> {
             ExprKind::ListComp { expr, iter, cond, .. } => { self.use_expr(expr, st, depth); self.use_expr(iter, st, depth); if let Some(c) = cond { self.use_expr(c, st, depth); } },
             ExprKind::EnumLit(_, _, args) => for a in args.iter() { self.use_expr(a, st, depth); },
             ExprKind::DynBox { value, .. } => self.use_expr(value, st, depth),
+            ExprKind::MethodOn { recv, args, .. } => { self.use_expr(recv, st, depth); for a in args.iter() { self.use_expr(a, st, depth); } }
             ExprKind::Ident(n) => {
                 if st.moved.contains(n) {
                     self.errf(e.line, "use of moved value '{}'", "使用了已移动的值 '{}'", n);

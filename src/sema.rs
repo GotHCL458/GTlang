@@ -449,6 +449,20 @@ impl Ctx {
             ExprKind::TupleLit(items) => { let mut ts = Vec::new(); for it in items.iter_mut() { ts.push(self.infer(it)?); } Ty::Tuple(ts) },
 
             ExprKind::DynBox { trait_name, value } => { self.infer(value)?; Ty::Dyn(trait_name.clone()) },
+            ExprKind::MethodOn { recv, method, args } => {
+                let rt = self.infer(recv)?;
+                for a in args.iter_mut() { self.infer(a)?; }
+                // 查类型的方法返回类型（结构体：fns 里的 类型__方法）
+                let ret = match &rt {
+                    Ty::Struct(s) => self.fns.get(&format!("{}__{}", s, method)).map(|sig| sig.ret.clone()),
+                    Ty::Dyn(tr) => self.trait_methods.get(tr).and_then(|ms| ms.iter().find(|(n, _, _)| n == method).map(|(_, _, r)| r.clone())),
+                    Ty::Generic(tp) => self.generic_bounds.iter().find(|(t, _)| t == tp)
+                        .and_then(|(_, tr)| self.trait_methods.get(tr))
+                        .and_then(|ms| ms.iter().find(|(n, _, _)| n == method).map(|(_, _, r)| r.clone())),
+                    _ => None,
+                };
+                ret.unwrap_or(Ty::Unknown)
+            }
             ExprKind::EnumLit(name, variant, args) => {
                 let ets: Vec<Ty> = match self.enums.get(name) {
                     Some(vs) => vs.iter().find(|(n, _)| n == variant).map(|(_, ts)| ts.clone()).unwrap_or_default(),
@@ -614,6 +628,18 @@ impl Ctx {
                                 e.ty = ret.clone();
                                 return Ok(ret);
                             }
+                        }
+                    }
+                }
+                // `obj.方法(...)`：obj 是结构体变量 → 查方法返回类型
+                if let Some(dot) = name.find('.') {
+                    let recv = name[..dot].to_string();
+                    let mname = name[dot + 1..].to_string();
+                    if let Some(Ty::Struct(sty)) = self.lookup(&recv) {
+                        if let Some(sig) = self.fns.get(&format!("{}__{}", sty, mname)).cloned() {
+                            for a in args.iter_mut() { let _ = self.infer(a); }
+                            e.ty = sig.ret.clone();
+                            return Ok(sig.ret);
                         }
                     }
                 }

@@ -22,6 +22,7 @@ impl<'a> Codegen<'a> {
             ExprKind::Float(v) => Ok(Val::new(&Ty::F64, fmt_double(*v))),
             ExprKind::Bool(v) => Ok(Val::new(&Ty::Bool, if *v { "true" } else { "false" })),
             ExprKind::CallNamed(_, _) => Err("internal: CallNamed not resolved".to_string()),
+            ExprKind::MethodOn { .. } => Err("internal: MethodOn not lowered".to_string()),
             ExprKind::ListComp { .. } => Err("internal: ListComp not expanded".to_string()),
             ExprKind::DynBox { trait_name, value } => self.dyn_box(trait_name, value, e),
             ExprKind::EnumLit(name, variant, args) => {

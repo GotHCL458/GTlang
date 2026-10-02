@@ -9,6 +9,7 @@ impl FnState {
             ExprKind::Float(v) => Ok((b.ins().f64const(*v), Ty::F64)),
             ExprKind::Bool(v) => Ok((b.ins().iconst(types::I64, *v as i64), Ty::Bool)),
             ExprKind::CallNamed(_, _) => Err("internal: CallNamed not resolved".to_string()),
+            ExprKind::MethodOn { .. } => Err("internal: MethodOn not lowered".to_string()),
             ExprKind::ListComp { .. } => Err("internal: ListComp not expanded".to_string()),
             ExprKind::DynBox { trait_name, value } => self.gen_dyn_box(jit, b, trait_name, value),
             ExprKind::EnumLit(name, variant, args) => {

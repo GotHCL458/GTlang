@@ -659,6 +659,7 @@ fn rewrite_expr(e: &mut Expr, own: &HashMap<String, String>, visible: &HashMap<S
         ExprKind::ListComp { expr, iter, cond, .. } => { rewrite_expr(expr, own, visible); rewrite_expr(iter, own, visible); if let Some(c) = cond { rewrite_expr(c, own, visible); } },
         ExprKind::EnumLit(_, _, args) => for a in args.iter_mut() { rewrite_expr(a, own, visible); },
         ExprKind::DynBox { value, .. } => rewrite_expr(value, own, visible),
+        ExprKind::MethodOn { recv, args, .. } => { rewrite_expr(recv, own, visible); for a in args.iter_mut() { rewrite_expr(a, own, visible); } }
         ExprKind::Call(name, args) => {
             for a in args.iter_mut() {
                 rewrite_expr(a, own, visible);
