@@ -836,7 +836,8 @@ fn rewrite_trait_calls_expr(e: &mut Expr, bounds: &[(String, String)], map: &Has
             let mname = name[dot + 1..].to_string();
             // recv 是否�?类型参数"（bound 中的 tp）？�?map 应指向具体类�?
             if let Some(tp) = pname_to_tp.get(&recv) {
-                if let Some(tr) = bounds.iter().find(|(t, _)| t == tp).map(|(_, tr)| tr.clone()) {
+                let trs: Vec<String> = bounds.iter().filter(|(t, _)| t == tp).map(|(_, tr)| tr.clone()).collect();
+                for tr in trs {
                     if let Some(conc) = map.get(tp).and_then(|t| if let Ty::Struct(s) = t { Some(s.clone()) } else { None }) {
                         if trait_methods.get(&tr).map(|ms| ms.contains(&mname)).unwrap_or(false) {
                             let self_expr = Expr::new(ExprKind::Ident(recv.clone()), e.line);
@@ -844,6 +845,7 @@ fn rewrite_trait_calls_expr(e: &mut Expr, bounds: &[(String, String)], map: &Has
                             new_args.extend(args.drain(..));
                             *args = new_args;
                             *name = format!("{}__{}", conc, mname);
+                            break;
                         }
                     }
                 }

@@ -697,9 +697,10 @@ impl Ctx {
                 if let Some(dot) = name.find('.') {
                     let rname = name[..dot].to_string();
                     if let Some(Ty::Generic(tp)) = self.lookup(&rname) {
-                        // 找 T 的约束 trait
-                        if let Some(tr) = self.generic_bounds.iter().find(|(t, _)| t == &tp).map(|(_, tr)| tr.clone()) {
-                            let mname = name[dot+1..].to_string();
+                        // 遍历 T 的所有约束 trait，找含该方法的
+                        let mname = name[dot+1..].to_string();
+                        let trs: Vec<String> = self.generic_bounds.iter().filter(|(t, _)| t == &tp).map(|(_, tr)| tr.clone()).collect();
+                        for tr in trs {
                             let ret = self.trait_methods.get(&tr).and_then(|ms| ms.iter().find(|(n, _, _)| *n == mname).map(|(_, _, r)| r.clone()));
                             if let Some(ret) = ret {
                                 for a in args.iter_mut() { let _ = self.infer(a); }

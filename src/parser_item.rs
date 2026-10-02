@@ -422,10 +422,13 @@ impl Parser {
             self.bump();
             while !self.at_punct("]") {
                 let tp = self.ident("类型参数名")?;
-                // 内联约束 `[T: Trait]`
+                // 内联约束 `[T: Trait]` / 多约束 `[T: A + B]`
                 if self.eat_punct(":") {
-                    let tr = self.ident("trait 名")?;
-                    inline_bounds.push((tp.clone(), tr));
+                    loop {
+                        let tr = self.ident("trait 名")?;
+                        inline_bounds.push((tp.clone(), tr));
+                        if !self.eat_punct("+") { break; }
+                    }
                 }
                 type_params.push(tp);
                 if !self.eat_punct(",") {
