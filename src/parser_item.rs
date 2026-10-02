@@ -325,6 +325,7 @@ impl Parser {
             };
             // 默认方法：带 body
             if self.at_punct("{") {
+                self.depth = 0;
                 let body = self.block()?;
                 defaults.push((mname.clone(), pnames, ret.clone(), body));
             } else {
@@ -483,6 +484,8 @@ impl Parser {
                 }
             }
         }
+        // 每个函数体独立计算嵌套深度（避免跨函数累加）
+        self.depth = 0;
         let body = self.block()?;
         self.type_params = saved_tp;
         Ok(FnDef { name, type_params, params, ret, ret_ty: Ty::Unknown, body, line, is_pub, bounds })

@@ -17,9 +17,10 @@ impl Parser {
     }
 
     pub(crate) fn block(&mut self) -> Result<Block, String> {
-        self.enter_depth()?;
+        let saved = self.depth;
+        self.depth = 0;
         let r = self.block_inner();
-        self.leave_depth();
+        self.depth = saved;
         r
     }
 
