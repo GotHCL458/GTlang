@@ -653,8 +653,8 @@ impl Ctx {
                 // 用户函数优先于标准库（用户定义同名函数时遮蔽 gtlib）
                 if let Some(sig) = self.fns.get(&name).cloned() {
                     if sig.params.len() != arg_tys.len() {
-                        return Err(crate::error::msg::arity_mismatch(
-                            e.line, &name, sig.params.len(), arg_tys.len(),
+                        return Err(crate::error::msg::arity_mismatch_sig(
+                            e.line, &name, sig.params.len(), arg_tys.len(), &sig.params,
                         ).render());
                     }
                     for (i, (want, got)) in sig.params.iter().zip(arg_tys.iter()).enumerate() {

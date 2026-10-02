@@ -8,25 +8,71 @@
 //!
 //! 位置信息沿用现有的「第 N 行：」前缀格式（`diag.rs` 依赖它定位源码区间）。
 
+/// 针对常见类型不匹配给出"用什么转换"的具体建议。
+/// 只在能给出**明确可执行**的修法时返回，避免泛泛而谈。
+pub fn conversion_hint(want: &str, got: &str) -> Option<String> {
+    let zh = crate::lang::is_zh();
+    // 提取基础类型关键词（类型显示里带中文，如 "整数(i64)" / "浮点(f64)" / "字符串(str)"）
+    let has = |s: &str, k: &str| s.contains(k);
+    let want_str = has(want, "str") || has(want, "字符串");
+    let want_int = has(want, "i64") || has(want, "整数");
+    let want_f64 = has(want, "f64") || has(want, "浮点");
+    let got_str = has(got, "str") || has(got, "字符串");
+    let got_int = has(got, "i64") || has(got, "整数");
+    let got_f64 = has(got, "f64") || has(got, "浮点");
+    let h: String = if want_str && (got_int || got_f64) {
+        if zh { "用 str(x) 转为字符串".into() } else { "convert with str(x)".into() }
+    } else if want_int && got_str {
+        if zh { "用 int(x) 把字符串转为整数".into() } else { "convert with int(x)".into() }
+    } else if want_f64 && got_str {
+        if zh { "用 f64(x) 把字符串转为浮点".into() } else { "convert with f64(x)".into() }
+    } else if want_f64 && got_int {
+        if zh { "用 f64(x) 做整数→浮点提升".into() } else { "widen with f64(x)".into() }
+    } else if want_int && got_f64 {
+        if zh { "用 int(x) 做浮点→整数截断".into() } else { "truncate with int(x)".into() }
+    } else if has(want, "bool") && (got_int || got_f64) {
+        if zh { "用 bool(x) 转为布尔".into() } else { "convert with bool(x)".into() }
+    } else {
+        return None;
+    };
+    Some(h)
+}
+
 /// 按消息内容推断修复建议（hint）。
-pub fn hint_for(msg: &str) -> Option<&'static str> {
+pub fn hint_for(msg: &str) -> Option<String> {
+    let zh = crate::lang::is_zh();
+    // 算术/位运算的"类型不匹配"：从消息里的 `found X and Y` 提取实际类型，给具体转换建议
+    if msg.contains("arithmetic requires numbers") || msg.contains("算术运算需要数值") {
+        let hint = if msg.contains("字符串") || msg.contains("str") {
+            if zh { "字符串不能直接参与算术；先用 int(x) 或 f64(x) 转换" } else { "strings don't do arithmetic; convert with int(x) or f64(x)" }
+        } else {
+            if zh { "算术运算的两侧都应为数值（int/f64）" } else { "both operands must be numeric (int/f64)" }
+        };
+        return Some(hint.to_string());
+    }
+    if msg.contains("bitwise operation requires an integer") || msg.contains("位运算需要整数") {
+        return Some(if zh { "位运算只支持整数；浮点请用 int(x) 转换" } else { "bitwise ops need integers; convert floats with int(x)" }.to_string());
+    }
+    if msg.contains("condition must be bool") || msg.contains("条件应为布尔") {
+        return Some(if zh { "条件应为 bool；比较请用 ==/!=/</>，或用 bool(x) 显式转换" } else { "condition must be bool; compare with ==/!=/</>, or convert with bool(x)" }.to_string());
+    }
     if msg.contains("未定义的变量") || msg.contains("undefined variable") {
-        Some(if crate::lang::is_zh() { "检查拼写，或先用 := 声明" } else { "check spelling, or declare with :=" })
+        Some(if zh { "检查拼写，或先用 := 声明" } else { "check spelling, or declare with :=" })
     } else if msg.contains("未定义的函数") || msg.contains("undefined function") {
-        Some(if crate::lang::is_zh() { "检查函数名，或确认已定义/导入" } else { "check the name, or ensure it is defined/imported" })
+        Some(if zh { "检查函数名，或确认已定义/导入" } else { "check the name, or ensure it is defined/imported" })
     } else if msg.contains("未定义的结构体") || msg.contains("undefined struct") {
-        Some(if crate::lang::is_zh() { "确认结构体已定义或已导入" } else { "ensure the struct is defined/imported" })
+        Some(if zh { "确认结构体已定义或已导入" } else { "ensure the struct is defined/imported" })
     } else if msg.contains("不可变") || msg.contains("immutable") {
-        Some(if crate::lang::is_zh() { "用 := 或 let mut 声明可变变量" } else { "declare with := or let mut" })
+        Some(if zh { "用 := 或 let mut 声明可变变量" } else { "declare with := or let mut" })
     } else if msg.contains("类型") || msg.contains("type") || msg.contains("赋给") || msg.contains("expected") {
-        Some(if crate::lang::is_zh() { "检查类型标注，或用显式转换（int()/f64()/str()）" } else { "check the type annotation, or use an explicit conversion" })
+        Some(if zh { "检查类型标注，或用显式转换（int()/f64()/str()）" } else { "check the type annotation, or use an explicit conversion" })
     } else if msg.contains("下标") || msg.contains("index") {
-        Some(if crate::lang::is_zh() { "下标应为整数且在范围内" } else { "index must be an integer within bounds" })
+        Some(if zh { "下标应为整数且在范围内" } else { "index must be an integer within bounds" })
     } else if msg.contains("参数") || msg.contains("argument") {
-        Some(if crate::lang::is_zh() { "检查实参个数与类型" } else { "check argument count and types" })
+        Some(if zh { "检查实参个数与类型" } else { "check argument count and types" })
     } else {
         None
-    }
+    }.map(|s| s.to_string())
 }
 
 /// 按消息内容推断错误码（供 sema 的 `lb!` 自动附加）。
@@ -258,12 +304,19 @@ pub mod msg {
     use crate::lang::tr;
 
     pub fn type_mismatch(line: usize, ctx: &str, want: impl std::fmt::Display, got: impl std::fmt::Display) -> CompileError {
+        let w = want.to_string();
+        let g = got.to_string();
         let m = if crate::lang::is_zh() {
-            format!("{}：期望 {}，实际是 {}", ctx, want, got)
+            format!("{}：期望 {}，实际是 {}", ctx, w, g)
         } else {
-            format!("{}: expected {}, found {}", ctx, want, got)
+            format!("{}: expected {}, found {}", ctx, w, g)
         };
-        CompileError::new(ErrorCode::TypeMismatch, line, m)
+        let e = CompileError::new(ErrorCode::TypeMismatch, line, m);
+        if let Some(h) = conversion_hint(&w, &g) {
+            e.with_hint(h)
+        } else {
+            e
+        }
     }
 
     pub fn undefined_var(line: usize, name: &str) -> CompileError {
@@ -365,6 +418,24 @@ pub mod msg {
             format!("function '{}' expects {} argument(s), got {}", name, want, got)
         };
         CompileError::new(ErrorCode::ArityMismatch, line, m)
+    }
+
+    /// 同 `arity_mismatch`，但附带"函数原型"（形参类型列表），帮助用户对照。
+    pub fn arity_mismatch_sig(line: usize, name: &str, want: usize, got: usize, params: &[crate::ast::Ty]) -> CompileError {
+        let zh = crate::lang::is_zh();
+        let sig = params.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(", ");
+        let m = if zh {
+            format!("函数 '{}' 需要 {} 个参数，实际传入 {}", name, want, got)
+        } else {
+            format!("function '{}' expects {} argument(s), got {}", name, want, got)
+        };
+        let hint = if want == params.len() && !params.is_empty() {
+            Some(if zh { format!("原型：fn {}({})", name, sig) } else { format!("signature: fn {}({})", name, sig) })
+        } else {
+            None
+        };
+        let e = CompileError::new(ErrorCode::ArityMismatch, line, m);
+        match hint { Some(h) => e.with_hint(h), None => e }
     }
 
     pub fn arg_type_mismatch(line: usize, name: &str, idx: usize, want: impl std::fmt::Display, got: impl std::fmt::Display) -> CompileError {
