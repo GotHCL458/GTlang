@@ -594,7 +594,7 @@ impl FnState {
     }
 }
 
-pub(crate) fn collect_strs_block(b: &Block, out: &mut Vec<Vec<u8>>) {
+pub(crate) fn collect_strs_block(b: &[Stmt], out: &mut Vec<Vec<u8>>) {
     for s in b {
         match s {
             Stmt::Let { value, .. } => collect_strs(value, out),
@@ -607,6 +607,8 @@ pub(crate) fn collect_strs_block(b: &Block, out: &mut Vec<Vec<u8>>) {
                 if let Some(e) = els { collect_strs_block(e, out); }
             }
             Stmt::While { cond, body, .. } => { collect_strs(cond, out); collect_strs_block(body, out); }
+            Stmt::DoWhile { body, cond, .. } => { collect_strs_block(body, out); collect_strs(cond, out); }
+            Stmt::Labeled { inner, .. } => { let one = std::slice::from_ref(inner.as_ref()); collect_strs_block(one, out); }
             Stmt::ForRange { from, to, body, els, .. } => { collect_strs(from, out); collect_strs(to, out); collect_strs_block(body, out); if let Some(e) = els { collect_strs_block(e, out); } }
             Stmt::ForEach { iter, body, els, .. } => { collect_strs(iter, out); collect_strs_block(body, out); if let Some(e) = els { collect_strs_block(e, out); } }
             Stmt::Block(inner) => collect_strs_block(inner, out),
@@ -646,6 +648,7 @@ pub(crate) fn collect_strs(e: &Expr, out: &mut Vec<Vec<u8>>) {
         ExprKind::Slice(a, b, c) => { collect_strs(a, out); collect_strs(b, out); collect_strs(c, out); }
         ExprKind::ArrayLit(items) => for a in items { collect_strs(a, out); },
         ExprKind::TupleLit(items) => for a in items { collect_strs(a, out); },
+        ExprKind::EnumLit(_, _, payload) => for a in payload { collect_strs(a, out); },
         ExprKind::If { cond, then, els } => {
             collect_strs(cond, out);
             collect_strs_block(then, out);
@@ -664,6 +667,15 @@ pub(crate) fn collect_strs(e: &Expr, out: &mut Vec<Vec<u8>>) {
         ExprKind::Closure { body, .. } => collect_strs(body, out),
         ExprKind::ClosureNew { captures, .. } => for c in captures { collect_strs(c, out); },
         ExprKind::TryOr { inner, default } => { collect_strs(inner, out); collect_strs(default, out); }
+        ExprKind::DynBox { value, .. } => collect_strs(value, out),
+        ExprKind::Ok(v) | ExprKind::Err(v) | ExprKind::Some(v) | ExprKind::Try(v) => collect_strs(v, out),
+        ExprKind::Borrow { inner, .. } => collect_strs(inner, out),
+        ExprKind::CallNamed(_, args) => for (_, a) in args { collect_strs(a, out); },
+        ExprKind::ListComp { expr, iter, cond, .. } => {
+            collect_strs(expr, out);
+            collect_strs(iter, out);
+            if let Some(c) = cond { collect_strs(c, out); }
+        }
         ExprKind::TryBlock { body, catches, fin } => {
             collect_strs_block(body, out);
             for ca in catches {
