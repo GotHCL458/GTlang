@@ -80,6 +80,8 @@ impl Parser {
             if self.cur().nl_before && matches!(sp, "+" | "-" | "*" | "&" | "!" | "~" | "//") {
                 break;
             }
+            // 长二元链（a+b+c+...）构造"左深"AST；限制长度以防 Drop 递归爆栈
+            self.enter_depth()?;
             let line = self.line();
             self.bump();
             let rhs = self.expr(prec + 1)?;
