@@ -110,5 +110,28 @@ impl Unit {
         std::fs::write(&ll, &ir).map_err(|e| format!("无法写入 {}：{}", ll.display(), e))?;
         Ok(ll)
     }
+
+    /// 写出"优化后"的 LLVM IR（经 clang -O<n> 跑一遍优化 pass）。
+    /// 产物可读性差（SSA/内联/向量化后），但性能就是最终代码的样子。
+    pub fn write_llvm_opt(&self, out: &Path, opt: u8) -> Result<PathBuf, String> {
+        let ir = self.emit_llvm()?;
+        let ll = abs_of(out);
+        // 先写原始 IR，再让 clang 优化并回写。
+        let raw = ll.with_extension("raw.ll");
+        std::fs::write(&raw, &ir).map_err(|e| format!("无法写入 {}：{}", raw.display(), e))?;
+        let clang = driver::find_clang().ok_or_else(|| "找不到 clang（设置 GTC_CLANG 或加入 PATH）".to_string())?;
+        let o = std::process::Command::new(&clang)
+            .arg("-S").arg("-emit-llvm")
+            .arg(format!("-O{}", opt))
+            .arg("-o").arg(&ll)
+            .arg(&raw)
+            .output()
+            .map_err(|e| format!("无法执行 clang：{}", e))?;
+        let _ = std::fs::remove_file(&raw);
+        if !o.status.success() {
+            return Err(format!("clang 优化 IR 失败：\n{}", String::from_utf8_lossy(&o.stderr).trim()));
+        }
+        Ok(ll)
+    }
 }
 

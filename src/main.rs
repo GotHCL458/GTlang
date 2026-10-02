@@ -87,6 +87,7 @@ enum Mode {
     Test,
     /// 只产出 LLVM IR
     EmitLlvm,
+    EmitLlvmOpt,
     /// 静态检查（未用函数、不可达代码、空 if、常量条件、自比较）
     Lint,
 }
@@ -136,6 +137,7 @@ fn main() -> ExitCode {
             "--json" => lint_json = true,
             "--test" | "test" => mode = Mode::Test,
             "--emit-llvm" => mode = Mode::EmitLlvm,
+            "--emit-llvm-opt" | "--ir-ugly" => mode = Mode::EmitLlvmOpt,
             "--no-color" => no_color = true,
             "--keep-tmp" => keep_tmp = true,
             "--watch" | "-w" => watch = true,
@@ -342,11 +344,11 @@ fn drive(
     // 4. 编译：统一 AST → LLVM IR → clang
     let target = match out {
         Some(p) => p.to_path_buf(),
-        None => first.with_extension(if mode == Mode::EmitLlvm { "ll" } else { "exe" }),
+        None => first.with_extension(if matches!(mode, Mode::EmitLlvm | Mode::EmitLlvmOpt) { "ll" } else { "exe" }),
     };
 
-    if mode == Mode::EmitLlvm {
-        let ll = unit.write_llvm(&target)?;
+    if mode == Mode::EmitLlvm || mode == Mode::EmitLlvmOpt {
+        let ll = if mode == Mode::EmitLlvmOpt { unit.write_llvm_opt(&target, opt)? } else { unit.write_llvm(&target)? };
         if lang::is_zh() {
             println!("已生成 LLVM IR：{}", ll.display());
         } else {
