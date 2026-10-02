@@ -100,6 +100,13 @@ impl Parser {
         }
         if self.at_punct("-") {
             self.bump();
+            // `-9223372036854775808`（i64::MIN）：直接返回，避免"取负溢出"
+            if let Tok::Int(v) = self.cur().tok {
+                if v == i64::MIN {
+                    self.bump();
+                    return Ok(Expr::new(ExprKind::Int(i64::MIN), line));
+                }
+            }
             let e = self.unary()?;
             return Ok(Expr::new(ExprKind::Unary(UnOp::Neg, Box::new(e)), line));
         }

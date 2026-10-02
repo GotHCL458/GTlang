@@ -317,9 +317,12 @@ impl Lexer {
                 .map(Tok::Float)
                 .map_err(|_| crate::lb!(self.line, "invalid float literal '{}'", "非法浮点字面量 '{}'", text))
         } else {
-            text.parse::<i64>()
-                .map(Tok::Int)
-                .map_err(|_| crate::lb!(self.line, "integer overflow '{}'", "整数溢出 '{}'", text))
+            match text.parse::<i64>() {
+                Ok(v) => Ok(Tok::Int(v)),
+                // 允许 i64::MIN 的绝对值（9223372036854775808）；parser 的一元负号特判处理
+                Err(_) if text == "9223372036854775808" => Ok(Tok::Int(i64::MIN)),
+                Err(_) => Err(crate::lb!(self.line, "integer overflow '{}'", "整数溢出 '{}'", text)),
+            }
         }
     }
 
