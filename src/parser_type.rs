@@ -40,6 +40,11 @@ impl Parser {
         let name = self.ident("类型名")?;
         // 泛型类型参数优先（在 `[T]` 之前判断）
         if self.type_params.contains(&name) {
+            // 关联类型 `T::Item`：复用 Generic（mono 单态化时替换为具体类型）
+            if self.eat_punct("::") {
+                let assoc = self.ident("关联类型名")?;
+                return Ok(Ty::Generic(format!("{}::{}", name, assoc)));
+            }
             return Ok(Ty::Generic(name));
         }
         // 参数化容器：`list[T]` / `set[T]` / `map[K,V]`

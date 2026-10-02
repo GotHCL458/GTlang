@@ -67,6 +67,13 @@ pub fn monomorphize(prog: &mut Program) -> Vec<String> {
             trait_impl_methods.insert((ty.clone(), trait_name.clone()), flat);
         }
     }
+    // (类型, 关联类型名) → 具体类型（供 T::Item 替换）
+    let mut assoc_map: HashMap<(String, String), Ty> = HashMap::new();
+    for item in &prog.items {
+        if let Item::TraitImpl { ty, assoc_bind, .. } = item {
+            for (an, at) in assoc_bind { assoc_map.insert((ty.clone(), an.clone()), at.clone()); }
+        }
+    }
 
     // 拆分：非泛型函数、其它顶层项、泛型函数（丢弃原泛型）
     let mut plain_fns: Vec<FnDef> = Vec::new();
@@ -116,7 +123,7 @@ pub fn monomorphize(prog: &mut Program) -> Vec<String> {
                             }
                         }
                     }
-                    let mut inst_fn = instantiate(gf, &tys, &inst, &trait_methods, &trait_impl_methods);
+                    let mut inst_fn = instantiate(gf, &tys, &inst, &trait_methods, &trait_impl_methods, &assoc_map);
                     // 实例体内�?*自递归调用** `gname(...)` 改写为实例名
                     rewrite_self_calls(&mut inst_fn.body, &gname, &inst);
                     instances.push(inst_fn);
@@ -478,7 +485,7 @@ fn ty_code(t: &Ty) -> String {
 }
 
 /// 实例化：克隆泛型函数，替�?Ty::Generic 为具体类型，重命名为 inst
-fn instantiate(gf: &FnDef, tys: &[Ty], inst: &str, trait_methods: &HashMap<String, Vec<String>>, trait_impl_methods: &HashMap<(String, String), Vec<String>>) -> FnDef {
+fn instantiate(gf: &FnDef, tys: &[Ty], inst: &str, trait_methods: &HashMap<String, Vec<String>>, trait_impl_methods: &HashMap<(String, String), Vec<String>>, assoc: &HashMap<(String, String), Ty>) -> FnDef {
     let map: HashMap<String, Ty> = gf
         .type_params
         .iter()
@@ -495,14 +502,14 @@ fn instantiate(gf: &FnDef, tys: &[Ty], inst: &str, trait_methods: &HashMap<Strin
             pname_to_tp.insert(p.name.clone(), tp.clone());
         }
     }
-    // 参数类型替换
+    // 参数类型替换（含关联类型 T::Item）
     for p in f.params.iter_mut() {
         if let Some(t) = &p.ty {
-            p.ty = Some(subst_ty(t, &map));
+            p.ty = Some(subst_ty_a(t, &map, assoc));
         }
     }
     if let Some(r) = &f.ret {
-        f.ret = Some(subst_ty(r, &map));
+        f.ret = Some(subst_ty_a(r, &map, assoc));
     }
     // 体内类型替换（数组字面量等已回填的类型）
     subst_block_ty(&mut f.body, &map);
@@ -511,13 +518,28 @@ fn instantiate(gf: &FnDef, tys: &[Ty], inst: &str, trait_methods: &HashMap<Strin
 }
 
 fn subst_ty(t: &Ty, map: &HashMap<String, Ty>) -> Ty {
+    subst_ty_a(t, map, &HashMap::new())
+}
+
+/// 带关联类型绑定的替换：`T::Item`（Generic("T::Item")）→ 查 T 的实参 + 该实参的 assoc_bind。
+fn subst_ty_a(t: &Ty, map: &HashMap<String, Ty>, assoc: &HashMap<(String, String), Ty>) -> Ty {
     match t {
-        Ty::Generic(n) => map.get(n).cloned().unwrap_or(Ty::I64),
-        Ty::List(e) => Ty::List(Box::new(subst_ty(e, map))),
-        Ty::Set(e) => Ty::Set(Box::new(subst_ty(e, map))),
-        Ty::Map(k, v) => Ty::Map(Box::new(subst_ty(k, map)), Box::new(subst_ty(v, map))),
-        Ty::Result(t, e) => Ty::Result(Box::new(subst_ty(t, map)), Box::new(subst_ty(e, map))),
-        Ty::Array(e, n) => Ty::Array(Box::new(subst_ty(e, map)), *n),
+        Ty::Generic(n) => {
+            // 关联类型：`T::Item`
+            if let Some((tp, item)) = n.split_once("::") {
+                if let Some(conc) = map.get(tp) {
+                    let cname = type_name_for_trait(conc);
+                    if let Some(at) = assoc.get(&(cname, item.to_string())) { return at.clone(); }
+                }
+                return Ty::I64;
+            }
+            map.get(n).cloned().unwrap_or(Ty::I64)
+        }
+        Ty::List(e) => Ty::List(Box::new(subst_ty_a(e, map, assoc))),
+        Ty::Set(e) => Ty::Set(Box::new(subst_ty_a(e, map, assoc))),
+        Ty::Map(k, v) => Ty::Map(Box::new(subst_ty_a(k, map, assoc)), Box::new(subst_ty_a(v, map, assoc))),
+        Ty::Result(t, e) => Ty::Result(Box::new(subst_ty_a(t, map, assoc)), Box::new(subst_ty_a(e, map, assoc))),
+        Ty::Array(e, n) => Ty::Array(Box::new(subst_ty_a(e, map, assoc)), *n),
         other => other.clone(),
     }
 }
