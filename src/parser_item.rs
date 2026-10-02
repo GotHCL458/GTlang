@@ -285,12 +285,14 @@ impl Parser {
             self.expect_punct("(")?;
             let mut ptypes = Vec::new();
             let mut pnames: Vec<(String, Ty)> = Vec::new();
+            let mut first_is_self = false;
             while !self.at_punct(")") {
                 if self.at_punct("&") {
                     self.bump();
                     self.eat_ident("mut");
                 }
                 let pn = self.ident("参数名")?;
+                if ptypes.is_empty() && pn == "self" { first_is_self = true; }
                 let ty = if self.eat_punct(":") { self.parse_type()? } else { Ty::I64 };
                 ptypes.push(ty.clone());
                 pnames.push((pn, ty));
@@ -299,6 +301,10 @@ impl Parser {
                 }
             }
             self.expect_punct(")")?;
+            // trait 方法第一个参数必须是 self
+            if !first_is_self && !self.at_punct("{") {
+                return Err(crate::lb!(self.line(), "trait method '{}' must take 'self' as first parameter", "trait 方法 '{}' 的第一个参数必须是 'self'", mname));
+            }
             let ret = if self.eat_punct("->") {
                 self.eat_punct("!");
                 if self.at_punct("{") || self.at_punct("}") || self.at_punct(",") {
