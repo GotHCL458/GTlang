@@ -16,10 +16,6 @@ doctest = false
 name = "gtc"
 path = "src/main.rs"
 
-[[bin]]
-name = "gtfmt"
-path = "src/bin/gtfmt.rs"
-
 [dependencies]
 ariadne = "0.6"
 cranelift-codegen = "0.115"
