@@ -17,6 +17,13 @@ impl Parser {
     }
 
     pub(crate) fn block(&mut self) -> Result<Block, String> {
+        self.enter_depth()?;
+        let r = self.block_inner();
+        self.leave_depth();
+        r
+    }
+
+    fn block_inner(&mut self) -> Result<Block, String> {
         self.expect_punct("{")?;
         let mut b = Vec::new();
         loop {

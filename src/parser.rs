@@ -20,7 +20,7 @@ pub fn parse_program_multi(src: &str) -> Result<Program, Vec<ParseError>> {
         Ok(t) => t,
         Err(e) => return Err(vec![e]),
     };
-    let mut p = Parser { toks, pos: 0, src_line_base: 0, no_struct_lit: false, type_params: Vec::new() };
+    let mut p = Parser { toks, pos: 0, src_line_base: 0, no_struct_lit: false, type_params: Vec::new(), depth: 0 };
     let (mut prog, errs) = p.program_multi();
     prog.cblock = cblock.code;
     prog.cfuncs = cblock.funcs;
@@ -46,7 +46,7 @@ pub fn parse_program_multi(src: &str) -> Result<Program, Vec<ParseError>> {
 /// 解析一段独立表达式文本（用于字符串插值 `{...}` 内部）
 pub fn parse_expr_str(text: &str, line: usize) -> Result<Expr, ParseError> {
     let toks = lex_expr_text(text)?;
-    let mut p = Parser { toks, pos: 0, src_line_base: line, no_struct_lit: false, type_params: Vec::new() };
+    let mut p = Parser { toks, pos: 0, src_line_base: line, no_struct_lit: false, type_params: Vec::new(), depth: 0 };
     let e = match p.expr(0) {
         Ok(v) => v,
         Err(m) => return Err(ParseError::new(m, p.cur().span)),
@@ -70,6 +70,8 @@ struct Parser {
     no_struct_lit: bool,
     /// 当前函数作用域内的泛型类型参数名（用于 `parse_type` 产出 Ty::Generic）
     type_params: Vec<String>,
+    /// 递归深度（防止深嵌套导致栈溢出）
+    depth: usize,
 }
 
 impl Parser {
@@ -95,6 +97,16 @@ impl Parser {
     fn at_eof(&self) -> bool {
         matches!(self.cur().tok, Tok::Eof)
     }
+
+    /// 递归深度检查（防深嵌套栈溢出）。返回 Err 时应向上传播。
+    fn enter_depth(&mut self) -> Result<(), String> {
+        self.depth += 1;
+        if self.depth > 100 {
+            return Err(crate::lb!(self.line(), "expression/block nesting too deep (max 100)", "表达式/块的嵌套过深（上限 100）"));
+        }
+        Ok(())
+    }
+    fn leave_depth(&mut self) { self.depth = self.depth.saturating_sub(1); }
 
     fn bump(&mut self) {
         if self.pos < self.toks.len() - 1 {

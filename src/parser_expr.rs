@@ -6,6 +6,13 @@ impl Parser {
     // ---------- 表达式 ----------
 
     pub(crate) fn expr(&mut self, min_prec: u8) -> Result<Expr, String> {
+        self.enter_depth()?;
+        let r = self.expr_inner(min_prec);
+        self.leave_depth();
+        r
+    }
+
+    fn expr_inner(&mut self, min_prec: u8) -> Result<Expr, String> {
         let mut lhs = self.unary()?;
         loop {
             // 三元：`a if cond else b`（Python 风格，最低优先级）
