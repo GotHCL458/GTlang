@@ -353,6 +353,8 @@ impl<'a> Codegen<'a> {
                     .position(|(n, _)| n == field)
                     .ok_or_else(|| crate::lb!(e.line, "struct '{}' has no field '{}'", "结构体 '{}' 没有字段 '{}'", sname, field))?;
                 let fty = layout[idx].1.clone();
+                // 若 sema 回填了更精确的字段类型（如 list 元素被 push 细化），优先用它
+                let fty = if e.ty != Ty::Unknown && e.ty != fty { e.ty.clone() } else { fty };
                 let arrty = format!("[{} x i64]", layout.len().max(1));
                 let p = self.new_reg();
                 self.body.push_str(&format!(

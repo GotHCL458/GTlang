@@ -390,6 +390,19 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
         ctx.scopes.pop();
     }
 
+    // 把细化后的 struct 字段类型回写到 AST（供 codegen/mono 使用）
+    for item in prog.items.iter_mut() {
+        if let Item::Struct(s) = item {
+            if let Some(fs) = ctx.structs.get(&s.name) {
+                for (fname, fty, _) in s.fields.iter_mut() {
+                    if let Some((_, t)) = fs.iter().find(|(n, _)| n == fname) {
+                        *fty = Some(t.clone());
+                    }
+                }
+            }
+        }
+    }
+
     if errors.is_empty() {
         Ok(Analysis { consts: ctx.consts, traits: collected_traits, trait_impls: collected_trait_impls })
     } else {
@@ -737,11 +750,41 @@ impl Ctx {
                 // push(l, x)：若 l 是"元素未知的 list 变量"，用 x 的类型细化其元素类型。
                 // 这让 codegen/jit 能判断"元素是否为堆指针"，从而正确设置 GC 的 elem_ptr。
                 if (name == "push" || name == "append") && args.len() == 2 {
-                    if let (ExprKind::Ident(lname), Some(vty)) = (&args[0].kind, arg_tys.get(1).cloned()) {
-                        if let Some(vi) = self.lookup_var_mut(lname) {
-                            if let Ty::List(e) = &vi.ty {
-                                if matches!(**e, Ty::Unknown) {
-                                    vi.ty = Ty::List(Box::new(vty));
+                    if let Some(vty) = arg_tys.get(1).cloned() {
+                        match &args[0].kind {
+                            ExprKind::Ident(lname) => {
+                                if let Some(vi) = self.lookup_var_mut(lname) {
+                                    if let Ty::List(e) = &vi.ty {
+                                        if matches!(**e, Ty::Unknown) { vi.ty = Ty::List(Box::new(vty)); }
+                                    }
+                                }
+                            }
+                            // 字段：`obj.kids`（obj 是 struct）→ 细化该 struct 字段的元素类型
+                            ExprKind::Field(base, fname) => {
+                                if let ExprKind::Ident(bn) = &base.kind {
+                                    if let Some(Ty::Struct(sname)) = self.lookup(bn) {
+                                        let vt = vty.clone();
+                                        if let Some(fs) = self.structs.get_mut(&sname) {
+                                            for (f, ft) in fs.iter_mut() {
+                                                if f == fname {
+                                                    if let Ty::List(e) = ft {
+                                                        if matches!(**e, Ty::Unknown) { *ft = Ty::List(Box::new(vt.clone())); }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    // 细化后回填 receiver 表达式的类型（供 codegen 用）
+                    if let ExprKind::Field(base, fname) = &args[0].kind {
+                        if let ExprKind::Ident(bn) = &base.kind {
+                            if let Some(Ty::Struct(sname)) = self.lookup(bn) {
+                                if let Some(ft) = self.structs.get(&sname).and_then(|fs| fs.iter().find(|(n, _)| n == fname).map(|(_, t)| t.clone())) {
+                                    args[0].ty = ft;
                                 }
                             }
                         }
