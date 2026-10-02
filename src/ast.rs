@@ -434,7 +434,8 @@ pub enum Item {
     Trait(TraitDef),
     /// `impl Trait for 类型 { ... }` / `impl[T] Trait for T { ... }` trait 实现
     /// （方法体展开为 `类型__方法`；带 `type_params` 时为 blanket / 泛型实现）
-    TraitImpl { type_params: Vec<String>, trait_name: String, ty: String, methods: Vec<FnDef>, line: usize },
+    /// `assoc_bind`：关联类型绑定 `type Item = X`。
+    TraitImpl { type_params: Vec<String>, trait_name: String, ty: String, methods: Vec<FnDef>, assoc_bind: Vec<(String, Ty)>, line: usize },
 }
 
 /// trait 声明：名字 + 方法签名列表
@@ -445,6 +446,8 @@ pub struct TraitDef {
     pub methods: Vec<(String, Vec<Ty>, Ty)>,
     /// 默认方法（带 body）：(方法名, 参数名+类型列表, 返回类型, body)
     pub defaults: Vec<(String, Vec<(String, Ty)>, Ty, Block)>,
+    /// 关联类型名列表 `type Item`
+    pub assoc: Vec<String>,
     pub line: usize,
     pub is_pub: bool,
 }

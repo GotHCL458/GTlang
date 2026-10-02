@@ -46,7 +46,7 @@ pub fn hoist(prog: &mut Program) {
                 new_items.push(Item::Fn(f));
             }
             // 泛型 impl（`impl[T] ...`）：方法保留为泛型函数，由 mono 单态化；不在此展平
-            Item::TraitImpl { type_params, trait_name, ty, methods, line } if !type_params.is_empty() => {
+            Item::TraitImpl { type_params, trait_name, ty, methods, assoc_bind, line } if !type_params.is_empty() => {
                 for mut m in methods {
                     m.type_params = type_params.clone();
                     let mut scope: HashMap<String, String> = HashMap::new();
@@ -57,10 +57,10 @@ pub fn hoist(prog: &mut Program) {
                     convert_closure_calls(&mut m.body, &mut cv);
                     new_items.push(Item::Fn(m));
                 }
-                new_items.push(Item::TraitImpl { type_params, trait_name, ty, methods: Vec::new(), line });
+                new_items.push(Item::TraitImpl { type_params, trait_name, ty, methods: Vec::new(), assoc_bind, line });
             }
             // trait impl 与 impl 同样展平方法
-            Item::TraitImpl { type_params: _, trait_name, ty, methods, line } => {
+            Item::TraitImpl { type_params: _, trait_name, ty, methods, assoc_bind, line } => {
                 let impl_names: Vec<String> = methods.iter().map(|m| m.name.clone()).collect();
                 for mut m in methods {
                     impl_scope
@@ -101,7 +101,7 @@ pub fn hoist(prog: &mut Program) {
                     }
                 }
                 // 保留 trait 实现关系（供 mono 的 where 约束校验）
-                new_items.push(Item::TraitImpl { type_params: Vec::new(), trait_name, ty, methods: Vec::new(), line });
+                new_items.push(Item::TraitImpl { type_params: Vec::new(), trait_name, ty, methods: Vec::new(), assoc_bind, line });
             }
             // 泛型 impl（`impl[T] 容器[T]`）：方法保留为泛型函数
             Item::Impl { type_params, ty: _, methods, line: _ } if !type_params.is_empty() => {

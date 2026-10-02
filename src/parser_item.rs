@@ -142,6 +142,7 @@ impl Parser {
                 };
                 self.expect_punct("{")?;
                 let mut methods = Vec::new();
+                let mut assoc_bind: Vec<(String, Ty)> = Vec::new();
                 loop {
                     self.skip_line_comment();
                     if self.at_punct("}") {
@@ -151,15 +152,25 @@ impl Parser {
                         return Err("impl 块缺少 '}'".into());
                     }
                     let mpub = self.eat_ident("pub");
+                    // 关联类型绑定：`type Item = X`
+                    if self.eat_ident("type") {
+                        let an = self.ident("关联类型名")?;
+                        self.expect_punct("=")?;
+                        let at = self.parse_type()?;
+                        self.eat_punct(";");
+                        self.eat_punct(",");
+                        assoc_bind.push((an, at));
+                        continue;
+                    }
                     if !self.eat_ident("fn") {
-                        return Err(crate::lb!(self.line(), "impl block only supports fn", "impl 块内只支持 fn"));
+                        return Err(crate::lb!(self.line(), "impl block only supports fn/type", "impl 块内只支持 fn/type"));
                     }
                     methods.push(self.fn_def(mpub)?);
                 }
                 self.expect_punct("}")?;
                 self.type_params = saved_tp;
                 if let Some(tn) = trait_name {
-                    items.push(Item::TraitImpl { type_params: impl_tps, trait_name: tn, ty, methods, line });
+                    items.push(Item::TraitImpl { type_params: impl_tps, trait_name: tn, ty, methods, assoc_bind, line });
                 } else {
                     items.push(Item::Impl { type_params: impl_tps, ty, methods, line });
                 }
@@ -249,6 +260,7 @@ impl Parser {
         self.expect_punct("{")?;
         let mut methods = Vec::new();
         let mut defaults: Vec<(String, Vec<(String, Ty)>, Ty, Block)> = Vec::new();
+        let mut assoc: Vec<String> = Vec::new();
         loop {
             self.skip_line_comment();
             if self.at_punct("}") {
@@ -258,6 +270,14 @@ impl Parser {
                 return Err("trait 块缺少 '}'".into());
             }
             self.eat_ident("pub");
+            // 关联类型声明：`type Item`
+            if self.eat_ident("type") {
+                let an = self.ident("关联类型名")?;
+                self.eat_punct(";");
+                self.eat_punct(",");
+                assoc.push(an);
+                continue;
+            }
             if !self.eat_ident("fn") {
                 return Err(crate::lb!(self.line(), "trait block only supports fn signatures", "trait 块内只支持 fn 签名"));
             }
@@ -300,7 +320,7 @@ impl Parser {
             methods.push((mname, ptypes, ret));
         }
         self.expect_punct("}")?;
-        Ok(TraitDef { name, methods, defaults, line, is_pub })
+        Ok(TraitDef { name, methods, defaults, assoc, line, is_pub })
     }
 
     /// `struct Name { f: T, ... }`（字段类型可省略）
