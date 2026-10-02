@@ -188,15 +188,27 @@ impl<'a> Codegen<'a> {
                         self.declare("declare i64 @gt_list_at(ptr, i64)");
                         let v = self.new_reg();
                         self.body.push_str(&format!("  {} = call i64 @gt_list_at(ptr {}, i64 {})\n", v, bp, i));
-                        // 容器元素取出后以 i64 形态流转；再索引时由 as_ptr 转回 ptr
-                        Ok(Val::new_slot(&el, v))
+                        // 元素在运行时是 i64 slot；若是 ptr 类元素，取出后立即转回 ptr 形态。
+                        if el.llvm() == "ptr" {
+                            let p = self.new_reg();
+                            self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, v));
+                            Ok(Val::new(&el, p))
+                        } else {
+                            Ok(Val::new_slot(&el, v))
+                        }
                     }
                     Ty::Map(_, v) => {
                         let bp = self.as_ptr(&b);
                         self.declare("declare i64 @gt_map_get(ptr, i64)");
                         let r = self.new_reg();
                         self.body.push_str(&format!("  {} = call i64 @gt_map_get(ptr {}, i64 {})\n", r, bp, key_slot));
-                        Ok(Val::new_slot(&v, r))
+                        if v.llvm() == "ptr" {
+                            let p = self.new_reg();
+                            self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, r));
+                            Ok(Val::new(&v, p))
+                        } else {
+                            Ok(Val::new_slot(&v, r))
+                        }
                     }
                     other => Err(crate::lb!(e.line, "{} does not support indexing", "{} 不支持下标访问", other)),
                 }
@@ -716,17 +728,21 @@ impl<'a> Codegen<'a> {
         if a.ty == Ty::Str && b.ty == Ty::Str {
             if op == BinOp::Add {
                 // 字符串拼接：调用运行时 gt_str_concat(a, b)
+                let ap = self.as_ptr(a);
+                let bp = self.as_ptr(b);
                 self.declare("declare ptr @gt_str_concat(ptr, ptr)");
                 let r = self.new_reg();
-                self.body.push_str(&format!("  {} = call ptr @gt_str_concat(ptr {}, ptr {})\n", r, a.s, b.s));
+                self.body.push_str(&format!("  {} = call ptr @gt_str_concat(ptr {}, ptr {})\n", r, ap, bp));
                 return Ok(Val::new(&Ty::Str, r));
             }
             if matches!(op, BinOp::Eq | BinOp::Ne) {
+                let ap = self.as_ptr(a);
+                let bp = self.as_ptr(b);
                 self.declare("declare i32 @strcmp(ptr, ptr)");
                 let r = self.new_reg();
                 self.body.push_str(&format!(
                     "  {} = call i32 @strcmp(ptr {}, ptr {})\n",
-                    r, a.s, b.s
+                    r, ap, bp
                 ));
                 let c = self.new_reg();
                 let pred = if op == BinOp::Eq { "eq" } else { "ne" };

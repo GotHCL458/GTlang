@@ -115,6 +115,10 @@ impl Val {
     pub(crate) fn new_slot(ty: &Ty, s: impl Into<String>) -> Val {
         Val { ty: ty.clone(), s: s.into(), is_ptr: false }
     }
+    /// 以 ptr 形态构造。
+    pub(crate) fn new_ptr(ty: &Ty, s: impl Into<String>) -> Val {
+        Val { ty: ty.clone(), s: s.into(), is_ptr: true }
+    }
 }
 
 struct Codegen<'a> {

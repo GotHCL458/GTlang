@@ -893,7 +893,8 @@ impl Ctx {
                 for c in captures.iter_mut() {
                     self.infer(c)?;
                 }
-                // 闭包类型取自提升后的函数签名（captures + params）
+                // 闭包类型取自提升后的函数签名（captures + params）。
+                // 注意：params 必须包含捕获值——后端靠 len(params) - len(args) 推算捕获个数。
                 let (params, ret) = match self.fns.get(fn_name) {
                     Some(sig) => (sig.params.clone(), sig.ret.clone()),
                     None => (vec![Ty::I64; captures.len()], Ty::I64),

@@ -47,7 +47,21 @@ impl<'a> Codegen<'a> {
         name
     }
     pub(crate) fn coerce(&mut self, v: &Val, to: &Ty) -> Result<Val, String> {
-        if v.ty == *to || to == &Ty::Unknown || v.ty == Ty::Unknown { return Ok(v.clone()); }
+        // 形态对齐：类型相同但 LLVM 表示（ptr / slot）不一致时也要转换。
+        // 容器/字符串/结构体在 `to` 侧期望 ptr；若 v 是 slot 形态，先 inttoptr。
+        if v.ty == *to {
+            let want_ptr = to.llvm() == "ptr";
+            if want_ptr && !v.is_ptr {
+                let p = self.as_ptr(v);
+                return Ok(Val::new_ptr(to, p));
+            }
+            if !want_ptr && v.is_ptr {
+                let s = self.to_slot(v);
+                return Ok(Val::new_slot(to, s));
+            }
+            return Ok(v.clone());
+        }
+        if to == &Ty::Unknown || v.ty == Ty::Unknown { return Ok(v.clone()); }
         match (to, &v.ty) {
             (Ty::F64, t) if t.is_int() => { let r = self.new_reg(); self.body.push_str(&format!("  {} = sitofp i64 {} to double\n", r, v.s)); Ok(Val::new(&Ty::F64, r)) }
             (t, Ty::F64) if t.is_int() => { let r = self.new_reg(); self.body.push_str(&format!("  {} = fptosi double {} to i64\n", r, v.s)); Ok(Val::new(&Ty::I64, r)) }
