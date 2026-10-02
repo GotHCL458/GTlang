@@ -537,5 +537,36 @@ pub fn explain(code: &str) -> Option<(&'static str, String, String, String)> {
         Other => ("其他错误", "未分类的错误。", "—", "看具体消息。"),
     };
     let _ = zh;
-    Some((title, meaning.to_string(), cause.to_string(), fix.to_string()))
+    let mut fix = fix.to_string();
+    let rel = related_codes(c.code());
+    if !rel.is_empty() {
+        fix.push_str(&format!("\n  相关错误码：{}", rel.join("、")));
+    }
+    Some((title, meaning.to_string(), cause.to_string(), fix))
+}
+
+/// 返回与给定错误码常一起出现的相关码（用于 `--explain`）。
+fn related_codes(code: &str) -> Vec<&'static str> {
+    match code {
+        "E201" => vec!["E602", "E202"],
+        "E202" => vec!["E201", "E204"],
+        "E204" => vec!["E202", "E801"],
+        "E101" => vec!["E102", "E103"],
+        "E102" => vec!["E101", "E601"],
+        "E601" => vec!["E602", "E102"],
+        "E602" => vec!["E601", "E201"],
+        "E401" => vec!["E402"],
+        "E402" => vec!["E401", "E404"],
+        "E404" => vec!["E402"],
+        "E501" => vec!["E502"],
+        "E502" => vec!["E501", "E503"],
+        "E503" => vec!["E502"],
+        "E504" => vec!["E502"],
+        "E801" => vec!["E802", "E204"],
+        "E802" => vec!["E801"],
+        "E701" => vec!["E702", "E703"],
+        "E702" => vec!["E701"],
+        "E703" => vec!["E701"],
+        _ => vec![],
+    }
 }
