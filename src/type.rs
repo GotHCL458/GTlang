@@ -439,6 +439,7 @@ fn builtin_check(name: &str, args: &[Ty]) -> Result<Ty, String> {
             Ty::Str | Ty::Array(..) | Ty::List(..) | Ty::Set(..) | Ty::Map(..) | Ty::Unknown => {
                 Ok(Ty::I64)
             }
+            t @ Ty::I64 => Err(format!("{}{}", crate::te!("len() does not support {}", "len() 不支持 {}", t), if crate::lang::is_zh() { "\x01若它是容器/字符串，请为变量或形参显式标注类型（如 list[int] / str）" } else { "\x01if it is a container/string, annotate the variable or parameter type (e.g. list[int] / str)" })),
             other => Err(crate::te!("len() does not support {}", "len() 不支持 {}", other)),
         },
 

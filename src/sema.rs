@@ -854,7 +854,13 @@ impl Ctx {
                     }
                     Ty::Unknown => Ty::I64,
                     other => {
-                        return Err(crate::lb!(e.line, "{} does not support indexing", "{} 不支持下标访问", other))
+                        {
+                            let base = crate::lb!(e.line, "{} does not support indexing", "{} 不支持下标访问", other);
+                            if matches!(other, Ty::I64) {
+                                return Err(format!("{}{}", base, if crate::lang::is_zh() { "\x01若它是容器/字符串，请为变量或形参显式标注类型（如 list[int] / str）" } else { "\x01if it is a container/string, annotate the variable or parameter type (e.g. list[int] / str)" }));
+                            }
+                            return Err(base);
+                        }
                     }
                 }
             }
