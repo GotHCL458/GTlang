@@ -76,11 +76,6 @@ impl Unit {
     }
 
     pub fn compile_to_ex(&self, out: &Path, opt: u8, keep_tmp: bool) -> Result<PathBuf, String> {
-        self.compile_to_ex_pgo(out, opt, keep_tmp, None)
-    }
-
-    /// 同 `compile_to_ex`，但可指定 PGO 模式。
-    pub fn compile_to_ex_pgo(&self, out: &Path, opt: u8, keep_tmp: bool, pgo: Option<&driver::PgoMode>) -> Result<PathBuf, String> {
         let ir = self.emit_llvm()?;
         let exe = abs_of(out);
         let mut tmp = TempDir::new("compile")?;
@@ -104,7 +99,7 @@ impl Unit {
                 .to_string()
         })?;
         let needed = Self::used_gtlib_dlls_of(&ir);
-        driver::compile_ll(&clang, &tmp, &ll, &exe, opt, &self.c_source(), &needed, pgo)?;
+        driver::compile_ll(&clang, &tmp, &ll, &exe, opt, &self.c_source(), &needed)?;
         Ok(exe)
     }
 

@@ -125,15 +125,6 @@ const GT_GC_H: &str = include_str!("runtime/gc.h");
 ///
 /// 内联 C 块写成**独立文件** `inline_c.c` 而不是拼进运行时尾部：
 /// 这样 clang 的报错是 `inline_c.c:2: ...`，行号直接对应 C 块内的行。
-/// PGO 模式（`--pgo`）：
-/// - `Generate(dir)`：编译带 `-fprofile-generate=dir`
-/// - `Use(dir)`：编译带 `-fprofile-use=dir -fprofile-correction`
-#[derive(Clone, Debug)]
-pub enum PgoMode {
-    Generate(std::path::PathBuf),
-    Use(std::path::PathBuf),
-}
-
 pub fn compile_ll(
     clang: &Path,
     tmp: &TempDir,
@@ -142,7 +133,6 @@ pub fn compile_ll(
     opt: u8,
     cblock: &str,
     needed: &[&'static str],
-    pgo: Option<&PgoMode>,
 ) -> Result<(), String> {
     // 1) 运行时：优先用**预编译静态库** gt_rt.lib（build.bat 产出，放 res/lib 或 toolchain）；
     //    找不到时回退到按内容哈希缓存的对象（首次编译后复用）。
@@ -160,7 +150,7 @@ pub fn compile_ll(
         srcs.push(cfile);
     }
 
-    link(clang, &rt, &srcs, ll, out, opt, needed, pgo)
+    link(clang, &rt, &srcs, ll, out, opt, needed)
 }
 
 /// 运行时的两种输入形式：预编译静态库（优先）或按需编译的对象文件。
@@ -296,7 +286,7 @@ pub fn find_std_libs_for(needed: &[&'static str]) -> Vec<PathBuf> {
     out
 }
 
-fn link(clang: &Path, rt: &RtInput, srcs: &[PathBuf], ll: &Path, out: &Path, opt: u8, needed: &[&'static str], pgo: Option<&PgoMode>) -> Result<(), String> {
+fn link(clang: &Path, rt: &RtInput, srcs: &[PathBuf], ll: &Path, out: &Path, opt: u8, needed: &[&'static str]) -> Result<(), String> {
     // 首次带上 lld（LLVM 自带，通常位于 clang 同目录）；失败则退回默认链接器
     let attempts: Vec<Vec<String>> = vec![vec!["-fuse-ld=lld".into()], vec![]];
     // 标准库静态库：只链接"用到的"模块
@@ -313,12 +303,6 @@ fn link(clang: &Path, rt: &RtInput, srcs: &[PathBuf], ll: &Path, out: &Path, opt
         cmd.arg("-o").arg(out);
         cmd.arg(format!("-O{}", opt));
         cmd.arg("-fms-runtime-lib=libcmt");
-        // PGO：生成/使用 profile
-        match pgo {
-            Some(PgoMode::Generate(dir)) => { cmd.arg(format!("-fprofile-generate={}", dir.display())); }
-            Some(PgoMode::Use(dir)) => { cmd.arg(format!("-fprofile-use={}", dir.display())); cmd.arg("-fprofile-correction"); }
-            None => {}
-        }
         // 极致性能（可被 GTC_NO_FAST 关闭）
         if std::env::var("GTC_NO_FAST").is_err() {
             cmd.arg("-march=native");

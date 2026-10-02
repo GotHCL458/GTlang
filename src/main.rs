@@ -13,7 +13,6 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use gtc_rust::{build, lang, Diag, Span, Unit};
-use gtc_rust::driver;
 
 const USAGE_EN: &str = "\
 gtc -- GTLang compiler / interpreter
@@ -139,7 +138,6 @@ fn main() -> ExitCode {
     let mut watch = false;
     let mut lint_strict = false;
     let mut lint_json = false;
-    let mut pgo = false;
     let mut sources: Vec<PathBuf> = Vec::new();
 
     let mut i = 0;
@@ -162,7 +160,6 @@ fn main() -> ExitCode {
             "--strict" => lint_strict = true,
             "--json" => lint_json = true,
             "--test" | "test" => mode = Mode::Test,
-            "--pgo" => pgo = true,
             "--emit-llvm" => mode = Mode::EmitLlvm,
 
             "--emit-llvm-opt" | "--ir-ugly" => mode = Mode::EmitLlvmOpt,
@@ -241,14 +238,14 @@ fn main() -> ExitCode {
             if cur != last {
                 last = cur;
                 if lang::is_zh() { println!("\n[watch] 变更，重新构建…"); } else { println!("\n[watch] change detected, rebuilding..."); }
-                if let Err(e) = drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, pgo) {
+                if let Err(e) = drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json) {
                     eprintln!("{}", e);
                 }
             }
         }
     }
 
-    match drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, pgo) {
+    match drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("{}", e);
@@ -307,7 +304,6 @@ fn drive(
     keep_tmp: bool,
     lint_strict: bool,
     lint_json: bool,
-    pgo: bool,
 ) -> Result<(), String> {
     let first = &sources[0];
 
@@ -386,24 +382,7 @@ fn drive(
         return Ok(());
     }
 
-    let exe = if pgo {
-        // PGO：1) 生成 profile 编译 + 运行；2) 用 profile 优化重编译
-        let pdir = std::env::temp_dir().join(format!("gtc_pgo_{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&pdir);
-        let _ = std::fs::create_dir_all(&pdir);
-        // 1) generate
-        let e1 = unit.compile_to_ex_pgo(&target, opt, keep_tmp, Some(&driver::PgoMode::Generate(pdir.clone())))
-            .map_err(|e| if e.contains("clang_rt.profile") { format!("{}\n\n[PGO 需要 LLVM 的 profile 运行时 clang_rt.profile.lib；当前 LLVM 未安装它，无法使用 --pgo]", e) } else { e })?;
-        // 运行一次，收集 profile（程序的副作用：会真实执行 main）
-        if lang::is_zh() { println!("[pgo] 运行程序以收集 profile …"); } else { println!("[pgo] running to collect profile ..."); }
-        let _ = std::process::Command::new(&e1).output();
-        // 2) use
-        let e2 = unit.compile_to_ex_pgo(&target, opt, keep_tmp, Some(&driver::PgoMode::Use(pdir.clone())))?;
-        let _ = std::fs::remove_dir_all(&pdir);
-        e2
-    } else {
-        unit.compile_to_ex(&target, opt, keep_tmp)?
-    };
+    let exe = unit.compile_to_ex(&target, opt, keep_tmp)?;
     if lang::is_zh() {
         println!("编译成功：{}", exe.display());
         if keep_tmp {
