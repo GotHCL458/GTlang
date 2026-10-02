@@ -36,7 +36,7 @@ fn data_ptr(jit: &mut Jit, b: &mut FunctionBuilder, id: u64) -> Value {
 
 
 mod rt;
-mod symbol;
+pub(crate) mod symbol;
 use rt::*;
 use symbol::*;
 

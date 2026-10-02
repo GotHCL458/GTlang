@@ -106,6 +106,18 @@ pub(crate) fn std_dll_dirs() -> Vec<std::path::PathBuf> {
 }
 
 /// 标准库函数名的规范列表（与 type.rs::gtlib_fn 的键一致）
+/// 语言内建（编译器直接处理）的函数名，用于 "未定义函数" 的拼写建议。
+pub(crate) const BUILTIN_NAMES: &[&str] = &[
+    "put", "print", "len", "str", "string", "int", "i64", "f64", "float", "bool",
+    "read_line", "readline", "input", "read_int", "readint",
+    "list", "set", "map", "dict", "range", "assert", "sleep", "chan", "chan_send", "chan_recv",
+    "push", "append", "pop", "at", "insert", "has", "contains", "keys", "values", "remove",
+    "abs", "min", "max", "sum",
+    "substr", "split", "join", "find", "upper", "lower", "trim",
+    "repeat", "replace", "pad_left", "pad_right", "lpad", "rpad", "fmt_int",
+    "mem_alloc", "mem_free", "mem_store_i64", "mem_load_i64", "mem_store_u8", "mem_load_u8", "mem_copy", "mem_set",
+];
+
 pub(crate) const GTLIB_NAMES: &[&str] = &[
     // os
     // os（环境 / 进程）
