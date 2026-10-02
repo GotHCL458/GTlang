@@ -136,11 +136,16 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
     // 关联类型校验：impl 的 `type Item = X` 必须覆盖 trait 声明的全部关联类型
     {
         let mut trait_assoc: HashMap<String, Vec<String>> = HashMap::new();
+        let mut trait_required_methods: HashMap<String, Vec<String>> = HashMap::new();
         for item in &prog.items {
-            if let Item::Trait(t) = item { trait_assoc.insert(t.name.clone(), t.assoc.clone()); }
+            if let Item::Trait(t) = item {
+                trait_assoc.insert(t.name.clone(), t.assoc.clone());
+                // 无默认体的方法必须由 impl 提供
+                trait_required_methods.insert(t.name.clone(), t.methods.iter().map(|(n, _, _)| n.clone()).collect());
+            }
         }
         for item in &prog.items {
-            if let Item::TraitImpl { trait_name, assoc_bind, line, .. } = item {
+            if let Item::TraitImpl { trait_name, ty, assoc_bind, line, .. } = item {
                 if let Some(declared) = trait_assoc.get(trait_name) {
                     for an in declared {
                         if !assoc_bind.iter().any(|(n, _)| n == an) {
@@ -150,6 +155,16 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
                     for (n, _) in assoc_bind {
                         if !declared.contains(n) {
                             errors.push(crate::lb!(line, "associated type '{}' is not declared in trait '{}'", "关联类型 '{}' 未在 trait '{}' 中声明", n, trait_name));
+                        }
+                    }
+                }
+                // trait 方法必须全部实现（无默认体时）；查顶层 `类型__方法`
+                if let Some(required) = trait_required_methods.get(trait_name) {
+                    // 用 prog.items 里的顶层 `类型__方法` 判断（fns 尚未收集）
+                    let defined: std::collections::HashSet<String> = prog.items.iter().filter_map(|it| if let Item::Fn(f) = it { Some(f.name.clone()) } else { None }).collect();
+                    for m in required {
+                        if !defined.contains(&format!("{}__{}", ty, m)) {
+                            errors.push(crate::lb!(line, "missing method '{}' in impl of '{}'", "实现 '{}' 时缺少方法 '{}'", m, trait_name));
                         }
                     }
                 }
