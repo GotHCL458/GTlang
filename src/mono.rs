@@ -692,7 +692,7 @@ fn lower_expr(
         ExprKind::MethodOn { recv, method, args } => {
             lower_expr(recv, methods, structs, vars);
             for a in args.iter_mut() { lower_expr(a, methods, structs, vars); }
-            // 用 recv 的静态类型（sema(1) 已回填）降级为 类型__方法(recv, ...)
+            // 结构体：降级为 类型__方法(recv, ...)；dyn 保留给 codegen/jit 做 vtable 分发
             if let Ty::Struct(sname) = recv.ty.clone() {
                 let self_expr = (**recv).clone();
                 let mut new_args = vec![self_expr];

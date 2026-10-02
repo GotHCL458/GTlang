@@ -22,7 +22,33 @@ impl<'a> Codegen<'a> {
             ExprKind::Float(v) => Ok(Val::new(&Ty::F64, fmt_double(*v))),
             ExprKind::Bool(v) => Ok(Val::new(&Ty::Bool, if *v { "true" } else { "false" })),
             ExprKind::CallNamed(_, _) => Err("internal: CallNamed not resolved".to_string()),
-            ExprKind::MethodOn { .. } => Err("internal: MethodOn not lowered".to_string()),
+            ExprKind::MethodOn { recv, method, args } => {
+                let rv = self.expr(recv)?;
+                if let Ty::Dyn(tr) = rv.ty.clone() {
+                    let idx = self.traits.get(&tr).and_then(|ms| ms.iter().position(|m| m == method)).map(|i| i + 1).unwrap_or(0);
+                    let dp = self.new_reg();
+                    self.body.push_str(&format!("  {} = getelementptr i64, ptr {}, i64 0\n", dp, rv.s));
+                    let data = self.new_reg();
+                    self.body.push_str(&format!("  {} = load i64, ptr {}\n", data, dp));
+                    let vp = self.new_reg();
+                    self.body.push_str(&format!("  {} = getelementptr i64, ptr {}, i64 {}\n", vp, rv.s, idx));
+                    let addr = self.new_reg();
+                    self.body.push_str(&format!("  {} = load i64, ptr {}\n", addr, vp));
+                    let fp = self.new_reg();
+                    self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", fp, addr));
+                    let mut ops: Vec<String> = vec!["i64".into(), data];
+                    for a in args { let v = self.expr(a)?; ops.push("i64".into()); ops.push(self.as_i64(&v)); }
+                    let argstr: Vec<String> = ops.chunks(2).map(|c| format!("{} {}", c[0], c[1])).collect();
+                    let ret_llvm = if e.ty.llvm() == "double" { "double" } else { "i64" };
+                    let r = self.new_reg();
+                    self.body.push_str(&format!("  {} = call {} {}({})\n", r, ret_llvm, fp, argstr.join(", ")));
+                    Ok(Val::new(&e.ty.clone(), r))
+                } else if matches!(rv.ty, Ty::Unknown) {
+                    Err(crate::lb!(e.line, "cannot resolve method '{}' on an unknown-typed value (annotate the receiver's type)", "无法在类型未知的值上调用方法 '{}'（请标注接收者类型）", method))
+                } else {
+                    Err("internal: MethodOn (non-struct/non-dyn) not lowered".to_string())
+                }
+            }
             ExprKind::ListComp { .. } => Err("internal: ListComp not expanded".to_string()),
             ExprKind::DynBox { trait_name, value } => self.dyn_box(trait_name, value, e),
             ExprKind::EnumLit(name, variant, args) => {

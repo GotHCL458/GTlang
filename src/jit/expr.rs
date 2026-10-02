@@ -9,7 +9,25 @@ impl FnState {
             ExprKind::Float(v) => Ok((b.ins().f64const(*v), Ty::F64)),
             ExprKind::Bool(v) => Ok((b.ins().iconst(types::I64, *v as i64), Ty::Bool)),
             ExprKind::CallNamed(_, _) => Err("internal: CallNamed not resolved".to_string()),
-            ExprKind::MethodOn { .. } => Err("internal: MethodOn not lowered".to_string()),
+            ExprKind::MethodOn { recv, method, args } => {
+                let rv = self.gen_expr(jit, b, recv)?;
+                if let Ty::Dyn(tr) = rv.1.clone() {
+                    let idx = jit.traits.get(&tr).and_then(|ms| ms.iter().position(|m| m == method)).map(|i| i + 1).unwrap_or(0);
+                    let dp = b.ins().load(types::I64, MemFlags::new(), rv.0, 0);
+                    let addr = b.ins().load(types::I64, MemFlags::new(), rv.0, (idx * 8) as i32);
+                    let mut vals: Vec<cranelift_codegen::ir::Value> = vec![dp];
+                    for a in args { let v = self.gen_expr(jit, b, a)?; vals.push(self.convert(b, &v, &Ty::I64)); }
+                    let mut sig = jit.module.make_signature();
+                    for _ in 0..vals.len() { sig.params.push(AbiParam::new(types::I64)); }
+                    if e.ty != Ty::Void { sig.returns.push(AbiParam::new(cl_ty(&e.ty))); }
+                    let sigref = b.import_signature(sig);
+                    let call = b.ins().call_indirect(sigref, addr, &vals);
+                    if e.ty == Ty::Void { Ok((b.ins().iconst(types::I64, 0), Ty::Void)) }
+                    else { Ok((b.inst_results(call)[0], e.ty.clone())) }
+                } else {
+                    Err("internal: MethodOn (non-dyn) not lowered".to_string())
+                }
+            }
             ExprKind::ListComp { .. } => Err("internal: ListComp not expanded".to_string()),
             ExprKind::DynBox { trait_name, value } => self.gen_dyn_box(jit, b, trait_name, value),
             ExprKind::EnumLit(name, variant, args) => {

@@ -269,7 +269,13 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
                                     break;
                                 }
                                 if sig.params[i] == Ty::Unknown {
-                                    if let Some(t) = guess(a, &ctx.consts) {
+                                    // 变量实参：直接取其类型（guess 只认常量/字面量）
+                                    let t = if let ExprKind::Ident(v) = &a.kind {
+                                        ctx.lookup(v).or_else(|| guess(a, &ctx.consts))
+                                    } else {
+                                        guess(a, &ctx.consts)
+                                    };
+                                    if let Some(t) = t {
                                         hints.push((name.clone(), i, t));
                                     }
                                 }
