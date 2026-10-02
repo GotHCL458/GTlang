@@ -597,6 +597,22 @@ impl Ctx {
                         }
                     }
                 }
+                // `obj.方法(...)`：若 obj 是已知类型的变量，而方法名拼错，给出候选建议。
+                if let Some(dot) = name.find('.') {
+                    let recv = &name[..dot];
+                    let mname = &name[dot + 1..];
+                    if let Some(Ty::Struct(sty)) = self.lookup(recv) {
+                        let prefix = format!("{}__", sty);
+                        let cands: Vec<String> = self.fns.keys().filter_map(|k| k.strip_prefix(&prefix).map(|s| s.to_string())).collect();
+                        if !cands.iter().any(|c| c == mname) {
+                            if let Some(sug) = closest_of(mname, cands.into_iter()) {
+                                let base = crate::lb!(e.line, "undefined function '{}'", "未定义的函数 '{}'", name);
+                                let hint = if crate::lang::is_zh() { format!("\x01是否想用 '{}.{}'？", recv, sug) } else { format!("\x01did you mean '{}.{}'?", recv, sug) };
+                                return Err(format!("{}{}", base, hint));
+                            }
+                        }
+                    }
+                }
                 let mut arg_tys = Vec::with_capacity(args.len());
                 for a in args.iter_mut() {
                     arg_tys.push(self.infer(a)?);
