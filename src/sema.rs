@@ -481,10 +481,14 @@ impl Ctx {
                 Some(t) => t,
                 None => {
                     let base = crate::lb!(e.line, "undefined variable '{}'", "未定义的变量 '{}'", n);
-                    let hint = match closest_name(n, self) {
+                    let mut hint = match closest_name(n, self) {
                         Some(s) => if crate::lang::is_zh() { format!("\x01是否想用 '{}'？", s) } else { format!("\x01did you mean '{}'?", s) },
                         None => String::new(),
                     };
+                    // 名字其实是一个函数/内置函数？提示"忘了加 ()"
+                    if hint.is_empty() && (self.fns.contains_key(n) || crate::types::is_builtin_name(n)) {
+                        hint = if crate::lang::is_zh() { format!("\x01'{}' 是函数，调用它需要加 ()：{}()", n, n) } else { format!("\x01'{}' is a function; call it with () : {}()", n, n) };
+                    }
                     return Err(format!("{}{}", base, hint));
                 }
             },
