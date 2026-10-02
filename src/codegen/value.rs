@@ -1,0 +1,225 @@
+//! Codegen 的值转换与控制流（if/match/eq）。
+
+use super::*;
+
+impl<'a> Codegen<'a> {
+    /// 转字符串。注意：返回的 buf 是**当前函数的栈数组**，
+    /// 在循环内多次调用会各自 alloca（LLVM 可能复用栈槽），
+    /// 因此**不要把多次 `str()` 的返回值长期保存**（如 push 进 list 后再用）。
+    /// 需要长期保存时，先在循环外拼接或改用插值。
+    pub(crate) fn to_str(&mut self, v: &Val, _line: usize) -> Result<Val, String> {
+        let fmt = match v.ty {
+            Ty::F64 => "%g",
+            Ty::Bool => {
+                let t = self.intern(b"true");
+                let f = self.intern(b"false");
+                let r = self.new_reg();
+                self.body.push_str(&format!("  {} = select i1 {}, ptr {}, ptr {}\n", r, v.s, t, f));
+                self.declare("declare i32 @gt_sprintf(ptr, i64, ptr, ...)");
+                let buf = self.new_alloca_raw(&format!("[{} x i8]", INTERP_BUF));
+                let sv = self.new_reg();
+                let fmts = self.intern(b"%s"); self.body.push_str(&format!("  {} = call i32 (ptr, i64, ptr, ...) @gt_sprintf(ptr {}, i64 {}, ptr {}, ptr {})\n", sv, buf, INTERP_BUF, fmts, r));
+                return Ok(Val::new(&Ty::Str, buf));
+            }
+            _ => "%lld",
+        };
+        let f = self.intern(fmt.as_bytes());
+        self.declare("declare i32 @gt_sprintf(ptr, i64, ptr, ...)");
+        let buf = self.new_alloca_raw(&format!("[{} x i8]", INTERP_BUF));
+        let sv = self.new_reg();
+        self.body.push_str(&format!("  {} = call i32 (ptr, i64, ptr, ...) @gt_sprintf(ptr {}, i64 {}, ptr {}, {} {})\n", sv, buf, INTERP_BUF, f, v.ty.llvm(), v.s));
+        Ok(Val::new(&Ty::Str, buf))
+    }
+
+    pub(crate) fn to_i64(&mut self, v: &Val, _line: usize) -> Result<Val, String> {
+        match v.ty {
+            Ty::Str => { self.declare("declare i64 @gt_to_i64(ptr)"); let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_to_i64(ptr {})\n", r, v.s)); Ok(Val::new(&Ty::I64, r)) }
+            Ty::F64 => { let r = self.new_reg(); self.body.push_str(&format!("  {} = fptosi double {} to i64\n", r, v.s)); Ok(Val::new(&Ty::I64, r)) }
+            Ty::Bool => { let r = self.new_reg(); self.body.push_str(&format!("  {} = zext i1 {} to i64\n", r, v.s)); Ok(Val::new(&Ty::I64, r)) }
+            _ => Ok(Val::new(&Ty::I64, v.s.clone())),
+        }
+    }
+
+    pub(crate) fn to_f64(&mut self, v: &Val, _line: usize) -> Result<Val, String> {
+        match v.ty {
+            Ty::Str => { self.declare("declare double @gt_to_f64(ptr)"); let r = self.new_reg(); self.body.push_str(&format!("  {} = call double @gt_to_f64(ptr {})\n", r, v.s)); Ok(Val::new(&Ty::F64, r)) }
+            Ty::F64 => Ok(Val::new(&Ty::F64, v.s.clone())),
+            Ty::Bool => { let z = self.new_reg(); self.body.push_str(&format!("  {} = zext i1 {} to i64\n", z, v.s)); let r = self.new_reg(); self.body.push_str(&format!("  {} = sitofp i64 {} to double\n", r, z)); Ok(Val::new(&Ty::F64, r)) }
+            _ => { let r = self.new_reg(); self.body.push_str(&format!("  {} = sitofp i64 {} to double\n", r, v.s)); Ok(Val::new(&Ty::F64, r)) }
+        }
+    }
+
+    pub(crate) fn to_bool(&mut self, v: &Val, _line: usize) -> Result<Val, String> {
+        match v.ty {
+            Ty::Str => { self.declare("declare i64 @strlen(ptr)"); let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @strlen(ptr {})\n", r, v.s)); let b = self.new_reg(); self.body.push_str(&format!("  {} = icmp ne i64 {}, 0\n", b, r)); Ok(Val::new(&Ty::Bool, b)) }
+            Ty::Bool => Ok(Val::new(&Ty::Bool, v.s.clone())),
+            Ty::F64 => { let z = self.new_reg(); self.body.push_str(&format!("  {} = fcmp une double {}, 0.0\n", z, v.s)); Ok(Val::new(&Ty::Bool, z)) }
+            _ => { let b = self.new_reg(); self.body.push_str(&format!("  {} = icmp ne i64 {}, 0\n", b, v.s)); Ok(Val::new(&Ty::Bool, b)) }
+        }
+    }
+
+    // ---------- if / match 作为值 ----------
+    pub(crate) fn if_value(&mut self, cond: &Expr, then: &Block, els: Option<&Block>, want: &Ty, _line: usize) -> Result<Val, String> {
+        let c = self.cond(cond)?;
+        let lthen = self.new_label();
+        let lelse = self.new_label();
+        let lend = self.new_label();
+        let slot = if want != &Ty::Void { Some(self.new_alloca(want)) } else { None };
+        self.body.push_str(&format!("  br i1 {}, label %{}, label %{}\n", c, lthen, lelse));
+        self.emit_label(&lthen);
+        self.push_scope();
+        let tv = self.block_ret(then, want)?;
+        self.pop_scope();
+        if !self.terminated {
+            if let (Some(slot), Some(v)) = (&slot, tv) { let v = self.coerce(&v, want)?; self.body.push_str(&format!("  store {} {}, ptr {}\n", want.llvm(), v.s, slot)); }
+            self.body.push_str(&format!("  br label %{}\n", lend));
+        }
+        self.emit_label(&lelse);
+        match els {
+            Some(eb) => { self.push_scope(); let ev = self.block_ret(eb, want)?; self.pop_scope(); if !self.terminated { if let (Some(slot), Some(v)) = (&slot, ev) { let v = self.coerce(&v, want)?; self.body.push_str(&format!("  store {} {}, ptr {}\n", want.llvm(), v.s, slot)); } self.body.push_str(&format!("  br label %{}\n", lend)); } }
+            None => { if let Some(slot) = &slot { self.body.push_str(&format!("  store {} {}, ptr {}\n", want.llvm(), want.zero(), slot)); } self.body.push_str(&format!("  br label %{}\n", lend)); }
+        }
+        self.emit_label(&lend);
+        match slot { Some(slot) => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load {}, ptr {}\n", r, want.llvm(), slot)); Ok(Val::new(want, r)) } None => Ok(Val::new(&Ty::Void, "0")) }
+    }
+
+    pub(crate) fn match_value(&mut self, subject: &Expr, arms: &[MatchArm], want: &Ty, line: usize) -> Result<Val, String> {
+        let subj = self.expr(subject)?;
+        let slot = if want != &Ty::Void { Some(self.new_alloca(want)) } else { None };
+        let lend = self.new_label();
+        for (i, arm) in arms.iter().enumerate() {
+            let larm = self.new_label();
+            let lnext = self.new_label();
+            let mut pending_binds: Vec<(String, Local)> = Vec::new();
+            let cond = if let Some((lo, hi)) = &arm.range {
+                // 范围模式 lo..hi（含 lo，不含 hi）
+                let lov = self.expr(lo)?;
+                let hiv = self.expr(hi)?;
+                let ge = self.new_reg();
+                self.body.push_str(&format!("  {} = icmp sge i64 {}, {}\n", ge, subj.s, lov.s));
+                let lt = self.new_reg();
+                self.body.push_str(&format!("  {} = icmp slt i64 {}, {}\n", lt, subj.s, hiv.s));
+                let r = self.new_reg();
+                self.body.push_str(&format!("  {} = and i1 {}, {}\n", r, ge, lt));
+                r
+            } else {
+                match &arm.pat {
+                    None => match &arm.guard { None => "true".to_string(), Some(g) => self.cond(g)? },
+                    Some(p) => {
+                        // Result/Option 变体绑定：Ok(v) / Err(e) / Some(v)
+                        let ctor: Option<(&str, &Expr)> = match &p.kind {
+                            ExprKind::Ok(a) => Some(("Ok", a)),
+                            ExprKind::Err(a) => Some(("Err", a)),
+                            ExprKind::Some(a) => Some(("Some", a)),
+                            // `Ok(v)` 在 parser 中是 Call("Ok", [Ident])
+                            ExprKind::Call(n, args) if matches!(n.as_str(), "Ok" | "Err" | "Some") && args.len() == 1 => Some((n.as_str(), &args[0])),
+                            _ => None,
+                        };
+                        if let Some((cname, carg)) = ctor {
+                            let want_tag: i64 = if cname == "Err" { 1 } else { 0 };
+                            self.declare("declare i64 @gt_result_tag(ptr)");
+                            // subj 可能是 ptr（Result）或 i64（句柄），统一转成 ptr
+                            let sp = if subj.ty.llvm() == "ptr" {
+                                subj.s.clone()
+                            } else {
+                                let r = self.new_reg();
+                                self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", r, subj.s));
+                                r
+                            };
+                            let tag = self.new_reg();
+                            self.body.push_str(&format!("  {} = call i64 @gt_result_tag(ptr {})\n", tag, sp));
+                            let eq = self.new_reg();
+                            self.body.push_str(&format!("  {} = icmp eq i64 {}, {}\n", eq, tag, want_tag));
+                            if let ExprKind::Ident(bn) = &carg.kind {
+                                let bty = match &subj.ty {
+                                    Ty::Result(t, e) => if cname == "Ok" { (**t).clone() } else { (**e).clone() },
+                                    Ty::Option(t) => (**t).clone(),
+                                    _ => Ty::I64,
+                                };
+                                self.declare("declare i64 @gt_result_val(ptr)");
+                                let val = self.new_reg();
+                                self.body.push_str(&format!("  {} = call i64 @gt_result_val(ptr {})\n", val, sp));
+                                let slot = self.new_alloca(&bty);
+                                if bty == Ty::F64 {
+                                    let d = self.new_reg();
+                                    self.body.push_str(&format!("  {} = bitcast i64 {} to double\n", d, val));
+                                    self.body.push_str(&format!("  store double {}, ptr {}\n", d, slot));
+                                } else {
+                                    self.body.push_str(&format!("  store i64 {}, ptr {}\n", val, slot));
+                                }
+                                pending_binds.push((bn.clone(), Local { ptr: slot, ty: bty }));
+                            }
+                            match &arm.guard { None => eq, Some(g) => { let gv = self.cond(g)?; let r = self.new_reg(); self.body.push_str(&format!("  {} = and i1 {}, {}\n", r, eq, gv)); r } }
+                        } else if let ExprKind::EnumLit(en, var, binds) = &p.kind {
+                            // 枚举解构：比较 tag 并暂存载荷
+                            let vidx = self.enum_variants.get(en).and_then(|vs| vs.iter().position(|(n, _)| n == var)).unwrap_or(0);
+                            let tp = self.new_reg();
+                            self.body.push_str(&format!("  {} = getelementptr i64, ptr {}, i64 0\n", tp, subj.s));
+                            let tag = self.new_reg();
+                            self.body.push_str(&format!("  {} = load i64, ptr {}\n", tag, tp));
+                            let eq = self.new_reg();
+                            self.body.push_str(&format!("  {} = icmp eq i64 {}, {}\n", eq, tag, vidx));
+                            // 绑定：把载荷存入新槽（在 arm 块内注入，见下方 bindings）
+                            let ptys: Vec<Ty> = self.enum_variants.get(en).and_then(|vs| vs.iter().find(|(n, _)| n == var).map(|(_, ts)| ts.clone())).unwrap_or_default();
+                            for (i, b) in binds.iter().enumerate() {
+                                if let ExprKind::Ident(bn) = &b.kind {
+                                    let bty = ptys.get(i).cloned().unwrap_or(Ty::I64);
+                                    let lp = self.new_reg();
+                                    self.body.push_str(&format!("  {} = getelementptr i64, ptr {}, i64 {}\n", lp, subj.s, i + 1));
+                                    let lv = self.new_reg();
+                                    self.body.push_str(&format!("  {} = load i64, ptr {}\n", lv, lp));
+                                    let slot = self.new_alloca(&bty);
+                                    // f64 载荷按位模式存储，需 bitcast
+                                    if bty == Ty::F64 {
+                                        let d = self.new_reg();
+                                        self.body.push_str(&format!("  {} = bitcast i64 {} to double\n", d, lv));
+                                        self.body.push_str(&format!("  store double {}, ptr {}\n", d, slot));
+                                    } else {
+                                        self.body.push_str(&format!("  store i64 {}, ptr {}\n", lv, slot));
+                                    }
+                                    pending_binds.push((bn.clone(), Local { ptr: slot, ty: bty }));
+                                }
+                            }
+                            match &arm.guard { None => eq, Some(g) => { let gv = self.cond(g)?; let r = self.new_reg(); self.body.push_str(&format!("  {} = and i1 {}, {}\n", r, eq, gv)); r } }
+                        } else {
+                            let pv = self.expr(p)?;
+                            let eq = self.eq(&subj, &pv, line)?;
+                            match &arm.guard { None => eq, Some(g) => { let gv = self.cond(g)?; let r = self.new_reg(); self.body.push_str(&format!("  {} = and i1 {}, {}\n", r, eq, gv)); r } }
+                        }
+                    }
+                }
+            };
+            self.body.push_str(&format!("  br i1 {}, label %{}, label %{}\n", cond, larm, lnext));
+            self.emit_label(&larm);
+            self.push_scope();
+            for (n, l) in pending_binds.drain(..) {
+                self.scopes.last_mut().unwrap().insert(n, l);
+            }
+            let v = self.block_ret(&arm.body, want)?;
+            self.pop_scope();
+            if !self.terminated {
+                if let (Some(slot), Some(v)) = (&slot, v) { let v = self.coerce(&v, want)?; self.body.push_str(&format!("  store {} {}, ptr {}\n", want.llvm(), v.s, slot)); }
+                self.body.push_str(&format!("  br label %{}\n", lend));
+            }
+            self.emit_label(&lnext);
+            if i + 1 == arms.len() { self.body.push_str(&format!("  br label %{}\n", lend)); }
+        }
+        self.emit_label(&lend);
+        match slot { Some(slot) => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load {}, ptr {}\n", r, want.llvm(), slot)); Ok(Val::new(want, r)) } None => Ok(Val::new(&Ty::Void, "0")) }
+    }
+
+    pub(crate) fn eq(&mut self, a: &Val, b: &Val, _line: usize) -> Result<String, String> {
+        let r = self.new_reg();
+        if a.ty == Ty::Str || b.ty == Ty::Str {
+            self.declare("declare i32 @strcmp(ptr, ptr)");
+            let c = self.new_reg();
+            self.body.push_str(&format!("  {} = call i32 @strcmp(ptr {}, ptr {})\n", c, a.s, b.s));
+            self.body.push_str(&format!("  {} = icmp eq i32 {}, 0\n", r, c));
+        } else if a.ty == Ty::F64 || b.ty == Ty::F64 {
+            self.body.push_str(&format!("  {} = fcmp oeq double {}, {}\n", r, a.s, b.s));
+        } else {
+            self.body.push_str(&format!("  {} = icmp eq i64 {}, {}\n", r, a.s, b.s));
+        }
+        Ok(r)
+    }
+}
