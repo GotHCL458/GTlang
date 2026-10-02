@@ -76,6 +76,29 @@ impl FnState {
                 let call = b.ins().call(f, &[one, zero]);
                 return Ok((b.inst_results(call)[0], call_ty.clone()));
             }
+            "sb_new" => {
+                let f = self.rt_ref(jit, b, "sb_new")?;
+                let call = b.ins().call(f, &[]);
+                return Ok((b.inst_results(call)[0], Ty::I64));
+            }
+            "sb_push" | "sb_push_str" | "sb_push_int" | "sb_push_f64" | "sb_push_bool" => {
+                if args.len() != 2 { return Err(crate::lb!(line, "sb_push() requires 2 arguments", "sb_push() 需要 2 个参数")); }
+                let h = self.gen_expr(jit, b, &args[0])?;
+                let hs = self.convert(b, &h, &Ty::I64);
+                let v = self.gen_expr(jit, b, &args[1])?;
+                let key = match v.1 { Ty::F64 => "sb_push_f64", Ty::Str => "sb_push_str", Ty::Bool => "sb_push_bool", _ => "sb_push_i64" };
+                let f = self.rt_ref(jit, b, key)?;
+                b.ins().call(f, &[hs, v.0]);
+                return Ok((b.ins().iconst(types::I64, 0), Ty::Void));
+            }
+            "sb_finish" => {
+                if args.len() != 1 { return Err(crate::lb!(line, "sb_finish() requires 1 argument", "sb_finish() 需要 1 个参数")); }
+                let h = self.gen_expr(jit, b, &args[0])?;
+                let hs = self.convert(b, &h, &Ty::I64);
+                let f = self.rt_ref(jit, b, "sb_finish")?;
+                let call = b.ins().call(f, &[hs]);
+                return Ok((b.inst_results(call)[0], Ty::Str));
+            }
             "put" | "print" => {
                 if args.is_empty() { return Err(crate::lb!(line, "{}() requires 1 argument", "{}() 需要 1 个参数", name)); }
                 self.gen_print(jit, b, &args[0])?;

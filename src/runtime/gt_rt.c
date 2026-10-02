@@ -777,6 +777,72 @@ char *gt_fmt_int(long long x, long long width) {
 }
 
 
+
+/* ============================================================
+ * StringBuilder：高性能字符串拼接（避免 str + str 的 O(n²)）。
+ * 句柄是"下标 + 1"；缓冲用动态数组，末尾自动维护 NUL。
+ * ============================================================ */
+typedef struct { char *buf; long long len; long long cap; } GtSb;
+#define GT_SB_MAX 256
+static GtSb *GT_SBS[GT_SB_MAX];
+static long long GT_SB_NEXT = 1;
+
+static GtSb *gt_sb_get(long long h) {
+    if (h <= 0 || h >= GT_SB_NEXT || h >= GT_SB_MAX) return NULL;
+    return GT_SBS[h];
+}
+
+long long gt_sb_new(void) {
+    if (GT_SB_NEXT >= GT_SB_MAX) return 0;
+    GtSb *s = (GtSb *)gt_alloc(sizeof(GtSb));
+    s->cap = 64; s->len = 0;
+    s->buf = (char *)gt_alloc((size_t)s->cap);
+    s->buf[0] = 0;
+    GT_SBS[GT_SB_NEXT] = s;
+    return GT_SB_NEXT++;
+}
+
+static void gt_sb_reserve(GtSb *s, long long extra) {
+    if (s->len + extra + 1 <= s->cap) return;
+    while (s->len + extra + 1 > s->cap) s->cap *= 2;
+    s->buf = (char *)gt_realloc(s->buf, (size_t)s->cap);
+}
+
+void gt_sb_push_str(long long h, const char *p) {
+    GtSb *s = gt_sb_get(h);
+    if (!s || !p) return;
+    long long n = (long long)strlen(p);
+    gt_sb_reserve(s, n);
+    memcpy(s->buf + s->len, p, (size_t)n);
+    s->len += n; s->buf[s->len] = 0;
+}
+
+void gt_sb_push_i64(long long h, long long v) {
+    char tmp[32];
+    snprintf(tmp, sizeof tmp, "%lld", v);
+    gt_sb_push_str(h, tmp);
+}
+
+void gt_sb_push_f64(long long h, double v) {
+    char tmp[64];
+    snprintf(tmp, sizeof tmp, "%g", v);
+    gt_sb_push_str(h, tmp);
+}
+
+void gt_sb_push_bool(long long h, long long v) {
+    gt_sb_push_str(h, v != 0 ? "true" : "false");
+}
+
+/* 收尾：把缓冲"移交"给调用方（返回 NUL 结尾字符串指针）。句柄失效。 */
+char *gt_sb_finish(long long h) {
+    GtSb *s = gt_sb_get(h);
+    if (!s) return NULL;
+    GT_SBS[h] = NULL;
+    char *r = s->buf;
+    gt_free(s);
+    return r;
+}
+
 /* ============================================================
  * 并发：gt_thread_spawn(fn_ptr, args_ptr, nargs)
  *   新线程调用 fn(args_ptr[0..nargs])（参数为 i64）。

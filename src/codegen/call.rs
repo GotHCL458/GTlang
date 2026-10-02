@@ -92,6 +92,39 @@ impl<'a> Codegen<'a> {
                 self.emit_print(&args[0], name == "put")?;
                 Ok(Val::new(&Ty::Void, "0"))
             }
+            "sb_new" => {
+                self.declare("declare i64 @gt_sb_new()");
+                let r = self.new_reg();
+                self.body.push_str(&format!("  {} = call i64 @gt_sb_new()\n", r));
+                Ok(Val::new(&Ty::I64, r))
+            }
+            "sb_push" | "sb_push_str" | "sb_push_int" | "sb_push_f64" | "sb_push_bool" => {
+                if args.len() != 2 { return Err(crate::lb!(line, "sb_push() requires 2 arguments", "sb_push() 需要 2 个参数")); }
+                let h = self.expr(&args[0])?;
+                let hs = self.as_i64(&h);
+                let v = self.expr(&args[1])?;
+                // 按值类型选运行时函数
+                let fname = match v.ty {
+                    Ty::F64 => "gt_sb_push_f64",
+                    Ty::Str => "gt_sb_push_str",
+                    Ty::Bool => "gt_sb_push_bool",
+                    _ => "gt_sb_push_i64",
+                };
+                let argty = if v.ty == Ty::F64 { "double" } else if v.ty == Ty::Str { "ptr" } else { "i64" };
+                let av = if v.ty == Ty::Str { v.s.clone() } else { self.as_i64(&v) };
+                self.declare(&format!("declare void @{}(i64, {})", fname, argty));
+                self.body.push_str(&format!("  call void @{}(i64 {}, {} {})\n", fname, hs, argty, av));
+                Ok(Val::new(&Ty::Void, "0"))
+            }
+            "sb_finish" => {
+                if args.len() != 1 { return Err(crate::lb!(line, "sb_finish() requires 1 argument", "sb_finish() 需要 1 个参数")); }
+                let h = self.expr(&args[0])?;
+                let hs = self.as_i64(&h);
+                self.declare("declare ptr @gt_sb_finish(i64)");
+                let r = self.new_reg();
+                self.body.push_str(&format!("  {} = call ptr @gt_sb_finish(i64 {})\n", r, hs));
+                Ok(Val::new(&Ty::Str, r))
+            }
             "len" => match args[0].ty.clone() {
                 Ty::Array(_, n) => Ok(Val::new(&Ty::I64, n.to_string())),
                 Ty::Str => { self.declare("declare i64 @strlen(ptr)"); let v = self.expr(&args[0])?; let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @strlen(ptr {})\n", r, v.s)); Ok(Val::new(&Ty::I64, r)) }

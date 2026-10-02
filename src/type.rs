@@ -429,6 +429,11 @@ fn builtin_check(name: &str, args: &[Ty]) -> Result<Ty, String> {
             Ok(Ty::I64)
         }
 
+        // ---------- StringBuilder ----------
+        "sb_new" => { if !args.is_empty() { return Err(crate::te!("sb_new() takes no arguments", "sb_new() 不接受参数")); } Ok(Ty::I64) }
+        "sb_push" | "sb_push_str" | "sb_push_int" | "sb_push_f64" | "sb_push_bool" => { arity(2)?; Ok(Ty::Void) }
+        "sb_finish" => { arity(1)?; Ok(Ty::Str) }
+
         // ---------- 长度 ----------
         "len" => match one()? {
             Ty::Str | Ty::Array(..) | Ty::List(..) | Ty::Set(..) | Ty::Map(..) | Ty::Unknown => {
