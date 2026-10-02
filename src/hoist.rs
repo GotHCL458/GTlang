@@ -97,6 +97,8 @@ pub fn hoist(prog: &mut Program) {
                         let mut scope: HashMap<String, String> = HashMap::new();
                         hoist_block(&mut b2, &uniq, &mut scope, &mut hoisted);
                         if !scope.is_empty() { rewrite_calls_block(&mut b2, &scope); }
+                        // 默认方法体内的 `self.方法`（含父 trait 的方法）降级为 `类型__方法`
+                        rewrite_self_calls_in_block(&mut b2, &ty, &std::collections::HashSet::new());
                         new_items.push(Item::Fn(FnDef { name: uniq, type_params: Vec::new(), params, ret: Some(ret.clone()), ret_ty: ret, body: b2, line, is_pub: false, bounds: Vec::new() }));
                     }
                 }
@@ -235,16 +237,15 @@ fn rewrite_self_calls_in_expr(e: &mut Expr, ty: &str, mnames: &std::collections:
         }
         _ => {}
     }
-    // 改写 `self.方法(...)`
+    // 改写 `self.方法(...)`：无条件降级为 `类型__方法`（含父 trait 的方法）
+    let _ = mnames;
     if let ExprKind::Call(name, args) = &mut e.kind {
         if let Some(rest) = name.strip_prefix("self.") {
-            if mnames.contains(rest) {
-                let self_expr = Expr::new(ExprKind::Ident("self".to_string()), e.line);
-                let mut new_args = vec![self_expr];
-                new_args.extend(args.drain(..));
-                *args = new_args;
-                *name = format!("{}__{}", ty, rest);
-            }
+            let self_expr = Expr::new(ExprKind::Ident("self".to_string()), e.line);
+            let mut new_args = vec![self_expr];
+            new_args.extend(args.drain(..));
+            *args = new_args;
+            *name = format!("{}__{}", ty, rest);
         }
     }
 }
