@@ -469,6 +469,15 @@ fn param_used_as_fn(b: &Block, name: &str) -> bool {
                 found = true;
             }
         }
+        // 参数被"闭包捕获"（如 `return |x| g(f(x))` 里 f/g 进了闭包环境）
+        // → 说明它是函数值，推为 Closure。
+        ExprKind::ClosureNew { captures, .. } => {
+            for c in captures {
+                if let ExprKind::Ident(n) = &c.kind {
+                    if n == name { found = true; }
+                }
+            }
+        }
         // hoist 已把对闭包参数名的调用改成 CallValue(Ident(f), ...)
         ExprKind::CallValue { callee, .. } => {
             if let ExprKind::Ident(n) = &callee.kind {
