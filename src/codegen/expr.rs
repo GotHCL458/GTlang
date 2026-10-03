@@ -442,6 +442,7 @@ impl<'a> Codegen<'a> {
                     .get(fn_name)
                     .cloned()
                     .ok_or_else(|| crate::lb!(e.line, "closure function '{}' not found", "闭包函数 '{}' 未找到", fn_name))?;
+                let _ = &finfo;
                 let fp = self.new_reg();
                 self.body
                     .push_str(&format!("  {} = ptrtoint ptr @{} to i64\n", fp, finfo.cname));

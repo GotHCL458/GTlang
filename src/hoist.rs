@@ -36,6 +36,62 @@ fn block_returns_closure(b: &Block) -> bool {
     false
 }
 
+/// 把"值位置出现的全局函数名"（如 `组合(加一, ...)` 里的 `加一`）转成
+/// 无捕获闭包构造 `ClosureNew { fn_name, captures: [] }`，使函数名可作一等值。
+/// `Call` 的 callee 是字符串（不是 Ident），因此不会误转普通调用。
+fn convert_fn_refs(prog: &mut Program, fn_names: &[String]) {
+    for item in &mut prog.items {
+        if let Item::Fn(f) = item {
+            convert_fn_refs_block(&mut f.body, fn_names);
+        }
+    }
+}
+
+fn convert_fn_refs_block(b: &mut Block, fn_names: &[String]) {
+    for s in b.iter_mut() {
+        match s {
+            Stmt::Let { value, .. } | Stmt::Const { value, .. } | Stmt::Assign { value, .. } | Stmt::FieldAssign { value, .. } => convert_fn_refs_expr(value, fn_names),
+            Stmt::Expr(e) | Stmt::Return(Some(e), _) => convert_fn_refs_expr(e, fn_names),
+            Stmt::If { cond, then, els, .. } => { convert_fn_refs_expr(cond, fn_names); convert_fn_refs_block(then, fn_names); if let Some(e) = els { convert_fn_refs_block(e, fn_names); } }
+            Stmt::While { cond, body, .. } => { convert_fn_refs_expr(cond, fn_names); convert_fn_refs_block(body, fn_names); }
+            Stmt::ForRange { from, to, body, .. } => { convert_fn_refs_expr(from, fn_names); convert_fn_refs_expr(to, fn_names); convert_fn_refs_block(body, fn_names); }
+            Stmt::ForEach { iter, body, .. } => { convert_fn_refs_expr(iter, fn_names); convert_fn_refs_block(body, fn_names); }
+            Stmt::Block(inner) => convert_fn_refs_block(inner, fn_names),
+            _ => {}
+        }
+    }
+}
+
+fn convert_fn_refs_expr(e: &mut Expr, fn_names: &[String]) {
+    // 先递归（不含 CallValue 的 callee——那是闭包变量调用，不应转成函数引用）
+    match &mut e.kind {
+        ExprKind::Call(_, args) => for a in args { convert_fn_refs_expr(a, fn_names); },
+        ExprKind::CallValue { args, .. } => for a in args { convert_fn_refs_expr(a, fn_names); },
+        ExprKind::Unary(_, a) => convert_fn_refs_expr(a, fn_names),
+        ExprKind::Binary(_, a, b) => { convert_fn_refs_expr(a, fn_names); convert_fn_refs_expr(b, fn_names); }
+        ExprKind::Index(a, b) => { convert_fn_refs_expr(a, fn_names); convert_fn_refs_expr(b, fn_names); }
+        ExprKind::ArrayLit(xs) => for x in xs { convert_fn_refs_expr(x, fn_names); },
+        ExprKind::Interp(parts) => for p in parts { if let StrPart::Expr(i) = p { convert_fn_refs_expr(i, fn_names); } },
+        ExprKind::TupleLit(xs) => for x in xs { convert_fn_refs_expr(x, fn_names); },
+        ExprKind::Slice(a, b, c) => { convert_fn_refs_expr(a, fn_names); convert_fn_refs_expr(b, fn_names); convert_fn_refs_expr(c, fn_names); }
+        ExprKind::Field(b, _) => convert_fn_refs_expr(b, fn_names),
+        ExprKind::StructLit(_, fs) => for (_, v) in fs { convert_fn_refs_expr(v, fn_names); },
+        ExprKind::EnumLit(_, _, args) => for a in args { convert_fn_refs_expr(a, fn_names); },
+        ExprKind::DynBox { value, .. } => convert_fn_refs_expr(value, fn_names),
+        ExprKind::Borrow { inner, .. } => convert_fn_refs_expr(inner, fn_names),
+        ExprKind::Ok(a) | ExprKind::Err(a) | ExprKind::Try(a) | ExprKind::Some(a) => convert_fn_refs_expr(a, fn_names),
+        ExprKind::MethodOn { recv, args, .. } => { convert_fn_refs_expr(recv, fn_names); for a in args { convert_fn_refs_expr(a, fn_names); } }
+        ExprKind::ClosureNew { captures, .. } => for c in captures { convert_fn_refs_expr(c, fn_names); },
+        _ => {}
+    }
+    // 值位置的函数名 → 无捕获闭包
+    if let ExprKind::Ident(n) = &e.kind {
+        if fn_names.iter().any(|f| f == n) {
+            e.kind = ExprKind::ClosureNew { fn_name: n.clone(), captures: vec![] };
+        }
+    }
+}
+
 /// 对整份程序做降级：嵌套函数提升 + impl 方法展平。
 pub fn hoist(prog: &mut Program) {
     // 返回闭包的函数名集合（供 convert_closure_calls 识别 f := 该函数(...)）
@@ -207,6 +263,13 @@ pub fn hoist(prog: &mut Program) {
         }
     }
     prog.items = new_items;
+
+    // 值位置出现的全局函数名 → 无捕获闭包（函数作一等值）
+    let mut fn_names: Vec<String> = Vec::new();
+    for item in &prog.items {
+        if let Item::Fn(f) = item { fn_names.push(f.name.clone()); }
+    }
+    convert_fn_refs(prog, &fn_names);
 }
 
 /// 找出块中直接声明的 `fn`，登记唯一名，递归处理其体，并从块中移除。

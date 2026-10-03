@@ -608,7 +608,11 @@ fn collect_calls(e: &Expr, out: &mut std::collections::HashSet<String>) {
         ExprKind::Try(inner) => collect_calls(inner, out),
         ExprKind::Ok(inner) | ExprKind::Err(inner) | ExprKind::Some(inner) => collect_calls(inner, out),
         ExprKind::Closure { body, .. } => collect_calls(body, out),
-        ExprKind::ClosureNew { captures, .. } => for c in captures { collect_calls(c, out); },
+        ExprKind::ClosureNew { fn_name, captures } => {
+            // 闭包体函数名（含"函数作一等值"的无捕获闭包）视为被引用，避免误删
+            out.insert(fn_name.clone());
+            for c in captures { collect_calls(c, out); }
+        }
         ExprKind::TryBlock { body, catches, fin } => {
             collect_calls_block(body, out);
             for ca in catches { collect_calls_block(&ca.body, out); }
