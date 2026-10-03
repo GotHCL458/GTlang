@@ -78,6 +78,19 @@ fn convert_fn_refs_expr(e: &mut Expr, fn_names: &[String]) {
         ExprKind::StructLit(_, fs) => for (_, v) in fs { convert_fn_refs_expr(v, fn_names); },
         ExprKind::EnumLit(_, _, args) => for a in args { convert_fn_refs_expr(a, fn_names); },
         ExprKind::DynBox { value, .. } => convert_fn_refs_expr(value, fn_names),
+        ExprKind::If { cond, then, els } => {
+            convert_fn_refs_expr(cond, fn_names);
+            convert_fn_refs_block(then, fn_names);
+            if let Some(e) = els { convert_fn_refs_block(e, fn_names); }
+        }
+        ExprKind::Match { subject, arms } => {
+            convert_fn_refs_expr(subject, fn_names);
+            for arm in arms {
+                if let Some(p) = &mut arm.pat { convert_fn_refs_expr(p, fn_names); }
+                if let Some(g) = &mut arm.guard { convert_fn_refs_expr(g, fn_names); }
+                convert_fn_refs_block(&mut arm.body, fn_names);
+            }
+        }
         ExprKind::Borrow { inner, .. } => convert_fn_refs_expr(inner, fn_names),
         ExprKind::Ok(a) | ExprKind::Err(a) | ExprKind::Try(a) | ExprKind::Some(a) => convert_fn_refs_expr(a, fn_names),
         ExprKind::MethodOn { recv, args, .. } => { convert_fn_refs_expr(recv, fn_names); for a in args { convert_fn_refs_expr(a, fn_names); } }
@@ -827,7 +840,18 @@ fn convert_closure_calls(b: &mut Block, closure_vars: &mut Vec<String>, rcf: &[S
 }
 
 fn is_closure_expr(e: &Expr) -> bool {
-    matches!(e.kind, ExprKind::ClosureNew { .. } | ExprKind::Closure { .. })
+    match &e.kind {
+        ExprKind::ClosureNew { .. } | ExprKind::Closure { .. } => true,
+        // 值位置出现的全局函数名（convert_fn_refs 会把它变成 ClosureNew）
+        ExprKind::Ident(_) => true,
+        // if/match 分支都产闭包 → 整体是闭包
+        ExprKind::If { then, els, .. } => {
+            let then_ok = matches!(then.last(), Some(Stmt::Expr(x)) if is_closure_expr(x));
+            let els_ok = els.as_ref().map_or(false, |b| matches!(b.last(), Some(Stmt::Expr(x)) if is_closure_expr(x)));
+            then_ok && els_ok
+        }
+        _ => false,
+    }
 }
 
 /// `e` 是否为"调用某个返回闭包的函数"，如 `造加法(10)`。
