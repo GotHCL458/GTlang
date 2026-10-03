@@ -183,7 +183,9 @@ impl Parser {
                     }
                     _ => None,
                 };
-                if callee.is_some() || chain.is_some() {
+                // 任意表达式作 callee（如 `fs[0](5)`、`(工厂())(x)`）→ 间接调用 CallValue
+                let indirect = callee.is_none() && chain.is_none();
+                if callee.is_some() || chain.is_some() || indirect {
                     self.bump();
                     let saved = self.no_struct_lit;
                     self.no_struct_lit = false;
@@ -219,6 +221,10 @@ impl Parser {
                     if let Some((recv, method)) = chain {
                         // 方法链：`expr.方法(args)` → MethodOn（mono 降级为 类型__方法(recv, ...)）
                         e = Expr::new(ExprKind::MethodOn { recv, method, args }, line);
+                    } else if indirect {
+                        // 间接调用：callee 是任意表达式（索引/调用结果/括号表达式…）
+                        let callee = std::mem::replace(&mut e, Expr::new(ExprKind::None, line));
+                        e = Expr::new(ExprKind::CallValue { callee: Box::new(callee), args }, line);
                     } else {
                         let name = callee.unwrap();
                         if named.is_empty() {
