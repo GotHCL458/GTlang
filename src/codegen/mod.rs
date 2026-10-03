@@ -111,7 +111,13 @@ impl Val {
     /// （ptr 类类型必须传 ptr 值，数值/布尔必须传 i64/i1 值）。
     pub(crate) fn new(ty: &Ty, s: impl Into<String>) -> Val {
         let is_ptr = ty.llvm() == "ptr";
-        Val { ty: ty.clone(), s: s.into(), is_ptr }
+        let s = s.into();
+        // 形态不变式：ptr 类的值不应是"纯数字字面量"（那多半是 i64 被错标）
+        debug_assert!(
+            !(is_ptr && !s.is_empty() && s.bytes().all(|c| c.is_ascii_digit() || c == b'-') && s != "null"),
+            "Val::new: ptr 类类型 {:?} 收到了数字字面量 '{}'（形态疑似错标）", ty, s
+        );
+        Val { ty: ty.clone(), s, is_ptr }
     }
     /// 以 i64（slot）形态构造：仅用于**非 ptr 类**类型。
     /// 容器/字符串句柄在运行期以 i64 流转，但取出后应立即 inttoptr 成 ptr 形态，
