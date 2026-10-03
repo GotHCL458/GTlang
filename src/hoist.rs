@@ -12,8 +12,37 @@ use std::collections::HashMap;
 
 use crate::ast::*;
 
+/// 判断函数体是否直接返回闭包字面量（用于识别"返回闭包的函数"）。
+fn block_returns_closure(b: &Block) -> bool {
+    for s in b {
+        match s {
+            Stmt::Return(Some(e), _) => {
+                if matches!(e.kind, ExprKind::ClosureNew { .. } | ExprKind::Closure { .. }) {
+                    return true;
+                }
+            }
+            Stmt::If { then, els, .. } => {
+                if block_returns_closure(then) { return true; }
+                if let Some(e) = els { if block_returns_closure(e) { return true; } }
+            }
+            Stmt::Block(inner) => { if block_returns_closure(inner) { return true; } }
+            _ => {}
+        }
+    }
+    false
+}
+
 /// 对整份程序做降级：嵌套函数提升 + impl 方法展平。
 pub fn hoist(prog: &mut Program) {
+    // 返回闭包的函数名集合（供 convert_closure_calls 识别 f := 该函数(...)）
+    let ret_closure_fns: Vec<String> = prog
+        .items
+        .iter()
+        .filter_map(|it| match it {
+            Item::Fn(f) if block_returns_closure(&f.body) => Some(f.name.clone()),
+            _ => None,
+        })
+        .collect();
     let mut hoisted: Vec<FnDef> = Vec::new();
     // `类型.方法` → `类型__方法`（全局生效）
     let mut impl_scope: HashMap<String, String> = HashMap::new();
@@ -42,7 +71,7 @@ pub fn hoist(prog: &mut Program) {
                 lift_closures_in_fn(&mut f, &mut closure_counter, &mut closures);
                 // 参数名也可能是闭包（高阶函数）：把参数名当作闭包变量参与转换
                 let mut cv: Vec<String> = f.params.iter().map(|p| p.name.clone()).collect();
-                convert_closure_calls(&mut f.body, &mut cv);
+                convert_closure_calls(&mut f.body, &mut cv, &ret_closure_fns);
                 new_items.push(Item::Fn(f));
             }
             // 泛型 impl（`impl[T] ...`）：方法保留为泛型函数，由 mono 单态化；不在此展平
@@ -54,7 +83,7 @@ pub fn hoist(prog: &mut Program) {
                     if !scope.is_empty() { rewrite_calls_block(&mut m.body, &scope); }
                     lift_closures_in_fn(&mut m, &mut closure_counter, &mut closures);
                     let mut cv: Vec<String> = m.params.iter().map(|p| p.name.clone()).collect();
-                    convert_closure_calls(&mut m.body, &mut cv);
+                    convert_closure_calls(&mut m.body, &mut cv, &ret_closure_fns);
                     new_items.push(Item::Fn(m));
                 }
                 new_items.push(Item::TraitImpl { type_params, trait_name, ty, methods: Vec::new(), assoc_bind, line });
@@ -78,7 +107,7 @@ pub fn hoist(prog: &mut Program) {
                     }
                     lift_closures_in_fn(&mut m, &mut closure_counter, &mut closures);
                     let mut cv: Vec<String> = m.params.iter().map(|p| p.name.clone()).collect();
-                    convert_closure_calls(&mut m.body, &mut cv);
+                    convert_closure_calls(&mut m.body, &mut cv, &ret_closure_fns);
                     new_items.push(Item::Fn(m));
                 }
                 // trait 默认方法：impl 未实现的补上（展平为 `类型__方法`）
@@ -114,7 +143,7 @@ pub fn hoist(prog: &mut Program) {
                     if !scope.is_empty() { rewrite_calls_block(&mut m.body, &scope); }
                     lift_closures_in_fn(&mut m, &mut closure_counter, &mut closures);
                     let mut cv: Vec<String> = m.params.iter().map(|p| p.name.clone()).collect();
-                    convert_closure_calls(&mut m.body, &mut cv);
+                    convert_closure_calls(&mut m.body, &mut cv, &ret_closure_fns);
                     new_items.push(Item::Fn(m));
                 }
             }
@@ -141,7 +170,7 @@ pub fn hoist(prog: &mut Program) {
                     rewrite_self_calls_in_block(&mut m.body, &ty, &mnames);
                     lift_closures_in_fn(&mut m, &mut closure_counter, &mut closures);
                     let mut cv: Vec<String> = m.params.iter().map(|p| p.name.clone()).collect();
-                    convert_closure_calls(&mut m.body, &mut cv);
+                    convert_closure_calls(&mut m.body, &mut cv, &ret_closure_fns);
                     new_items.push(Item::Fn(m));
                 }
             }
@@ -693,38 +722,38 @@ fn collect_free_vars_block(b: &Block, bound: &[String], out: &mut Vec<String>) {
 
 /// 把「对闭包变量的命名调用」`f(args)` 改写为间接调用 `CallValue(Ident(f), args)`。
 /// 依据：同一作用域内 `f := <闭包>` 的定义（语法层判定，无需类型信息）。
-fn convert_closure_calls(b: &mut Block, closure_vars: &mut Vec<String>) {
+fn convert_closure_calls(b: &mut Block, closure_vars: &mut Vec<String>, rcf: &[String]) {
     for s in b.iter_mut() {
         match s {
             Stmt::Let { name, value, .. } => {
-                convert_closure_calls_expr(value, closure_vars);
-                if is_closure_expr(value) {
+                convert_closure_calls_expr(value, closure_vars, rcf);
+                if is_closure_expr(value) || is_call_to_ret_closure(value, rcf) {
                     closure_vars.push(name.clone());
                 }
             }
-            Stmt::Const { value, .. } => convert_closure_calls_expr(value, closure_vars),
-            Stmt::Assign { value, .. } => convert_closure_calls_expr(value, closure_vars),
-            Stmt::Expr(e) | Stmt::Return(Some(e), _) => convert_closure_calls_expr(e, closure_vars),
+            Stmt::Const { value, .. } => convert_closure_calls_expr(value, closure_vars, rcf),
+            Stmt::Assign { value, .. } => convert_closure_calls_expr(value, closure_vars, rcf),
+            Stmt::Expr(e) | Stmt::Return(Some(e), _) => convert_closure_calls_expr(e, closure_vars, rcf),
             Stmt::If { cond, then, els, .. } => {
-                convert_closure_calls_expr(cond, closure_vars);
-                convert_closure_calls(then, &mut closure_vars.clone());
-                if let Some(e) = els { convert_closure_calls(e, &mut closure_vars.clone()); }
+                convert_closure_calls_expr(cond, closure_vars, rcf);
+                convert_closure_calls(then, &mut closure_vars.clone(), rcf);
+                if let Some(e) = els { convert_closure_calls(e, &mut closure_vars.clone(), rcf); }
             }
             Stmt::While { cond, body, .. } => {
-                convert_closure_calls_expr(cond, closure_vars);
-                convert_closure_calls(body, &mut closure_vars.clone());
+                convert_closure_calls_expr(cond, closure_vars, rcf);
+                convert_closure_calls(body, &mut closure_vars.clone(), rcf);
             }
             Stmt::ForRange { from, to, body, .. } => {
-                convert_closure_calls_expr(from, closure_vars);
-                convert_closure_calls_expr(to, closure_vars);
-                convert_closure_calls(body, &mut closure_vars.clone());
+                convert_closure_calls_expr(from, closure_vars, rcf);
+                convert_closure_calls_expr(to, closure_vars, rcf);
+                convert_closure_calls(body, &mut closure_vars.clone(), rcf);
             }
             Stmt::ForEach { iter, body, .. } => {
-                convert_closure_calls_expr(iter, closure_vars);
-                convert_closure_calls(body, &mut closure_vars.clone());
+                convert_closure_calls_expr(iter, closure_vars, rcf);
+                convert_closure_calls(body, &mut closure_vars.clone(), rcf);
             }
-            Stmt::Block(inner) => convert_closure_calls(inner, closure_vars),
-            Stmt::FieldAssign { value, .. } => convert_closure_calls_expr(value, closure_vars),
+            Stmt::Block(inner) => convert_closure_calls(inner, closure_vars, rcf),
+            Stmt::FieldAssign { value, .. } => convert_closure_calls_expr(value, closure_vars, rcf),
             _ => {}
         }
     }
@@ -734,7 +763,15 @@ fn is_closure_expr(e: &Expr) -> bool {
     matches!(e.kind, ExprKind::ClosureNew { .. } | ExprKind::Closure { .. })
 }
 
-fn convert_closure_calls_expr(e: &mut Expr, closure_vars: &[String]) {
+/// `e` 是否为"调用某个返回闭包的函数"，如 `造加法(10)`。
+fn is_call_to_ret_closure(e: &Expr, rcf: &[String]) -> bool {
+    if let ExprKind::Call(name, _) = &e.kind {
+        return rcf.iter().any(|f| f == name);
+    }
+    false
+}
+
+fn convert_closure_calls_expr(e: &mut Expr, closure_vars: &[String], rcf: &[String]) {
     if let ExprKind::Call(name, args) = &mut e.kind {
         if closure_vars.contains(name) {
             let callee = Expr::new(ExprKind::Ident(name.clone()), e.line);
@@ -743,25 +780,25 @@ fn convert_closure_calls_expr(e: &mut Expr, closure_vars: &[String]) {
         }
     }
     match &mut e.kind {
-        ExprKind::Call(_, args) => for a in args { convert_closure_calls_expr(a, closure_vars); },
+        ExprKind::Call(_, args) => for a in args { convert_closure_calls_expr(a, closure_vars, rcf); },
         ExprKind::CallValue { callee, args } => {
-            convert_closure_calls_expr(callee, closure_vars);
-            for a in args { convert_closure_calls_expr(a, closure_vars); }
+            convert_closure_calls_expr(callee, closure_vars, rcf);
+            for a in args { convert_closure_calls_expr(a, closure_vars, rcf); }
         }
-        ExprKind::Unary(_, a) => convert_closure_calls_expr(a, closure_vars),
+        ExprKind::Unary(_, a) => convert_closure_calls_expr(a, closure_vars, rcf),
         ExprKind::Binary(_, a, b) => {
-            convert_closure_calls_expr(a, closure_vars);
-            convert_closure_calls_expr(b, closure_vars);
+            convert_closure_calls_expr(a, closure_vars, rcf);
+            convert_closure_calls_expr(b, closure_vars, rcf);
         }
         ExprKind::Index(a, b) => {
-            convert_closure_calls_expr(a, closure_vars);
-            convert_closure_calls_expr(b, closure_vars);
+            convert_closure_calls_expr(a, closure_vars, rcf);
+            convert_closure_calls_expr(b, closure_vars, rcf);
         }
-        ExprKind::ArrayLit(xs) => for x in xs { convert_closure_calls_expr(x, closure_vars); },
+        ExprKind::ArrayLit(xs) => for x in xs { convert_closure_calls_expr(x, closure_vars, rcf); },
         ExprKind::Interp(parts) => for p in parts {
-            if let StrPart::Expr(i) = p { convert_closure_calls_expr(i, closure_vars); }
+            if let StrPart::Expr(i) = p { convert_closure_calls_expr(i, closure_vars, rcf); }
         },
-        ExprKind::ClosureNew { captures, .. } => for c in captures { convert_closure_calls_expr(c, closure_vars); },
+        ExprKind::ClosureNew { captures, .. } => for c in captures { convert_closure_calls_expr(c, closure_vars, rcf); },
         _ => {}
     }
 }
