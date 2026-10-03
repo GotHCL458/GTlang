@@ -387,7 +387,7 @@ impl FnState {
         }
     }
 
-    pub(crate) fn gen_call_value(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, callee: &Expr, args: &[Expr], e: &Expr) -> Result<(Value, Ty), String> {
+    pub(crate) fn gen_call_value(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, callee: &Expr, args: &[Expr], _e: &Expr) -> Result<(Value, Ty), String> {
         let cb = self.gen_expr(jit, b, callee)?;
         // 被调闭包的签名必须取自 callee 的类型（e.ty 是"调用结果"的类型，
         // 当结果本身也是闭包时会误用它）。
