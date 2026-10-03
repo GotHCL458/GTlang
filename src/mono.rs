@@ -511,6 +511,8 @@ fn instantiate(gf: &FnDef, tys: &[Ty], inst: &str, trait_methods: &HashMap<Strin
     if let Some(r) = &f.ret {
         f.ret = Some(subst_ty_a(r, &map, assoc));
     }
+    // 推断出的返回类型也要按实参替换（否则多实例化时 T 混用）
+    f.ret_ty = subst_ty_a(&f.ret_ty, &map, assoc);
     // 体内类型替换（数组字面量等已回填的类型）
     subst_block_ty(&mut f.body, &map);
     rewrite_generic_trait_calls(&mut f.body, &gf.bounds, &map, &pname_to_tp, trait_methods, trait_impl_methods);
