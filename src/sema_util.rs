@@ -76,6 +76,12 @@ pub(crate) fn each_expr(e: &Expr, f: &mut impl FnMut(&Expr)) {
                 each_expr(a, f);
             }
         }
+        ExprKind::CallValue { callee, args } => {
+            each_expr(callee, f);
+            for a in args {
+                each_expr(a, f);
+            }
+        }
         ExprKind::Index(a, b) => {
             each_expr(a, f);
             each_expr(b, f);

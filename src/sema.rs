@@ -316,9 +316,16 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
         if let Item::Fn(f) = item {
             if let Some(sig) = ctx.fns.get(&f.name) {
                 let types = sig.params.clone();
+                let body_snapshot = f.body.clone();
                 for (i, p) in f.params.iter_mut().enumerate() {
                     if p.ty.is_none() {
-                        p.ty = Some(types.get(i).cloned().unwrap_or(Ty::I64));
+                        let inferred = types.get(i).cloned().unwrap_or(Ty::I64);
+                        // 无标注且被"以函数方式使用"的参数视为闭包
+                        p.ty = if matches!(inferred, Ty::I64 | Ty::Unknown) && param_used_as_fn(&body_snapshot, &p.name) {
+                            Some(Ty::Closure(Vec::new(), Box::new(Ty::I64)))
+                        } else {
+                            Some(inferred)
+                        };
                     }
                     if p.ty == Some(Ty::Unknown) {
                         p.ty = Some(Ty::I64);
@@ -341,10 +348,11 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
             }
             ctx.scopes.push(HashMap::new());
             for p in &f.params {
+                let ty = p.ty.clone().unwrap_or_else(|| if param_used_as_fn(&f.body, &p.name) { Ty::Closure(Vec::new(), Box::new(Ty::I64)) } else { Ty::I64 });
                 ctx.scopes
                     .last_mut()
                     .unwrap()
-                    .insert(p.name.clone(), VarInfo { ty: p.ty.clone().unwrap_or(Ty::I64), mutable: true, explicit: p.ty.is_some() });
+                    .insert(p.name.clone(), VarInfo { ty, mutable: true, explicit: p.ty.is_some() });
             }
             ctx.pending_ret.push(f.name.clone());
             let t = infer_block_ret(&mut ctx, &mut f.body).unwrap_or(Ty::Void);
@@ -366,10 +374,11 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
         ctx.param_names = f.params.iter().map(|p| p.name.clone()).collect();
         ctx.scopes.push(HashMap::new());
         for p in &f.params {
+            let ty = p.ty.clone().unwrap_or_else(|| if param_used_as_fn(&f.body, &p.name) { Ty::Closure(Vec::new(), Box::new(Ty::I64)) } else { Ty::I64 });
             ctx.scopes
                 .last_mut()
                 .unwrap()
-                .insert(p.name.clone(), VarInfo { ty: p.ty.clone().unwrap_or(Ty::I64), mutable: true, explicit: p.ty.is_some() });
+                .insert(p.name.clone(), VarInfo { ty, mutable: true, explicit: p.ty.is_some() });
         }
         check_block(&mut ctx, &mut f.body, &mut errors);
 
@@ -416,6 +425,38 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
 // ============================================================
 // 推断出的返回类型
 // ============================================================
+
+/// 参数是否"以函数方式使用"：出现在 `name(...)`（Call）的 name 位置，
+/// 或作为高阶函数实参（直接传 `name` 给另一调用）。
+fn param_used_as_fn(b: &Block, name: &str) -> bool {
+    let mut found = false;
+    let _dbg = std::env::var("GT_PUF").is_ok();
+    if _dbg { eprintln!("[puf] called for name={:?}", name); }
+    each_expr_block(b, &mut |e| match &e.kind {
+        ExprKind::Call(callee, args) => {
+            if callee == name {
+                found = true;
+            }
+            for a in args {
+                if let ExprKind::Ident(n) = &a.kind {
+                    if n == name {
+                        found = true;
+                    }
+                }
+            }
+        }
+        // hoist 已把对闭包参数名的调用改成 CallValue(Ident(f), ...)
+        ExprKind::CallValue { callee, .. } => {
+            if let ExprKind::Ident(n) = &callee.kind {
+                if n == name {
+                    found = true;
+                }
+            }
+        }
+        _ => {}
+    });
+    found
+}
 
 fn infer_block_ret(ctx: &mut Ctx, b: &mut Block) -> Result<Ty, String> {
     let mut found: Option<Ty> = None;
