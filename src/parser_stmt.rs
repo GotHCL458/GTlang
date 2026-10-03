@@ -264,6 +264,10 @@ impl Parser {
 
         // `loop N { body }`：重复 N 次（计数循环）—— 等价于 for _ in 0..N
         if self.at_ident("loop") {
+            // 特判：`loop {`（缺计数）给出更友好的提示
+            if matches!(&self.peek_at(1).tok, Tok::Punct(p) if p == "{") {
+                return Err(crate::lb!(self.line(), "loop requires a count: loop N {{ ... }}", "loop 需要循环次数：loop N {{ ... }}"));
+            }
             self.bump();
             let saved = self.no_struct_lit;
             self.no_struct_lit = true;
