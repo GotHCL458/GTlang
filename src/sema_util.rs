@@ -105,6 +105,57 @@ pub(crate) fn each_expr(e: &Expr, f: &mut impl FnMut(&Expr)) {
                 each_expr_block(b, f);
             }
         }
+        ExprKind::CallNamed(_, named) => {
+            for (_, a) in named { each_expr(a, f); }
+        }
+        ExprKind::Slice(a, lo, hi) => {
+            each_expr(a, f);
+            each_expr(lo, f);
+            each_expr(hi, f);
+        }
+        ExprKind::TupleLit(items) => {
+            for a in items { each_expr(a, f); }
+        }
+        ExprKind::ListComp { expr, iter, cond, .. } => {
+            each_expr(expr, f);
+            each_expr(iter, f);
+            if let Some(c) = cond { each_expr(c, f); }
+        }
+        ExprKind::Field(a, _) => each_expr(a, f),
+        ExprKind::StructLit(_, fields) => {
+            for (_, a) in fields { each_expr(a, f); }
+        }
+        ExprKind::EnumLit(_, _, args) => {
+            for a in args { each_expr(a, f); }
+        }
+        ExprKind::DynBox { value, .. } => each_expr(value, f),
+        ExprKind::Match { subject, arms } => {
+            each_expr(subject, f);
+            for arm in arms {
+                if let Some(p) = &arm.pat { each_expr(p, f); }
+                if let Some((lo, hi)) = &arm.range { each_expr(lo, f); each_expr(hi, f); }
+                if let Some(g) = &arm.guard { each_expr(g, f); }
+                for s in &arm.body { each_expr_stmt(s, f); }
+            }
+        }
+        ExprKind::Closure { body, .. } => each_expr(body, f),
+        ExprKind::MethodOn { recv, args, .. } => {
+            each_expr(recv, f);
+            for a in args { each_expr(a, f); }
+        }
+        ExprKind::ClosureNew { captures, .. } => {
+            for c in captures { each_expr(c, f); }
+        }
+        ExprKind::Borrow { inner, .. } => each_expr(inner, f),
+        ExprKind::Ok(a) | ExprKind::Err(a) | ExprKind::Try(a) | ExprKind::Some(a) => each_expr(a, f),
+        ExprKind::None => {}
+        ExprKind::TryBlock { body, catches, fin } => {
+            each_expr_block(body, f);
+            for c in catches {
+                for s in &c.body { each_expr_stmt(s, f); }
+            }
+            if let Some(b) = fin { each_expr_block(b, f); }
+        }
         _ => {}
     }
 }
