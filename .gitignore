@@ -1,9 +1,6 @@
 # Third-party / unrelated
 Vix-lang-0.5.0/
 
-# Tests (kept locally, not in the public repo)
-/tests/
-
 # Runtime data
 *.db
 
