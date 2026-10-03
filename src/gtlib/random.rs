@@ -8,7 +8,13 @@ use std::ffi::CStr;
 use std::os::raw::c_char;
 
 thread_local! {
-    static RNG_STATE: Cell<u64> = Cell::new(0x9E3779B97F4A7C15);
+    // 初值用"地址 + 时间"扰动，避免多线程（go）下每线程初值相同导致相同序列
+    static RNG_STATE: Cell<u64> = Cell::new({
+        let base: u64 = 0x9E3779B97F4A7C15;
+        let t = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(base);
+        let a = &base as *const u64 as u64;
+        base ^ t ^ a.rotate_left(23)
+    });
 }
 fn next_u64() -> u64 {
     RNG_STATE.with(|s| {
