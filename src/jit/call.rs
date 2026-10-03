@@ -389,9 +389,11 @@ impl FnState {
 
     pub(crate) fn gen_call_value(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, callee: &Expr, args: &[Expr], e: &Expr) -> Result<(Value, Ty), String> {
         let cb = self.gen_expr(jit, b, callee)?;
-        let (ptypes, ret) = match &e.ty {
+        // 被调闭包的签名必须取自 callee 的类型（e.ty 是"调用结果"的类型，
+        // 当结果本身也是闭包时会误用它）。
+        let (ptypes, ret) = match &callee.ty {
             Ty::Closure(p, r) => (p.clone(), (**r).clone()),
-            _ => match &callee.ty { Ty::Closure(p, r) => (p.clone(), (**r).clone()), _ => (vec![Ty::I64; args.len()], Ty::I64) },
+            _ => (vec![Ty::I64; args.len()], Ty::I64),
         };
         let fp = b.ins().load(types::I64, MemFlags::new(), cb.0, 0);
         let ncap = ptypes.len().saturating_sub(args.len());

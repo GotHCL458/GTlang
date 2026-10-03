@@ -713,7 +713,16 @@ fn lift_closures_in_expr(e: &mut Expr, counter: &mut usize, out: &mut Vec<FnDef>
         let params = params.clone();
         let param_tys = param_tys.clone();
         let ret_ty = ret_ty.clone();
-        let body = (**body).clone();
+        // 先递归提升 body 里的嵌套闭包（否则内层 Closure 会残留到生成函数里）
+        let mut body = (**body).clone();
+        // 提升 body 里的嵌套闭包时，外层闭包的 params 也是"可见变量"（供其捕获）
+        let saved_outer = OUTER_VARS.with(|v| v.borrow().clone());
+        OUTER_VARS.with(|v| {
+            let mut cur = v.borrow_mut();
+            for p in &params { if !cur.contains(p) { cur.push(p.clone()); } }
+        });
+        lift_closures_in_expr(&mut body, counter, out);
+        OUTER_VARS.with(|v| *v.borrow_mut() = saved_outer);
         let line = *line;
         let name = format!("__closure_{}", *counter);
         *counter += 1;
@@ -853,7 +862,12 @@ fn convert_closure_calls(b: &mut Block, closure_vars: &mut Vec<String>, rcf: &[S
         match s {
             Stmt::Let { name, value, .. } => {
                 convert_closure_calls_expr(value, closure_vars, rcf);
-                if is_closure_expr(value) || is_call_to_ret_closure(value, rcf) {
+                // 值可能是闭包：闭包字面量、返回闭包的调用、调用闭包变量得到的值、间接调用结果
+                let is_closure_val = is_closure_expr(value)
+                    || is_call_to_ret_closure(value, rcf)
+                    || is_call_to_closure_var(value, closure_vars)
+                    || matches!(value.kind, ExprKind::CallValue { .. });
+                if is_closure_val {
                     closure_vars.push(name.clone());
                 }
             }
@@ -901,6 +915,14 @@ fn is_closure_expr(e: &Expr) -> bool {
             && arms.iter().all(|a| matches!(a.body.last(), Some(Stmt::Expr(x)) if is_closure_expr(x))),
         _ => false,
     }
+}
+
+/// `e` 是否为"调用某个闭包变量"（如 `m3 := 造乘(3)` 里的 `造乘(3)`）。
+fn is_call_to_closure_var(e: &Expr, cv: &[String]) -> bool {
+    if let ExprKind::Call(name, _) = &e.kind {
+        return cv.iter().any(|c| c == name);
+    }
+    false
 }
 
 /// `e` 是否为"调用某个返回闭包的函数"，如 `造加法(10)`。
