@@ -21,7 +21,7 @@ fn block_returns_closure(b: &Block) -> bool {
     for s in b {
         match s {
             Stmt::Return(Some(e), _) => {
-                if matches!(e.kind, ExprKind::ClosureNew { .. } | ExprKind::Closure { .. }) {
+                if is_closure_expr(e) {
                     return true;
                 }
             }
@@ -850,6 +850,9 @@ fn is_closure_expr(e: &Expr) -> bool {
             let els_ok = els.as_ref().map_or(false, |b| matches!(b.last(), Some(Stmt::Expr(x)) if is_closure_expr(x)));
             then_ok && els_ok
         }
+        // match 的每个分支都产闭包 → 整体是闭包
+        ExprKind::Match { arms, .. } => !arms.is_empty()
+            && arms.iter().all(|a| matches!(a.body.last(), Some(Stmt::Expr(x)) if is_closure_expr(x))),
         _ => false,
     }
 }
