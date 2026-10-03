@@ -17,6 +17,9 @@ mod sema_match;
 mod sema_stmt;
 #[path = "sema_util.rs"]
 mod sema_util;
+#[cfg(test)]
+#[path = "sema_util_tests.rs"]
+mod sema_util_tests;
 use sema_const::*;
 use sema_match::*;
 use sema_stmt::*;
@@ -79,6 +82,9 @@ struct Ctx {
     generic_bounds: Vec<(String, String)>,
     /// 当前函数的形参名（无标注形参可能实为闭包/函数，调用时放行）
     param_names: Vec<String>,
+    /// 闭包捕获参数类型：提升后的闭包函数名 → 各捕获值的类型
+    /// （hoist 生成的捕获形参无标注，这里从调用点的 captures 表达式回填）
+    capture_types: HashMap<String, Vec<Ty>>,
 }
 
 pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
@@ -96,6 +102,7 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
         imported_gtlib: prog.imported_gtlib.clone(),
         generic_bounds: Vec::new(),
         param_names: Vec::new(),
+        capture_types: HashMap::new(),
     };
 
     let mut errors: Vec<String> = Vec::new();
@@ -317,8 +324,14 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
             if let Some(sig) = ctx.fns.get(&f.name) {
                 let types = sig.params.clone();
                 let body_snapshot = f.body.clone();
+                let caps = ctx.capture_types.get(&f.name).cloned().unwrap_or_default();
                 for (i, p) in f.params.iter_mut().enumerate() {
                     if p.ty.is_none() {
+                        // 闭包捕获参数：优先用调用点 captures 的类型
+                        if i < caps.len() && caps[i] != Ty::Unknown {
+                            p.ty = Some(caps[i].clone());
+                            continue;
+                        }
                         let inferred = types.get(i).cloned().unwrap_or(Ty::I64);
                         // 无标注且被"以函数方式使用"的参数视为闭包
                         p.ty = if matches!(inferred, Ty::I64 | Ty::Unknown) && param_used_as_fn(&body_snapshot, &p.name) {
@@ -366,6 +379,19 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
         }
     }
 
+    // 把闭包捕获参数的类型真正写回 Param.ty（供 codegen/jit 使用；
+    // 前面的回写发生在 capture_types 填充之前，这里补一次）。
+    for item in &mut prog.items {
+        if let Item::Fn(f) = item {
+            let caps = ctx.capture_types.get(&f.name).cloned().unwrap_or_default();
+            for (i, p) in f.params.iter_mut().enumerate() {
+                if i < caps.len() && caps[i] != Ty::Unknown {
+                    p.ty = Some(caps[i].clone());
+                }
+            }
+        }
+    }
+
     // ---------- 5. 逐函数类型检查 ----------
     for item in &mut prog.items {
         let Item::Fn(f) = item else { continue };
@@ -373,8 +399,13 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
         ctx.generic_bounds = f.bounds.clone();
         ctx.param_names = f.params.iter().map(|p| p.name.clone()).collect();
         ctx.scopes.push(HashMap::new());
-        for p in &f.params {
-            let ty = p.ty.clone().unwrap_or_else(|| if param_used_as_fn(&f.body, &p.name) { Ty::Closure(Vec::new(), Box::new(Ty::I64)) } else { Ty::I64 });
+        let caps = ctx.capture_types.get(&f.name).cloned().unwrap_or_default();
+        for (i, p) in f.params.iter().enumerate() {
+            let ty = if i < caps.len() && caps[i] != Ty::Unknown {
+                caps[i].clone()
+            } else {
+                p.ty.clone().unwrap_or_else(|| if param_used_as_fn(&f.body, &p.name) { Ty::Closure(Vec::new(), Box::new(Ty::I64)) } else { Ty::I64 })
+            };
             ctx.scopes
                 .last_mut()
                 .unwrap()
@@ -430,19 +461,12 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
 /// 或作为高阶函数实参（直接传 `name` 给另一调用）。
 fn param_used_as_fn(b: &Block, name: &str) -> bool {
     let mut found = false;
-    let _dbg = std::env::var("GT_PUF").is_ok();
-    if _dbg { eprintln!("[puf] called for name={:?}", name); }
     each_expr_block(b, &mut |e| match &e.kind {
-        ExprKind::Call(callee, args) => {
+        // 只认"被调用"：`name(...)`。不把普通实参当作"传函数"，
+        // 否则 `len(xs)` 里的 `xs` 会被误判为闭包。
+        ExprKind::Call(callee, _) => {
             if callee == name {
                 found = true;
-            }
-            for a in args {
-                if let ExprKind::Ident(n) = &a.kind {
-                    if n == name {
-                        found = true;
-                    }
-                }
             }
         }
         // hoist 已把对闭包参数名的调用改成 CallValue(Ident(f), ...)

@@ -12,6 +12,10 @@ use std::collections::HashMap;
 
 use crate::ast::*;
 
+#[cfg(test)]
+#[path = "hoist_tests.rs"]
+mod hoist_tests;
+
 /// 判断函数体是否直接返回闭包字面量（用于识别"返回闭包的函数"）。
 fn block_returns_closure(b: &Block) -> bool {
     for s in b {

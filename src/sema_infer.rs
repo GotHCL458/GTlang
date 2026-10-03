@@ -570,9 +570,12 @@ impl Ctx {
                 if *mutable { Ty::RefMut(Box::new(it)) } else { Ty::Ref(Box::new(it)) }
             }
             ExprKind::ClosureNew { fn_name, captures } => {
+                let mut cap_tys: Vec<Ty> = Vec::new();
                 for c in captures.iter_mut() {
-                    self.infer(c)?;
+                    cap_tys.push(self.infer(c)?);
                 }
+                // 回填捕获参数类型（供 __closure_N 的形参推断使用）
+                self.capture_types.insert(fn_name.clone(), cap_tys);
                 // 闭包类型取自提升后的函数签名（captures + params）。
                 // 注意：params 必须包含捕获值——后端靠 len(params) - len(args) 推算捕获个数。
                 let (params, ret) = match self.fns.get(fn_name) {
