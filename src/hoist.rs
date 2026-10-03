@@ -799,6 +799,52 @@ fn convert_closure_calls_expr(e: &mut Expr, closure_vars: &[String], rcf: &[Stri
             if let StrPart::Expr(i) = p { convert_closure_calls_expr(i, closure_vars, rcf); }
         },
         ExprKind::ClosureNew { captures, .. } => for c in captures { convert_closure_calls_expr(c, closure_vars, rcf); },
+        ExprKind::CallNamed(_, named) => for (_, a) in named { convert_closure_calls_expr(a, closure_vars, rcf); },
+        ExprKind::Slice(a, lo, hi) => {
+            convert_closure_calls_expr(a, closure_vars, rcf);
+            convert_closure_calls_expr(lo, closure_vars, rcf);
+            convert_closure_calls_expr(hi, closure_vars, rcf);
+        }
+        ExprKind::TupleLit(items) => for a in items { convert_closure_calls_expr(a, closure_vars, rcf); },
+        ExprKind::ListComp { expr, iter, cond, .. } => {
+            convert_closure_calls_expr(expr, closure_vars, rcf);
+            convert_closure_calls_expr(iter, closure_vars, rcf);
+            if let Some(c) = cond { convert_closure_calls_expr(c, closure_vars, rcf); }
+        }
+        ExprKind::Field(a, _) => convert_closure_calls_expr(a, closure_vars, rcf),
+        ExprKind::StructLit(_, fields) => for (_, a) in fields { convert_closure_calls_expr(a, closure_vars, rcf); },
+        ExprKind::EnumLit(_, _, args) => for a in args { convert_closure_calls_expr(a, closure_vars, rcf); },
+        ExprKind::DynBox { value, .. } => convert_closure_calls_expr(value, closure_vars, rcf),
+        ExprKind::If { cond, then, els } => {
+            convert_closure_calls_expr(cond, closure_vars, rcf);
+            convert_closure_calls(then, &mut closure_vars.to_vec(), rcf);
+            if let Some(b) = els { convert_closure_calls(b, &mut closure_vars.to_vec(), rcf); }
+        }
+        ExprKind::Match { subject, arms } => {
+            convert_closure_calls_expr(subject, closure_vars, rcf);
+            for arm in arms {
+                if let Some(p) = &mut arm.pat { convert_closure_calls_expr(p, closure_vars, rcf); }
+                if let Some((lo, hi)) = &mut arm.range {
+                    convert_closure_calls_expr(lo, closure_vars, rcf);
+                    convert_closure_calls_expr(hi, closure_vars, rcf);
+                }
+                if let Some(g) = &mut arm.guard { convert_closure_calls_expr(g, closure_vars, rcf); }
+                convert_closure_calls(&mut arm.body, &mut closure_vars.to_vec(), rcf);
+            }
+        }
+        ExprKind::Closure { body, .. } => convert_closure_calls_expr(body, closure_vars, rcf),
+        ExprKind::MethodOn { recv, args, .. } => {
+            convert_closure_calls_expr(recv, closure_vars, rcf);
+            for a in args { convert_closure_calls_expr(a, closure_vars, rcf); }
+        }
+        ExprKind::Borrow { inner, .. } => convert_closure_calls_expr(inner, closure_vars, rcf),
+        ExprKind::Ok(a) | ExprKind::Err(a) | ExprKind::Try(a) | ExprKind::Some(a) => convert_closure_calls_expr(a, closure_vars, rcf),
+        ExprKind::None => {}
+        ExprKind::TryBlock { body, catches, fin } => {
+            convert_closure_calls(body, &mut closure_vars.to_vec(), rcf);
+            for c in catches { convert_closure_calls(&mut c.body, &mut closure_vars.to_vec(), rcf); }
+            if let Some(b) = fin { convert_closure_calls(b, &mut closure_vars.to_vec(), rcf); }
+        }
         _ => {}
     }
 }
