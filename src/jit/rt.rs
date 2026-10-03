@@ -994,6 +994,14 @@ pub(crate) extern "C" fn rt_rt_init() {
             fn SetConsoleOutputCP(cp: u32) -> i32;
         }
         SetConsoleOutputCP(65001);
+        // 把 CRT 的 stdout 设为二进制模式：否则内联 C（libtcc 编译）的 printf
+        // 在 Windows 文本模式下把 \n 翻成 \r\n，与 AOT 产物不一致。
+        extern "C" {
+            fn _setmode(fd: i32, mode: i32) -> i32;
+        }
+        const O_BINARY: i32 = 0x8000;
+        const STDOUT_FD: i32 = 1;
+        _setmode(STDOUT_FD, O_BINARY);
     }
 }
 #[allow(dead_code)]

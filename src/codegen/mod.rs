@@ -398,12 +398,14 @@ impl<'a> Codegen<'a> {
                 self.declare("declare void @gt_rt_set_gc(i32)");
                 self.body.push_str("  call void @gt_rt_set_gc(i32 0)\n");
             }
+            // 进程初始化：设置控制台 UTF-8 + stdout 二进制（必须无条件调用，
+            // 否则 Windows 文本模式会把 \n 转成 \r\n，与 JIT 不一致）
+            self.declare("declare void @gt_rt_init()");
+            self.body.push_str("  call void @gt_rt_init()\n");
             // 若以 zh 模式编译，让运行时诊断也用中文
             if crate::lang::is_zh() {
                 self.declare("declare void @gt_rt_set_zh()");
                 self.body.push_str("  call void @gt_rt_set_zh()\n");
-                self.declare("declare void @gt_rt_init()");
-                self.body.push_str("  call void @gt_rt_init()\n");
             }
             self.block(&f.body)?;
             if !self.terminated {
@@ -463,3 +465,4 @@ pub(crate) use call::*;
 pub(crate) use builtins::*;
 #[allow(unused_imports)]
 pub(crate) use value::*;
+

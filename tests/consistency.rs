@@ -65,7 +65,8 @@ fn example_files() -> Vec<PathBuf> {
 }
 
 fn decode(bytes: &[u8]) -> String {
-    String::from_utf8_lossy(bytes).replace("\r\n", "\n")
+    // 不做换行归一化：JIT 与 AOT 必须输出完全相同的字节（含 \n vs \r\n）
+    String::from_utf8_lossy(bytes).into_owned()
 }
 
 /// 双后端跑同一份源码，返回 `(解释器输出, 编译器输出)`

@@ -16,6 +16,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <windows.h>
+#include <io.h>
+#include <fcntl.h>
 
 /* 统一分配器：用 Windows 进程堆（HeapAlloc），而非 CRT 的 malloc。
  * 好处：进程堆是「整个进程共享」的，不同 CRT（libcmt / msvcrt）都能
@@ -38,12 +40,15 @@ void gt_rt_set_zh(void) { GT_ZH = 1; }
 /* 关闭自动内存管理（--no-gc 编译时由生成程序调用；不回收，靠进程结束回收）。 */
 void gt_rt_set_gc(int on) { gc_set_enabled(on); }
 
-/* 进程初始化：设控制台输出为 UTF-8（让 C 的 printf 也能正确显示中文）。 */
+/* 进程初始化：设控制台输出为 UTF-8（让 C 的 printf 也能正确显示中文），
+ * 并把 stdout 设为二进制模式——否则 Windows 文本模式会把 \n 转成 \r\n，
+ * 使 AOT 产物（含内联 C 的 printf）与 JIT（Rust print!）换行字节不一致。 */
 void gt_rt_init(void) {
     static int done = 0;
     if (done) return;
     done = 1;
     SetConsoleOutputCP(65001 /* CP_UTF8 */);
+    _setmode(_fileno(stdout), _O_BINARY);
 }
 
 /* 开启控制台的 VT 序列处理，否则 Windows 控制台不认 ANSI 转义（首次调用时生效） */
@@ -86,7 +91,8 @@ static void gt_write(const char *s, int len) {
         }
     }
 
-    /* 重定向 / 转换失败：原样写 UTF-8 字节 */
+    /* 重定向 / 转换失败：走 CRT stdout（与内联 C 的 printf 共用同一缓冲，
+     * 保证输出顺序一致）；stdout 已在 gt_rt_init 设为二进制，\n 不会被翻成 \r\n。 */
     fwrite(s, 1, (size_t)len, stdout);
 }
 

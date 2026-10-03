@@ -115,7 +115,7 @@ pub fn bridge_header(funcs: &[GtFn]) -> (String, Vec<String>) {
     // 否则会因 CRT 全缓冲而与 GTLang 的直接输出混序。
     // 注意不能加 static——解释器需要用 tcc_get_symbol 取到它并主动调用。
     out.push_str(
-        "#include <stdio.h>\nvoid gt_flush_iob(void) { setvbuf(stdout, NULL, _IONBF, 0); }\n",
+        "#include <stdio.h>\n#if defined(_WIN32)\n#include <io.h>\n#include <fcntl.h>\n#endif\nvoid gt_flush_iob(void) { setvbuf(stdout, NULL, _IONBF, 0);\n#if defined(_WIN32)\n_setmode(_fileno(stdout), _O_BINARY);\n#endif\n}\n",
     );
     for (i, f) in funcs.iter().enumerate() {
         let _ = f;

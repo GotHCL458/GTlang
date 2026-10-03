@@ -124,7 +124,7 @@ if "%GTC_TCC%"=="" (
 copy /Y "%ROOT%src\runtime\gt_rt.c" "%RES%\runtime\gt_rt.c" >nul
 copy /Y "%ROOT%src\runtime\gc.c"   "%RES%\runtime\gc.c"   >nul
 copy /Y "%ROOT%src\runtime\gc.h"   "%RES%\runtime\gc.h"   >nul
-"%GTC_CLANG%" -c "%ROOT%src\runtime\gt_rt.c" -o "%RES%\runtime\gt_rt.obj" -O2
+"%GTC_CLANG%" -c "%ROOT%src\runtime\gt_rt.c" -o "%RES%\runtime\gt_rt.obj" -O2 -fms-runtime-lib=libcmt
 if errorlevel 1 ( echo [ERROR] gt_rt.c compile failed. & exit /b 1 )
 if exist "%LLD_LINK%" "%LLD_LINK%" /lib /out:"%RES%\lib\gt_rt.lib" "%RES%\runtime\gt_rt.obj" >nul 2>nul
 
