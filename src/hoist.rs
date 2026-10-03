@@ -12,6 +12,12 @@ use std::collections::HashMap;
 
 use crate::ast::*;
 
+thread_local! {
+    /// 当前正在 lift 的函数"可见的外层变量"（函数参数 + 函数体 let/const）。
+    /// 供 collect_free_vars_expr 判断闭包体内的 `Call(name)` 的 name 是否为自由变量。
+    static OUTER_VARS: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
 #[cfg(test)]
 #[path = "hoist_tests.rs"]
 mod hoist_tests;
@@ -262,8 +268,11 @@ pub fn hoist(prog: &mut Program) {
         new_items.push(Item::Fn(f));
     }
 
-    // 加入提升出来的闭包函数
-    for c in closures {
+    // 加入提升出来的闭包函数（对它们的函数体也做闭包调用改写：
+    // 闭包体里 `g(f(x))` 的 g/f 是"捕获参数"，需转成间接调用）
+    for mut c in closures {
+        let mut cv: Vec<String> = c.params.iter().map(|p| p.name.clone()).collect();
+        convert_closure_calls(&mut c.body, &mut cv, &ret_closure_fns);
         new_items.push(Item::Fn(c));
     }
 
@@ -591,7 +600,37 @@ fn lift_closures_in_fn(
     counter: &mut usize,
     out: &mut Vec<FnDef>,
 ) {
+    // 记录本函数的可见变量（参数 + 体内 let/const），供闭包捕获分析用。
+    let saved = OUTER_VARS.with(|v| v.borrow().clone());
+    let mut visible: Vec<String> = f.params.iter().map(|p| p.name.clone()).collect();
+    collect_visible_names_block(&f.body, &mut visible);
+    OUTER_VARS.with(|v| *v.borrow_mut() = visible);
     lift_closures_in_block(&mut f.body, counter, out);
+    OUTER_VARS.with(|v| *v.borrow_mut() = saved);
+}
+
+/// 收集块中所有 let/const 名（不递归进嵌套闭包/函数）。
+fn collect_visible_names_block(b: &Block, out: &mut Vec<String>) {
+    for s in b {
+        match s {
+            Stmt::Let { name, value, .. } => { collect_visible_names_expr(value, out); out.push(name.clone()); }
+            Stmt::Const { name, value, .. } => { collect_visible_names_expr(value, out); out.push(name.clone()); }
+            Stmt::Assign { value, .. } | Stmt::FieldAssign { value, .. } => collect_visible_names_expr(value, out),
+            Stmt::Expr(e) | Stmt::Return(Some(e), _) => collect_visible_names_expr(e, out),
+            Stmt::If { cond, then, els, .. } => { collect_visible_names_expr(cond, out); collect_visible_names_block(then, out); if let Some(e) = els { collect_visible_names_block(e, out); } }
+            Stmt::While { cond, body, .. } => { collect_visible_names_expr(cond, out); collect_visible_names_block(body, out); }
+            Stmt::DoWhile { body, cond, .. } => { collect_visible_names_block(body, out); collect_visible_names_expr(cond, out); }
+            Stmt::ForRange { var, from, to, body, els, .. } => { collect_visible_names_expr(from, out); collect_visible_names_expr(to, out); out.push(var.clone()); collect_visible_names_block(body, out); if let Some(e) = els { collect_visible_names_block(e, out); } }
+            Stmt::ForEach { var, iter, body, els, .. } => { collect_visible_names_expr(iter, out); out.push(var.clone()); collect_visible_names_block(body, out); if let Some(e) = els { collect_visible_names_block(e, out); } }
+            Stmt::Block(inner) => collect_visible_names_block(inner, out),
+            Stmt::Throw(e, _) => collect_visible_names_expr(e, out),
+            _ => {}
+        }
+    }
+}
+
+fn collect_visible_names_expr(_e: &Expr, _out: &mut Vec<String>) {
+    // 表达式内部不引入新的可见变量（闭包参数由闭包自己处理）
 }
 
 fn lift_closures_in_block(b: &mut Block, counter: &mut usize, out: &mut Vec<FnDef>) {
@@ -728,7 +767,14 @@ fn collect_free_vars_expr(e: &Expr, bound: &[String], out: &mut Vec<String>) {
             collect_free_vars_expr(a, bound, out);
             collect_free_vars_expr(b, bound, out);
         }
-        ExprKind::Call(_, args) => for a in args { collect_free_vars_expr(a, bound, out); },
+        ExprKind::Call(callee, args) => {
+            // callee 是"外层可见变量"（函数参数/局部）→ 自由变量（闭包捕获）
+            let is_outer = OUTER_VARS.with(|v| v.borrow().iter().any(|n| n == callee));
+            if is_outer && !out.contains(callee) {
+                out.push(callee.clone());
+            }
+            for a in args { collect_free_vars_expr(a, bound, out); }
+        }
         ExprKind::CallValue { callee, args } => {
             collect_free_vars_expr(callee, bound, out);
             for a in args { collect_free_vars_expr(a, bound, out); }
