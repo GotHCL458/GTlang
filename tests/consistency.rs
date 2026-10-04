@@ -2877,6 +2877,80 @@ fn truncated_multibyte_source_does_not_panic() {
 }
 
 // ============================================================
+// 36c. 综合组合（v0.0.1d）
+// ============================================================
+
+#[test]
+fn combo_generics_closures_oo_result_matches() {
+    assert_consistent_src(
+        "combo_all",
+        &[
+            "fn 恒等[T](x: T) -> T { return x }",
+            "fn 映射(f, xs: list) -> list { out := list()  i := 0  while i < len(xs) { push(out, f(xs[i]))  i = i + 1 }  return out }",
+            "fn 安全除(a: int, b: int) { if b == 0 { return Err(1) }  return Ok(a / b) }",
+            "struct 盒 { v: int }",
+            "impl 盒 { fn 取(self) -> int { return self.v } }",
+            "enum 树 { 叶(int) 枝(树, 树) }",
+            "fn 深度(t: 树) -> int { match t { 树::叶(v) => { return 1 }  树::枝(l, r) => { return 1 + 深度(l) + 深度(r) } } }",
+            "fn main() {",
+            "    加倍 := |x: int| x * 2",
+            "    xs := list()  i := 0  while i < 5 { push(xs, i)  i = i + 1 }",
+            "    ys := 映射(加倍, xs)",
+            "    put(ys[4])",
+            "    put(恒等(42))",
+            "    put(恒等(\"hi\"))",
+            "    b := 盒 { v: 7 }  put(b.取())",
+            "    t := 树::枝(树::叶(1), 树::叶(2))  put(深度(t))",
+            "    r := 安全除(10, 2)  match r { Ok(v) => { put(v) }  Err(e) => { put(-1) } }",
+            "    r2 := 安全除(10, 0)  match r2 { Ok(v) => { put(v) }  Err(e) => { put(-2) } }",
+            "}",
+        ],
+    );
+}
+
+#[test]
+fn combo_concurrency_matches() {
+    assert_consistent_src(
+        "combo_conc",
+        &[
+            "fn 累加(n: int) -> int { s := 0  i := 0  while i < n { s = s + i  i = i + 1 }  return s }",
+            "fn 工人(c, n: int) { chan_send(c, 累加(n)) }",
+            "fn main() {",
+            "    c := chan()",
+            "    i := 0",
+            "    while i < 10 { go 工人(c, i)  i = i + 1 }",
+            "    total := 0  j := 0",
+            "    while j < 10 { total = total + chan_recv(c)  j = j + 1 }",
+            "    put(total)",
+            "}",
+        ],
+    );
+}
+
+#[test]
+fn combo_stdlib_closures_matches() {
+    assert_consistent_src(
+        "combo_stdlib",
+        &[
+            "import math",
+            "import string",
+            "fn 变换(f, xs: list) -> list { out := list()  i := 0  while i < len(xs) { push(out, f(xs[i]))  i = i + 1 }  return out }",
+            "fn main() {",
+            "    xs := list()  i := 1  while i <= 5 { push(xs, i)  i = i + 1 }",
+            "    平方 := |x: int| x * x",
+            "    ys := 变换(平方, xs)",
+            "    put(ys[0] + ys[1] + ys[2] + ys[3] + ys[4])",
+            "    put(gcd(48, 36))",
+            "    put(isprime(17))",
+            "    put(factorial(5))",
+            "    put(capitalize(\"hello\"))",
+            "    put(utf8_len(\"你好\"))",
+            "}",
+        ],
+    );
+}
+
+// ============================================================
 // 37. 深嵌套 / 边界（v0.0.1d 加固）
 // ============================================================
 
