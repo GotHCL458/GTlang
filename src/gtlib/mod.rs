@@ -132,3 +132,7 @@ pub fn dll_of(func: &str) -> Option<&'static str> {
     }
     None
 }
+
+#[path = "mod_tests.rs"]
+#[cfg(test)]
+mod mod_tests;
