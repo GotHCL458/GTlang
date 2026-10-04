@@ -774,5 +774,109 @@ mod tests {
         assert!(builtin_ret("len", &[Ty::Str, Ty::Str]).unwrap().is_err());
         assert_eq!(builtin_ret("len", &[Ty::Str]).unwrap().unwrap(), Ty::I64);
     }
+
+    #[test]
+    fn len_accepts_all_containers_and_unknown() {
+        // i64 参数：给出"请标注容器类型"的友好错误（而非放行）
+        assert!(builtin_ret("len", &[Ty::I64]).unwrap().is_err());
+        assert_eq!(builtin_ret("len", &[Ty::Unknown]).unwrap().unwrap(), Ty::I64);
+        assert_eq!(builtin_ret("len", &[Ty::List(Box::new(Ty::I64))]).unwrap().unwrap(), Ty::I64);
+        assert_eq!(builtin_ret("len", &[Ty::Map(Box::new(Ty::Str), Box::new(Ty::I64))]).unwrap().unwrap(), Ty::I64);
+        assert_eq!(builtin_ret("len", &[Ty::Array(Box::new(Ty::I64), 3)]).unwrap().unwrap(), Ty::I64);
+        assert!(builtin_ret("len", &[Ty::Bool]).unwrap().is_err());
+        // 非内建名不返回类型
+        assert!(builtin_ret("不存在的内建", &[]).is_none());
+    }
+
+    #[test]
+    fn str_converts_scalars_only() {
+        assert_eq!(builtin_ret("str", &[Ty::I64]).unwrap().unwrap(), Ty::Str);
+        assert_eq!(builtin_ret("str", &[Ty::F64]).unwrap().unwrap(), Ty::Str);
+        assert_eq!(builtin_ret("str", &[Ty::Bool]).unwrap().unwrap(), Ty::Str);
+        assert_eq!(builtin_ret("str", &[Ty::Unknown]).unwrap().unwrap(), Ty::Str);
+        assert!(builtin_ret("str", &[Ty::List(Box::new(Ty::I64))]).unwrap().is_err());
+    }
+
+    #[test]
+    fn int_and_float_conversions() {
+        assert_eq!(builtin_ret("int", &[Ty::F64]).unwrap().unwrap(), Ty::I64);
+        assert_eq!(builtin_ret("int", &[Ty::Str]).unwrap().unwrap(), Ty::I64);
+        assert_eq!(builtin_ret("f64", &[Ty::I64]).unwrap().unwrap(), Ty::F64);
+        assert_eq!(builtin_ret("bool", &[Ty::I64]).unwrap().unwrap(), Ty::Bool);
+    }
+
+    #[test]
+    fn numeric_join_rules() {
+        assert_eq!(numeric_join(&Ty::I64, &Ty::I64), Ty::I64);
+        assert_eq!(numeric_join(&Ty::I64, &Ty::F64), Ty::F64);
+        assert_eq!(numeric_join(&Ty::F64, &Ty::I64), Ty::F64);
+        assert_eq!(numeric_join(&Ty::F64, &Ty::F64), Ty::F64);
+    }
+
+    #[test]
+    fn op_method_names() {
+        assert_eq!(op_method(BinOp::Add), Some("add"));
+        assert_eq!(op_method(BinOp::Lt), Some("lt"));
+        assert_eq!(op_method(BinOp::And), None); // 逻辑运算无重载方法
+    }
+
+    #[test]
+    fn unary_method_names() {
+        assert_eq!(unary_op_method(UnOp::Neg), Some("neg"));
+        assert_eq!(unary_op_method(UnOp::Not), None);
+        assert_eq!(unary_op_method(UnOp::BitNot), None);
+    }
+
+    #[test]
+    fn assignability_containers() {
+        let li = Ty::List(Box::new(Ty::I64));
+        let lf = Ty::List(Box::new(Ty::F64));
+        // 容器：元素类型可赋值（协变宽松）
+        assert!(is_assignable(&lf, &li));
+        // 结构体名字不同 → 不可赋值
+        assert!(!is_assignable(&Ty::Struct("A".into()), &Ty::Struct("B".into())));
+        assert!(is_assignable(&Ty::Struct("A".into()), &Ty::Struct("A".into())));
+        // Unknown 元素宽松
+        assert!(is_assignable(&Ty::List(Box::new(Ty::Unknown)), &li));
+    }
+
+    #[test]
+    fn unknown_annotation_accepts_anything() {
+        assert!(check_annotation("x", &Ty::Unknown, &Ty::I64).is_ok());
+        assert!(check_annotation("x", &Ty::Str, &Ty::Unknown).is_ok());
+        assert!(check_annotation("x", &Ty::Str, &Ty::I64).is_err());
+        assert!(check_annotation("x", &Ty::Str, &Ty::Str).is_ok());
+    }
+
+    #[test]
+    fn result_and_option_assignability() {
+        let r_i = Ty::Result(Box::new(Ty::I64), Box::new(Ty::Str));
+        let r_f = Ty::Result(Box::new(Ty::F64), Box::new(Ty::Str));
+        assert!(is_assignable(&r_f, &r_i)); // I64 → F64 载荷可放宽
+        let o_i = Ty::Option(Box::new(Ty::I64));
+        let o_f = Ty::Option(Box::new(Ty::F64));
+        assert!(is_assignable(&o_f, &o_i));
+    }
+
+    #[test]
+    fn printable_scalars() {
+        assert!(is_printable(&Ty::I64));
+        assert!(is_printable(&Ty::F64));
+        assert!(is_printable(&Ty::Bool));
+        assert!(is_printable(&Ty::Str));
+        assert!(is_printable(&Ty::Unknown));
+    }
+
+    #[test]
+    fn llvm_repr_of_core_types() {
+        assert_eq!(Ty::I64.llvm(), "i64");
+        assert_eq!(Ty::Unknown.llvm(), "i64");
+        assert_eq!(Ty::F64.llvm(), "double");
+        assert_eq!(Ty::Str.llvm(), "ptr");
+        assert_eq!(Ty::Result(Box::new(Ty::I64), Box::new(Ty::Str)).llvm(), "ptr");
+        assert_eq!(Ty::Option(Box::new(Ty::I64)).llvm(), "ptr");
+        assert_eq!(Ty::Void.llvm(), "void");
+        assert_eq!(Ty::Bool.llvm(), "i1");
+    }
 }
 
