@@ -170,7 +170,12 @@ pub(crate) fn check_stmt(ctx: &mut Ctx, s: &mut Stmt, errors: &mut Vec<String>) 
             }
         }
         Stmt::FieldAssign { obj, field, op, value, line } => {
-            match ctx.lookup(obj) {
+            // 借用自动解引用：`a := &mut p; a.x = v` 视作 `p.x = v`。
+            let obj_ty = ctx.lookup(obj).map(|t| match t {
+                Ty::Ref(inner) | Ty::RefMut(inner) => *inner,
+                other => other,
+            });
+            match obj_ty {
                 None => errors.push(crate::lb!(line, "undefined variable '{}'", "未定义的变量 '{}'", obj)),
                 Some(Ty::Struct(sname)) => {
                     let fty = ctx

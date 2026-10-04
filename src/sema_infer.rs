@@ -474,6 +474,11 @@ impl Ctx {
             }
             ExprKind::Field(base, field) => {
                 let bt = self.infer(base)?;
+                // 借用自动解引用：`a := &p; a.x` 视作 `p.x`。
+                let bt = match bt {
+                    Ty::Ref(inner) | Ty::RefMut(inner) => *inner,
+                    other => other,
+                };
                 match bt {
                     Ty::Struct(sname) => {
                         let fty = self

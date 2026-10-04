@@ -580,7 +580,9 @@ impl<'a> Codegen<'a> {
                 let loc = self
                     .lookup(obj)
                     .ok_or_else(|| crate::lb!(line, "undefined variable '{}'", "未定义的变量 '{}'", obj))?;
-                let sname = match &loc.ty {
+                // 借用自动解引用：`a := &mut p; a.x = v`
+                let lty = match &loc.ty { Ty::Ref(t) | Ty::RefMut(t) => (**t).clone(), other => other.clone() };
+                let sname = match &lty {
                     Ty::Struct(n) => n.clone(),
                     other => {
                         return Err(crate::lb!(line, "{} is not a struct; cannot access field", "{} 不是结构体，不能访问字段", other))

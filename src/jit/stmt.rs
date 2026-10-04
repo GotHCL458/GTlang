@@ -192,7 +192,9 @@ impl FnState {
             Stmt::FieldAssign { obj, field, op, value, line } => {
                 let (var, ty) = self.lookup(obj).ok_or_else(|| crate::lb!(line, "undefined variable '{}'", "未定义的变量 '{}'", obj))?;
                 let base = b.use_var(var);
-                let sname = match &ty { Ty::Struct(n) => n.clone(), other => return Err(crate::lb!(line, "{} is not a struct", "{} 不是结构体", other)) };
+                // 借用自动解引用：`a := &mut p; a.x = v`
+                let bt = match &ty { Ty::Ref(t) | Ty::RefMut(t) => (**t).clone(), other => other.clone() };
+                let sname = match &bt { Ty::Struct(n) => n.clone(), other => return Err(crate::lb!(line, "{} is not a struct", "{} 不是结构体", other)) };
                 let layout = jit.structs.get(&sname).cloned().ok_or_else(|| crate::lb!(line, "undefined struct '{}'", "未定义的结构体 '{}'", sname))?;
                 let idx = layout.iter().position(|(n, _)| n == field).ok_or_else(|| crate::lb!(line, "no field '{}'", "无字段 '{}'", field))?;
                 let fty = layout[idx].1.clone();

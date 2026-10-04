@@ -227,7 +227,9 @@ impl FnState {
                     let ld = b.ins().load(cl_ty(&fty), MemFlags::new(), bv.0, (idx * 8) as i32);
                     return Ok((ld, fty));
                 }
-                let sname = match &bv.1 { Ty::Struct(n) => n.clone(), other => return Err(crate::lb!(e.line, "{} is not a struct; cannot access field '{}'", "{} 不是结构体，不能访问字段 '{}'", other, field)) };
+                // 借用自动解引用：`a := &p; a.x` —— 运行时值已是结构体指针。
+                let bt = match &bv.1 { Ty::Ref(t) | Ty::RefMut(t) => (**t).clone(), other => other.clone() };
+                let sname = match &bt { Ty::Struct(n) => n.clone(), other => return Err(crate::lb!(e.line, "{} is not a struct; cannot access field '{}'", "{} 不是结构体，不能访问字段 '{}'", other, field)) };
                 let layout = jit.structs.get(&sname).cloned().ok_or_else(|| crate::lb!(e.line, "undefined struct '{}'", "未定义的结构体 '{}'", sname))?;
                 let idx = layout.iter().position(|(n, _)| n == field).ok_or_else(|| crate::lb!(e.line, "struct '{}' has no field '{}'", "结构体 '{}' 没有字段 '{}'", sname, field))?;
                 let fty = layout[idx].1.clone();

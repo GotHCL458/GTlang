@@ -2993,6 +2993,26 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn ref_field_access_autoderef_matches() {
+    // 借用自动解引用：a := &p; a.x 视作 p.x（sema + JIT + LLVM）
+    assert_consistent_src(
+        "ref_autoderef",
+        &[
+            "struct P { x: int  y: int }",
+            "fn main() {",
+            "    p := P { x: 42, y: 7 }",
+            "    a := &p",
+            "    put(a.x)",
+            "    put(a.x + a.y)",
+            "    m := &mut p",
+            "    m.x = 100",
+            "    put(p.x)",
+            "}",
+        ],
+    );
+}
+
+#[test]
 fn match_binding_shadowing_outer() {
     // 回归：match 绑定名与外层参数同名（Err(e) 而外层也有 e）不应误报 use-after-move。
     assert_consistent_src(

@@ -337,7 +337,9 @@ impl<'a> Codegen<'a> {
                     let v = self.from_slot(&raw, &fty);
                     return Ok(Val::new(&fty, v));
                 }
-                let sname = match &bv.ty {
+                // 借用自动解引用：`a := &p; a.x`（运行时 bv.s 已是结构体指针）
+                let bty = match &bv.ty { Ty::Ref(t) | Ty::RefMut(t) => (**t).clone(), other => other.clone() };
+                let sname = match &bty {
                     Ty::Struct(n) => n.clone(),
                     other => {
                         return Err(crate::lb!(e.line, "{} is not a struct; cannot access field '{}'", "{} 不是结构体，不能访问字段 '{}'", other, field))
