@@ -63,10 +63,16 @@ pub fn span_of_line(text: &str, msg: &str) -> Span {
         .find(|c: char| !c.is_whitespace())
         .map(|i| start + i)
         .unwrap_or(start);
-    Span::new(
-        content_start.min(text.len()),
-        end.max(content_start + 1).min(text.len().max(1)),
-    )
+    // 保证 start/end 落在 UTF-8 字符边界上（ariadne 要求），
+    // 否则多字节字符中间的偏移会让渲染 panic。
+    let clamp_boundary = |mut i: usize| {
+        if i > text.len() { i = text.len(); }
+        while i < text.len() && !text.is_char_boundary(i) { i += 1; }
+        i
+    };
+    let s = clamp_boundary(content_start);
+    let e = clamp_boundary(end.max(s + 1).min(text.len().max(1)));
+    Span::new(s, e)
 }
 
 /// 从消息里抽取行号：支持中文「第 N 行：」与英文「line N: 」两种前缀。

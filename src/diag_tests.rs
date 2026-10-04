@@ -33,6 +33,20 @@ fn span_of_line_finds_content() {
 }
 
 #[test]
+fn span_of_line_aligns_char_boundaries() {
+    // 多字节字符（中文）行：span 必须落在字符边界上
+    let text = "fn main() {\n  计数器 := 1\n}\n";
+    let sp = span_of_line(text, "第 2 行：x");
+    assert!(text.is_char_boundary(sp.start), "start not on boundary");
+    assert!(text.is_char_boundary(sp.end), "end not on boundary");
+    // 行内全中文内容
+    let text2 = "甲\n乙\n";
+    let sp2 = span_of_line(text2, "第 2 行：x");
+    assert!(text2.is_char_boundary(sp2.start));
+    assert!(text2.is_char_boundary(sp2.end));
+}
+
+#[test]
 fn stage_labels_non_empty() {
     assert!(!Stage::Lex.label().is_empty());
     assert!(!Stage::Parse.label().is_empty());

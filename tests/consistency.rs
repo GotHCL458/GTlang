@@ -2859,6 +2859,24 @@ fn closure_compose_and_fold_matches() {
 }
 
 // ============================================================
+// 36b. 诊断渲染不 panic（畸形/截断源码）
+// ============================================================
+
+#[test]
+fn truncated_multibyte_source_does_not_panic() {
+    // 源码被截断在多字节 UTF-8 字符中间 → 诊断渲染不得 panic（回归）
+    // "计数器" 的 UTF-8 是 E8 AE A1 E6 95 B0 E5 99 A8；这里截断在第 2 字节中间
+    let mut bytes: Vec<u8> = b"fn main() {\n  ".to_vec(); bytes.extend_from_slice(&[0xE8, 0xAE]); // truncate mid-multibyte
+    bytes.push(b'\n');
+    let p = tmp_dir().join("truncated_utf8.gt");
+    std::fs::write(&p, &bytes).unwrap();
+    let out = Command::new(gtc()).arg("--check").arg(&p).output().expect("gtc");
+    let err = decode(&out.stderr) + &decode(&out.stdout);
+    assert!(!err.contains("panicked"), "diagnostic rendering panicked:\n{}", err);
+    assert!(!err.contains("char boundary"), "char boundary panic:\n{}", err);
+}
+
+// ============================================================
 // 37. 深嵌套 / 边界（v0.0.1d 加固）
 // ============================================================
 

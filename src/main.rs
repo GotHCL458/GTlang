@@ -497,6 +497,15 @@ fn report_spanned(
         s = len - 1;
         e = len;
     }
+    // ariadne 要求 Span 的 start/end 落在 UTF-8 字符边界上（否则多字节字符中间的
+    // 偏移会让渲染 panic）。把 s 向前、e 向后对齐到最近的边界。
+    while s > 0 && !src_text.is_char_boundary(s) { s -= 1; }
+    while e < len && !src_text.is_char_boundary(e) { e += 1; }
+    // 对齐后仍可能出现 e <= s（例如 s 回退后越过 e）；修正为至少一个字符
+    if e <= s {
+        e = (s + 1).min(len);
+        while e < len && !src_text.is_char_boundary(e) { e += 1; }
+    }
 
     let name = path.to_string_lossy().to_string();
     // 消息可能含 \x01 分隔的"提示"（如 closest 建议）
@@ -528,8 +537,15 @@ fn report_spanned(
     }
     // 相关位置备注（notes）
     for (label, nspan) in notes.iter() {
-        let ns = nspan.start.min(len.saturating_sub(1));
-        let ne = nspan.end.min(len).max(ns + 1);
+        let mut ns = nspan.start.min(len.saturating_sub(1));
+        let mut ne = nspan.end.min(len).max(ns + 1);
+        // 同样对齐 UTF-8 字符边界
+        while ns > 0 && !src_text.is_char_boundary(ns) { ns -= 1; }
+        while ne < len && !src_text.is_char_boundary(ne) { ne += 1; }
+        if ne <= ns {
+            ne = (ns + 1).min(len);
+            while ne < len && !src_text.is_char_boundary(ne) { ne += 1; }
+        }
         report = report.with_label(
             ariadne::Label::new((name.clone(), ns..ne))
                 .with_message(label)
