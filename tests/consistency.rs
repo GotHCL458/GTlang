@@ -2993,6 +2993,23 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn dyn_trait_str_return_matches() {
+    // dyn 方法返回 str（ptr 类）：AOT 曾按 i64 返回，生成非法 IR。
+    assert_consistent_src(
+        "dyn_str_ret",
+        &[
+            "trait 说 { fn 说(self) -> str }",
+            "struct A {}",
+            "struct B {}",
+            "impl 说 for A { fn 说(self) -> str { return \"A\" } }",
+            "impl 说 for B { fn 说(self) -> str { return \"B\" } }",
+            "fn 打(x: dyn 说) { put(x.说()) }",
+            "fn main() { 打(A {})  打(B {}) }",
+        ],
+    );
+}
+
+#[test]
 fn dyn_trait_method_and_inline_matches() {
     // dyn Trait 参数上的方法调用 + 实参自动装箱 + 内联时接收者替换
     assert_consistent_src(
