@@ -195,6 +195,8 @@ pub fn is_assignable(expected: &Ty, actual: &Ty) -> bool {
         (Ty::RefMut(a), Ty::RefMut(b)) => is_assignable(a, b),
         // &mut T 可作 &T 用（共享借用的放宽）
         (Ty::Ref(a), Ty::RefMut(b)) => is_assignable(a, b),
+        // 借用自动解引用：&T / &mut T 可赋给 T（方法/字段调用传 self 时用）
+        (t, Ty::Ref(b)) | (t, Ty::RefMut(b)) => is_assignable(t, b),
         (Ty::Closure(p1, r1), Ty::Closure(p2, r2)) => {
             // 参数个数未知（空）或返回未知 → 视为通配
             if p1.is_empty() || p2.is_empty() || **r1 == Ty::Unknown || **r2 == Ty::Unknown {

@@ -15,6 +15,11 @@ impl Ctx {
             ExprKind::MethodOn { recv, method, args } => {
                 let rt = self.infer(recv)?;
                 for a in args.iter_mut() { self.infer(a)?; }
+                // 借用自动解引用：`a := &p; a.方法()` 视作 `p.方法()`。
+                let rt = match rt {
+                    Ty::Ref(inner) | Ty::RefMut(inner) => *inner,
+                    other => other,
+                };
                 // 查类型的方法返回类型（结构体：fns 里的 类型__方法）
                 let ret = match &rt {
                     Ty::Struct(s) => self.fns.get(&format!("{}__{}", s, method)).map(|sig| sig.ret.clone()),
@@ -204,11 +209,16 @@ impl Ctx {
                         }
                     }
                 }
-                // `obj.方法(...)`：obj 是结构体变量 → 查方法返回类型
+                // `obj.方法(...)`：obj 是结构体变量 → 查方法返回类型。
+                // 借用自动解引用：obj 是 &T/&mut T 时按 T 查方法。
                 if let Some(dot) = name.find('.') {
                     let recv = name[..dot].to_string();
                     let mname = name[dot + 1..].to_string();
-                    if let Some(Ty::Struct(sty)) = self.lookup(&recv) {
+                    let rty = self.lookup(&recv).map(|t| match t {
+                        Ty::Ref(inner) | Ty::RefMut(inner) => *inner,
+                        other => other,
+                    });
+                    if let Some(Ty::Struct(sty)) = rty {
                         if let Some(sig) = self.fns.get(&format!("{}__{}", sty, mname)).cloned() {
                             for a in args.iter_mut() { let _ = self.infer(a); }
                             e.ty = sig.ret.clone();
@@ -220,7 +230,11 @@ impl Ctx {
                 if let Some(dot) = name.find('.') {
                     let recv = &name[..dot];
                     let mname = &name[dot + 1..];
-                    if let Some(Ty::Struct(sty)) = self.lookup(recv) {
+                    let rty2 = self.lookup(recv).map(|t| match t {
+                        Ty::Ref(inner) | Ty::RefMut(inner) => *inner,
+                        other => other,
+                    });
+                    if let Some(Ty::Struct(sty)) = rty2 {
                         let prefix = format!("{}__", sty);
                         let cands: Vec<String> = self.fns.keys().filter_map(|k| k.strip_prefix(&prefix).map(|s| s.to_string())).collect();
                         if !cands.iter().any(|c| c == mname) {

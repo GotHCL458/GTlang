@@ -2993,6 +2993,26 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn ref_method_call_autoderef_matches() {
+    // 借用上的方法调用：a := &p; a.方法() 视作 p.方法()
+    assert_consistent_src(
+        "ref_method_autoderef",
+        &[
+            "struct P { x: int }",
+            "impl P { fn 取(self) -> int { return self.x }  fn 加(self, n: int) -> int { return self.x + n } }",
+            "fn main() {",
+            "    p := P { x: 9 }",
+            "    a := &p",
+            "    put(a.取())",
+            "    put(a.加(5))",
+            "    m := &mut p",
+            "    put(m.取())",
+            "}",
+        ],
+    );
+}
+
+#[test]
 fn ref_field_access_autoderef_matches() {
     // 借用自动解引用：a := &p; a.x 视作 p.x（sema + JIT + LLVM）
     assert_consistent_src(

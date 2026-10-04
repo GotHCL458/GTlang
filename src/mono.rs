@@ -685,7 +685,12 @@ fn lower_block(
 }
 
 fn expr_struct_type(e: &Expr) -> Option<String> {
-    if let Ty::Struct(n) = &e.ty {
+    // 借用自动解引用：`a := &p` 也把 a 记为结构体 P 的变量（供 obj.方法 降级）。
+    let t = match &e.ty {
+        Ty::Ref(inner) | Ty::RefMut(inner) => (**inner).clone(),
+        other => other.clone(),
+    };
+    if let Ty::Struct(n) = &t {
         Some(n.clone())
     } else {
         None
@@ -699,6 +704,32 @@ fn lower_expr(
     vars: &HashMap<String, String>,
 ) {
     // 先递归
+    match &mut e.kind {
+        ExprKind::Call(_, args) => for a in args { lower_expr(a, methods, structs, vars); },
+        _ => {} // 占位：下面统一处理
+    }
+    // `obj.方法(args)`（obj 是变量，parser 把它并成名字 "obj.方法"）
+    // → `类型__方法(obj, args)`。借用自动解引用：obj 为 &T 时按 T 查。
+    if let ExprKind::Call(name, _) = &e.kind {
+        if name.contains('.') {
+            let dot = name.find('.').unwrap();
+            let recv = name[..dot].to_string();
+            let mname = name[dot + 1..].to_string();
+            let rty = vars.get(&recv).map(|t| t.trim_start_matches('&').trim_start_matches("mut ").to_string());
+            if let Some(sty) = rty {
+                if methods.contains_key(&sty) {
+                    let args2: Vec<Expr> = match &e.kind {
+                        ExprKind::Call(_, a) => a.clone(),
+                        _ => Vec::new(),
+                    };
+                    let self_expr = Expr::new(ExprKind::Ident(recv.clone()), e.line);
+                    let mut new_args = vec![self_expr];
+                    new_args.extend(args2);
+                    e.kind = ExprKind::Call(format!("{}__{}", sty, mname), new_args);
+                }
+            }
+        }
+    }
     match &mut e.kind {
         ExprKind::Call(_, args) => for a in args { lower_expr(a, methods, structs, vars); },
         ExprKind::Unary(_, a) => lower_expr(a, methods, structs, vars),
@@ -727,8 +758,13 @@ fn lower_expr(
         ExprKind::MethodOn { recv, method, args } => {
             lower_expr(recv, methods, structs, vars);
             for a in args.iter_mut() { lower_expr(a, methods, structs, vars); }
-            // 结构体：降级为 类型__方法(recv, ...)；dyn 保留给 codegen/jit 做 vtable 分发
-            if let Ty::Struct(sname) = recv.ty.clone() {
+            // 结构体：降级为 类型__方法(recv, ...)；dyn 保留给 codegen/jit 做 vtable 分发。
+            // 借用自动解引用：recv 为 &T/&mut T 时按 T 查方法（运行时借用是透传值）。
+            let rty = match recv.ty.clone() {
+                Ty::Ref(inner) | Ty::RefMut(inner) => *inner,
+                other => other,
+            };
+            if let Ty::Struct(sname) = rty {
                 let self_expr = (**recv).clone();
                 let mut new_args = vec![self_expr];
                 new_args.append(args);
