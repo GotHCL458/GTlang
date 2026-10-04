@@ -240,3 +240,61 @@ pub fn closest_name_pub(name: &str, cands: &[String]) -> bool {
     cands.iter().any(|k| k != name && levenshtein(name, k) <= 2)
 }
 
+#[cfg(test)]
+mod util_tests {
+    use super::*;
+    use crate::types::Ty;
+
+    #[test]
+    fn levenshtein_basics() {
+        assert_eq!(levenshtein("", ""), 0);
+        assert_eq!(levenshtein("abc", "abc"), 0);
+        assert_eq!(levenshtein("abc", "abd"), 1);
+        assert_eq!(levenshtein("abc", "ab"), 1);
+        assert_eq!(levenshtein("abc", ""), 3);
+        assert_eq!(levenshtein("kitten", "sitting"), 3);
+        // 中文按字符计
+        assert_eq!(levenshtein("累加", "累减"), 1);
+        assert_eq!(levenshtein("计数器", "计数"), 1);
+    }
+
+    #[test]
+    fn closest_of_picks_nearest() {
+        let cands = vec!["upper".to_string(), "lower".to_string(), "trim".to_string()];
+        assert_eq!(closest_of("uppr", cands.clone().into_iter()), Some("upper".to_string()));
+        assert_eq!(closest_of("lowr", cands.clone().into_iter()), Some("lower".to_string()));
+        // 距离都 > 2 → None
+        assert_eq!(closest_of("xyz", cands.clone().into_iter()), None);
+        // 完全相等时跳过自己
+        assert_eq!(closest_of("upper", cands.into_iter()), None);
+    }
+
+    #[test]
+    fn closest_name_pub_checks_distance() {
+        let cands = vec!["hello".to_string(), "world".to_string()];
+        assert!(closest_name_pub("helo", &cands));
+        assert!(!closest_name_pub("xxxxx", &cands));
+        // 与自身相等不算
+        assert!(!closest_name_pub("hello", &cands));
+    }
+
+    #[test]
+    fn type_join_unknown_and_same() {
+        assert_eq!(type_join(&Ty::I64, &Ty::I64), Ty::I64);
+        assert_eq!(type_join(&Ty::Unknown, &Ty::Str), Ty::Str);
+        assert_eq!(type_join(&Ty::Str, &Ty::Unknown), Ty::Str);
+        assert_eq!(type_join(&Ty::Unknown, &Ty::Unknown), Ty::Unknown);
+    }
+
+    #[test]
+    fn type_join_numeric_and_containers() {
+        assert_eq!(type_join(&Ty::I64, &Ty::F64), Ty::F64);
+        assert_eq!(type_join(&Ty::List(Box::new(Ty::I64)), &Ty::List(Box::new(Ty::F64))), Ty::List(Box::new(Ty::F64)));
+        assert_eq!(type_join(&Ty::Set(Box::new(Ty::Unknown)), &Ty::Set(Box::new(Ty::I64))), Ty::Set(Box::new(Ty::I64)));
+        assert_eq!(type_join(&Ty::Option(Box::new(Ty::I64)), &Ty::Option(Box::new(Ty::F64))), Ty::Option(Box::new(Ty::F64)));
+        // 不同类型 → Unknown
+        assert_eq!(type_join(&Ty::I64, &Ty::Str), Ty::Unknown);
+        assert_eq!(type_join(&Ty::List(Box::new(Ty::I64)), &Ty::Set(Box::new(Ty::I64))), Ty::Unknown);
+    }
+}
+
