@@ -2966,6 +2966,61 @@ fn combo_stdlib_closures_matches() {
     );
 }
 
+/// 运行时错误源码：双端都必须**非零退出**且错误文本逐字节一致（不 panic）。
+fn assert_runtime_error_matches(tag: &str, src_text: &str) {
+    let p = tmp_dir().join(format!("rt_{}.gt", tag));
+    std::fs::write(&p, src_text).expect("无法写临时源文件");
+
+    let interp = Command::new(gtc())
+        .arg("--run").arg(&p)
+        .output().expect("无法启动 gtc --run");
+    assert!(!interp.status.success(), "[{}] 解释器未报运行时错误", tag);
+    let ie = decode(&interp.stderr) + &decode(&interp.stdout);
+    assert!(!ie.contains("panicked"), "[{}] 解释器 panic：
+{}", tag, ie);
+
+    let exe = tmp_dir().join(format!("rt_{}.exe", tag));
+    let c = Command::new(gtc())
+        .arg("--c").arg(&p).arg("-o").arg(&exe)
+        .output().expect("无法启动 gtc --c");
+    assert!(c.status.success(), "[{}] 编译失败：
+{}", tag, decode(&c.stderr));
+    let ran = Command::new(&exe).output().expect("无法运行产物");
+    assert!(!ran.status.success(), "[{}] 编译产物未报运行时错误", tag);
+    let ce = decode(&ran.stderr) + &decode(&ran.stdout);
+
+    assert_eq!(ie, ce, "[{}] 双端运行时错误不一致", tag);
+}
+
+#[test]
+fn runtime_errors_match() {
+    // 溢出 / 除零 / 越界：双端给出相同的运行时错误（非 panic）
+    assert_runtime_error_matches("overflow", "fn main() { a := 9223372036854775807  put(a + 1) }");
+    assert_runtime_error_matches("div0", "fn main() { a := 1  b := 0  put(a / b) }");
+    assert_runtime_error_matches("index", "fn main() { xs := list()  push(xs, 1)  put(xs[100]) }");
+}
+
+#[test]
+fn edge_sources_do_not_panic() {
+    // 空文件 / 仅注释 / 仅空白：不得 panic（诊断可报错）
+    for (tag, text) in [
+        ("empty", ""),
+        ("comment", "// 只有注释"),
+        ("ws", "   \n\t\n"),
+    ] {
+        let p = tmp_dir().join(format!("edge_{}.gt", tag));
+        std::fs::write(&p, text).unwrap();
+        let out = Command::new(gtc())
+            .arg("--check").arg(&p)
+            .output().expect("无法启动 gtc --check");
+        let err = decode(&out.stderr) + &decode(&out.stdout);
+        assert!(!err.contains("panicked"), "[{}] panic：
+{}", tag, err);
+        assert!(!err.contains("char boundary"), "[{}] char boundary panic：
+{}", tag, err);
+    }
+}
+
 // ============================================================
 // 37. 深嵌套 / 边界（v0.0.1d 加固）
 // ============================================================
