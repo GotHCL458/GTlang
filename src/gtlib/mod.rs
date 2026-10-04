@@ -120,9 +120,24 @@ pub const MODULES: &[StdModule] = &[
     StdModule {
         dll: "boot",
         funcs: &[
-            // 裸机引导（引导库提供；仅 --bare 目标链接）
-            "boot_serial_init", "boot_serial_putc", "boot_hlt", "boot_exit",
-            "boot_mem_alloc", "boot_time_ms", "boot_reboot",
+            // 串口
+            "boot_serial_init", "boot_serial_putc", "boot_serial_puts", "boot_serial_getc",
+            // 屏幕
+            "boot_clear", "boot_putc_at", "boot_puts",
+            // 键盘
+            "boot_getkey",
+            // 内存
+            "boot_mem_alloc", "boot_mem_free", "boot_mem_size",
+            // 时间
+            "boot_time_ms", "boot_sleep_ms",
+            // 系统
+            "boot_hlt", "boot_exit", "boot_reboot", "boot_shutdown",
+            // 磁盘
+            "boot_disk_read", "boot_disk_write",
+            // 端口
+            "boot_inb", "boot_outb", "boot_inw", "boot_outw",
+            // 信息
+            "boot_version", "boot_arch",
         ],
     },
     StdModule {

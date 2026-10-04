@@ -174,11 +174,29 @@ pub fn gtlib_fn(name: &str) -> Option<StdFn> {
         // ---- boot（裸机引导库；仅 --bare 目标有实现）----
         "boot_serial_init" => f("boot_serial_init", Ty::Void, &[]),
         "boot_serial_putc" => f("boot_serial_putc", Ty::Void, &[Ty::I64]),
+        "boot_serial_puts" => f("boot_serial_puts", Ty::Void, &[Ty::Str]),
+        "boot_serial_getc" => f("boot_serial_getc", Ty::I64, &[]),
+        "boot_clear" => f("boot_clear", Ty::Void, &[]),
+        "boot_putc_at" => f("boot_putc_at", Ty::Void, &[Ty::I64, Ty::I64, Ty::I64]),
+        "boot_puts" => f("boot_puts", Ty::Void, &[Ty::Str]),
+        "boot_getkey" => f("boot_getkey", Ty::I64, &[]),
+        "boot_mem_alloc" => f("boot_mem_alloc", Ty::I64, &[Ty::I64]),
+        "boot_mem_free" => f("boot_mem_free", Ty::Void, &[Ty::I64]),
+        "boot_mem_size" => f("boot_mem_size", Ty::I64, &[]),
+        "boot_time_ms" => f("boot_time_ms", Ty::I64, &[]),
+        "boot_sleep_ms" => f("boot_sleep_ms", Ty::Void, &[Ty::I64]),
         "boot_hlt" => f("boot_hlt", Ty::Void, &[]),
         "boot_exit" => f("boot_exit", Ty::Void, &[]),
-        "boot_mem_alloc" => f("boot_mem_alloc", Ty::I64, &[Ty::I64]),
-        "boot_time_ms" => f("boot_time_ms", Ty::I64, &[]),
         "boot_reboot" => f("boot_reboot", Ty::Void, &[]),
+        "boot_shutdown" => f("boot_shutdown", Ty::Void, &[]),
+        "boot_disk_read" => f("boot_disk_read", Ty::I64, &[Ty::I64, Ty::I64, Ty::I64]),
+        "boot_disk_write" => f("boot_disk_write", Ty::I64, &[Ty::I64, Ty::I64, Ty::I64]),
+        "boot_inb" => f("boot_inb", Ty::I64, &[Ty::I64]),
+        "boot_outb" => f("boot_outb", Ty::Void, &[Ty::I64, Ty::I64]),
+        "boot_inw" => f("boot_inw", Ty::I64, &[Ty::I64]),
+        "boot_outw" => f("boot_outw", Ty::Void, &[Ty::I64, Ty::I64]),
+        "boot_version" => f("boot_version", Ty::Str, &[]),
+        "boot_arch" => f("boot_arch", Ty::I64, &[]),
         // ---- core ----
         "core_free" => f("py_free", Ty::Void, &[Ty::Str]),
         "core_version" => f("py_core_version", Ty::Str, &[]),
@@ -315,7 +333,14 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "tcp_connect" | "tcp_listen" | "accept" | "net_send" | "net_recv" | "recv_all" | "net_close" | "close_listener" | "peer_addr"
         | "sql_open" | "sql_close" | "sql_exec" | "sql_query" | "sql_run" | "sql_error" | "sql_begin" | "sql_commit" | "sql_rollback" | "sql_exec_many"
         | "core_free" | "core_version" | "core_echo"
-        | "boot_serial_init" | "boot_serial_putc" | "boot_hlt" | "boot_exit" | "boot_mem_alloc" | "boot_time_ms" | "boot_reboot"
+        | "boot_serial_init" | "boot_serial_putc" | "boot_serial_puts" | "boot_serial_getc"
+        | "boot_clear" | "boot_putc_at" | "boot_puts" | "boot_getkey"
+        | "boot_mem_alloc" | "boot_mem_free" | "boot_mem_size"
+        | "boot_time_ms" | "boot_sleep_ms"
+        | "boot_hlt" | "boot_exit" | "boot_reboot" | "boot_shutdown"
+        | "boot_disk_read" | "boot_disk_write"
+        | "boot_inb" | "boot_outb" | "boot_inw" | "boot_outw"
+        | "boot_version" | "boot_arch"
         | "sha256" | "hmac_sha256" | "sha256_hexlen" | "sha512" | "sha1" | "md5" | "sha512_hexlen" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
         | "entropy_random_hex" | "entropy_random_int" | "entropy_random_bytes" | "entropy_uuid"
         | "session_create" | "session_get" | "session_destroy" | "session_gc" | "session_count"

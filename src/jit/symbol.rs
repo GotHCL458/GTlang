@@ -163,7 +163,14 @@ pub(crate) const GTLIB_NAMES: &[&str] = &[
     // core
     "core_free", "core_version", "core_echo",
     // boot（裸机引导库）
-    "boot_serial_init", "boot_serial_putc", "boot_hlt", "boot_exit", "boot_mem_alloc", "boot_time_ms", "boot_reboot",
+    "boot_serial_init", "boot_serial_putc", "boot_serial_puts", "boot_serial_getc",
+    "boot_clear", "boot_putc_at", "boot_puts", "boot_getkey",
+    "boot_mem_alloc", "boot_mem_free", "boot_mem_size",
+    "boot_time_ms", "boot_sleep_ms",
+    "boot_hlt", "boot_exit", "boot_reboot", "boot_shutdown",
+    "boot_disk_read", "boot_disk_write",
+    "boot_inb", "boot_outb", "boot_inw", "boot_outw",
+    "boot_version", "boot_arch",
     // crypto
     "sha256", "hmac_sha256", "sha256_hexlen", "sha512", "sha1", "md5", "sha512_hexlen", "hex_encode", "hex_decode", "password_hash", "password_verify",
     // entropy

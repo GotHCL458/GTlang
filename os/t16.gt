@@ -1,0 +1,6 @@
+fn putc(c: int) { put(c) }
+
+fn main() {
+    putc(72)
+    putc(73)
+}

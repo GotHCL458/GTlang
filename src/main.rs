@@ -89,6 +89,8 @@ enum Mode {
     Bare,
     /// 16 位汇编（内置汇编器：.asm -> .bin）
     Asm16,
+    /// 16 位后端（GTLang AST -> 机器码 .bin）
+    Asm16Gen,
     /// 只产出 LLVM IR
     EmitLlvm,
     EmitLlvmOpt,
@@ -167,6 +169,7 @@ fn main() -> ExitCode {
             "--test" | "test" => mode = Mode::Test,
             "--emit-llvm" => mode = Mode::EmitLlvm,
             "--asm16" => mode = Mode::Asm16,
+            "--asm16gen" | "--x86_16" => mode = Mode::Asm16Gen,
             "--bare" | "--target" => {
                 // `--target <arch>`：裸机目标（arch: x86_64|x86_32|x86_16）；`--bare` 等价默认 x86_64。
                 mode = Mode::Bare;
@@ -429,6 +432,22 @@ fn drive(
             println!("已汇编：{}（{} 字节）", outp.display(), bin.len());
         } else {
             println!("assembled: {} ({} bytes)", outp.display(), bin.len());
+        }
+        return Ok(());
+    }
+
+    // 16 位后端：AST -> 机器码 .bin。
+    if mode == Mode::Asm16Gen {
+        let bin = gtc_rust::codegen_asm16::compile(&unit.ast).map_err(|e| format!("16 位后端失败：{}", e))?;
+        let outp = match out {
+            Some(p) => p.to_path_buf(),
+            None => first.with_extension("bin"),
+        };
+        std::fs::write(&outp, &bin).map_err(|e| format!("无法写入 {}：{}", outp.display(), e))?;
+        if lang::is_zh() {
+            println!("16 位镜像已生成：{}（{} 字节）", outp.display(), bin.len());
+        } else {
+            println!("16-bit image written: {} ({} bytes)", outp.display(), bin.len());
         }
         return Ok(());
     }
