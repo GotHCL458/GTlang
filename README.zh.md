@@ -6,7 +6,7 @@
 
 **GTLang 是一门静态类型、编译型、表达式导向的编程语言，采用双后端（LLVM + Cranelift），原生支持中文标识符 —— 且默认（带安全检查）在紧循环上追平 C。**
 
-[![Tests](https://img.shields.io/badge/tests-626%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-803%20passed-brightgreen)]()
 [![Backends](https://img.shields.io/badge/backends-LLVM%20%2B%20Cranelift-blue)]()
 [![Warnings](https://img.shields.io/badge/warnings-0-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)]()
@@ -476,10 +476,10 @@ Unit ──┬── jit::run（Cranelift）
 cargo test --release
 ```
 
-**626 个测试**：
-- **25 个单元测试**（`--lib`）—— 类型系统、unify、cblock、tmp、AST 遍历完备性
-- **101 个双后端一致性测试**（`tests/consistency.rs`）—— 同一源码、两个后端、stdout 相同（含递归扫描 examples/）
-- **500 个前端批量测试**（`tests/bulk.rs`）—— parse + type-check 覆盖
+**803 个测试**：
+- **140 个单元测试**（`--lib`）—— 类型系统、unify、cblock、tmp、AST 遍历完备性
+- **141 个双后端一致性测试**（`tests/consistency.rs`）—— 同一源码、两个后端、stdout 相同（含递归扫描 examples/）
+- **522 个前端批量测试**（`tests/bulk.rs`）—— parse + type-check 覆盖
 
 ---
 

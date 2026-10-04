@@ -6,7 +6,7 @@
 
 **GTLang is a statically-typed, compiled, expression-oriented language that runs on a dual backend (LLVM + Cranelift) and speaks Chinese identifiers natively — and its safe defaults match C on tight loops.**
 
-[![Tests](https://img.shields.io/badge/tests-626%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-803%20passed-brightgreen)]()
 [![Backends](https://img.shields.io/badge/backends-LLVM%20%2B%20Cranelift-blue)]()
 [![Warnings](https://img.shields.io/badge/warnings-0-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)]()
@@ -480,10 +480,10 @@ Unit ──┬── jit::run      (Cranelift)
 cargo test --release
 ```
 
-**626 tests**:
-- **25 unit tests** (`--lib`) — type system, unify, cblock, tmp, AST-traversal completeness
-- **101 dual-backend consistency tests** (`tests/consistency.rs`) — same source, both backends, identical stdout (incl. examples/ recursively)
-- **500 frontend bulk tests** (`tests/bulk.rs`) — parse + type-check coverage
+**803 tests**:
+- **140 unit tests** (`--lib`) — type system, unify, cblock, tmp, AST-traversal completeness
+- **141 dual-backend consistency tests** (`tests/consistency.rs`) — same source, both backends, identical stdout (incl. examples/ recursively)
+- **522 frontend bulk tests** (`tests/bulk.rs`) — parse + type-check coverage
 
 ---
 
