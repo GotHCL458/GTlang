@@ -130,16 +130,21 @@ pub(crate) fn check_stmt(ctx: &mut Ctx, s: &mut Stmt, errors: &mut Vec<String>) 
                                         if want == Ty::Unknown { String::new() } else { format!("({})", want) }));
                                 }
                             } else if index.is_none() {
-                                // 纯赋值 x = v：允许改变变量类型
-                                let new_ty = if rty == Ty::Unknown { Ty::I64 } else { rty.clone() };
-                                for sc in ctx.scopes.iter_mut().rev() {
-                                    if let Some(entry) = sc.get_mut(name) {
-                                        if entry.explicit {
-                                            errors.push(crate::lb!(line, "cannot change type of '{}': declared with explicit type", "无法改变 '{}' 的类型：它带显式类型声明", name));
-                                        } else {
-                                            entry.ty = new_ty.clone();
+                                // 纯赋值 x = v：允许改变变量类型（但 RHS 类型未知时保留原类型，
+                                // 否则 `acc = f(...)`（f 无标注、返回 Unknown）会把 acc 改成 i64）
+                                if rty == Ty::Unknown {
+                                    // RHS 类型未知：保留变量原类型
+                                } else {
+                                    let new_ty = rty.clone();
+                                    for sc in ctx.scopes.iter_mut().rev() {
+                                        if let Some(entry) = sc.get_mut(name) {
+                                            if entry.explicit {
+                                                errors.push(crate::lb!(line, "cannot change type of '{}': declared with explicit type", "无法改变 '{}' 的类型：它带显式类型声明", name));
+                                            } else {
+                                                entry.ty = new_ty.clone();
+                                            }
+                                            break;
                                         }
-                                        break;
                                     }
                                 }
                             } else if !compatible(&lt, &rty) {

@@ -488,7 +488,8 @@ impl<'a> Codegen<'a> {
                 }
                 for (i, a) in args.iter().enumerate() {
                     let got = self.expr(a)?;
-                    let want = ptypes.get(ncap + i).cloned().unwrap_or(Ty::I64);
+                    // ptypes 为空（无标注闭包参数的调用）→ 用实参自身类型，不强转 i64
+                    let want = if ptypes.is_empty() { got.ty.clone() } else { ptypes.get(ncap + i).cloned().unwrap_or(Ty::I64) };
                     let cv = self.coerce(&got, &want)?;
                     ops.push(format!("{} {}", want.llvm(), cv.s));
                 }

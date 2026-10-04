@@ -404,13 +404,21 @@ impl FnState {
         }
         for (i, a) in args.iter().enumerate() {
             let got = self.gen_expr(jit, b, a)?;
-            let want = ptypes.get(ncap + i).cloned().unwrap_or(Ty::I64);
-            vals.push(self.convert(b, &got, &want));
+            // ptypes 为空（无标注闭包参数的调用）→ 不转，按实参自身类型
+            if ptypes.is_empty() {
+                vals.push(got.0);
+            } else {
+                let want = ptypes.get(ncap + i).cloned().unwrap_or(Ty::I64);
+                vals.push(self.convert(b, &got, &want));
+            }
         }
         let mut sig = jit.module.make_signature();
         // 捕获值按 I64；用户参数按标注/推断类型
         for _ in 0..ncap { sig.params.push(AbiParam::new(types::I64)); }
-        for i in 0..args.len() { let t = ptypes.get(ncap + i).cloned().unwrap_or(Ty::I64); sig.params.push(AbiParam::new(cl_ty(&t))); }
+        for i in 0..args.len() {
+            let t = if ptypes.is_empty() { args[i].ty.clone() } else { ptypes.get(ncap + i).cloned().unwrap_or(Ty::I64) };
+            sig.params.push(AbiParam::new(cl_ty(&t)));
+        }
         if ret != Ty::Void { sig.returns.push(AbiParam::new(cl_ty(&ret))); }
         let sigref = b.import_signature(sig);
         let call = b.ins().call_indirect(sigref, fp, &vals);
