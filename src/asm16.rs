@@ -26,6 +26,7 @@ enum MemPart {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 enum Item {
     Label(String),
     Instr(String, Vec<Op>, usize),
@@ -36,6 +37,7 @@ enum Item {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 enum DataItem { Bytes(Vec<i64>), Str(Vec<u8>), Words(Vec<i64>), Dwords(Vec<i64>), Times(i64, Box<DataItem>) }
 
 pub fn assemble(text: &str) -> Result<Vec<u8>, String> {
@@ -141,10 +143,6 @@ fn emit_data(d: &DataItem, out: &mut Vec<u8>, ln: usize) -> Result<(), String> {
         DataItem::Times(n, inner) => for _ in 0..*n { emit_data(inner, out, ln)?; },
     }
     Ok(())
-}
-
-fn val(o: &Op, _equs: &HashMap<String, i64>) -> i64 {
-    match o { Op::Imm(v) => *v, _ => 0 }
 }
 
 fn instr_len(m: &str, ops: &[Op], labels: &HashMap<String, i64>, equs: &HashMap<String, i64>, ln: usize) -> Result<usize, String> {
@@ -414,7 +412,7 @@ fn emit_jmp(op: &Op, _labels: &HashMap<String, i64>, _equs: &HashMap<String, i64
     Ok(())
 }
 
-fn emit_jcc(op: u8, target: &Op, labels: &HashMap<String, i64>, _equs: &HashMap<String, i64>, out: &mut Vec<u8>, ln: usize) -> Result<(), String> {
+fn emit_jcc(op: u8, target: &Op, _labels: &HashMap<String, i64>, _equs: &HashMap<String, i64>, out: &mut Vec<u8>, ln: usize) -> Result<(), String> {
     match target {
         Op::Imm(v) => { out.push(op); out.extend_from_slice(&(*v as u16).to_le_bytes()); }
         Op::Sym(_name) => {
