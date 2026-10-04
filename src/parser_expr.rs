@@ -46,7 +46,13 @@ impl Parser {
             if self.at_ident("or") && min_prec == 0 {
                 let line = self.line();
                 self.bump();
-                let rhs = self.expr(1)?;
+                // 块形式：`x or { ... }` —— 块作为 None/Err 分支的 body
+                // （块内可含语句；最后一句表达式作为默认值，或直接 return/throw）。
+                let fallback_body: Vec<Stmt> = if self.at_punct("{") {
+                    self.block()?
+                } else {
+                    vec![Stmt::Expr(self.expr(1)?)]
+                };
                 let v = format!("__or_v{}", line);
                 let vexpr = || Expr::new(ExprKind::Ident(v.clone()), line);
                 let some_pat = Expr::new(ExprKind::Call("Some".to_string(), vec![vexpr()]), line);
@@ -58,7 +64,7 @@ impl Parser {
                     MatchArm { pat: Some(ok_pat), range: None, guard: None,
                         body: vec![Stmt::Expr(vexpr())], line },
                     MatchArm { pat: None, range: None, guard: None,
-                        body: vec![Stmt::Expr(rhs)], line },
+                        body: fallback_body, line },
                 ];
                 lhs = Expr::new(ExprKind::Match { subject: Box::new(lhs), arms }, line);
                 continue;
