@@ -2993,6 +2993,22 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn dyn_trait_method_and_inline_matches() {
+    // dyn Trait 参数上的方法调用 + 实参自动装箱 + 内联时接收者替换
+    assert_consistent_src(
+        "dyn_inline",
+        &[
+            "trait 形状 { fn 面积(self) -> int }",
+            "struct 方 { a: int }",
+            "impl 形状 for 方 { fn 面积(self) -> int { return self.a * self.a } }",
+            "fn f(s: dyn 形状) -> int { return s.面积() }",
+            "fn g(s: dyn 形状) { put(s.面积()) }",
+            "fn main() { put(f(方 { a: 3 }))  g(方 { a: 4 }) }",
+        ],
+    );
+}
+
+#[test]
 fn borrow_param_method_call_matches() {
     // 借用参数上的方法调用：fn f(p: &P) { p.方法() }
     assert_consistent_src(

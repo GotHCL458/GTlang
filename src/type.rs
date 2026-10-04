@@ -187,6 +187,8 @@ pub fn is_assignable(expected: &Ty, actual: &Ty) -> bool {
         (Ty::Struct(a), Ty::Struct(b)) => a == b,
         // trait 对象：同名兼容
         (Ty::Dyn(a), Ty::Dyn(b)) => a == b,
+        // 结构体/枚举 → dyn Trait：自动装箱（impl Trait for T 在 sema 已校验）
+        (Ty::Dyn(_), Ty::Struct(_) | Ty::Enum(_)) => true,
         // 类型标注中的名字无法区分 struct/enum，同名视为兼容（sema 已按实际定义校验字段）
         (Ty::Struct(a), Ty::Enum(b)) | (Ty::Enum(a), Ty::Struct(b)) => a == b,
         (Ty::Enum(a), Ty::Enum(b)) => a == b,

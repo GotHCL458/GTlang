@@ -351,7 +351,23 @@ fn rename_expr(e: &mut Expr, rename: &std::collections::HashMap<String, String>,
         }
         ExprKind::Unary(_, a) => rename_expr(a, rename, subst)?,
         ExprKind::Binary(_, a, b) | ExprKind::Index(a, b) => { rename_expr(a, rename, subst)?; rename_expr(b, rename, subst)?; }
-        ExprKind::Call(_, args) => for a in args { rename_expr(a, rename, subst)?; },
+        ExprKind::Call(name, args) => {
+            // 内联替换：`recv.方法(...)` 的 recv 若在 subst 中，需一并替换；
+            // 实参是简单标识符才能安全替换，否则放弃内联（返回 None）。
+            if let Some(dot) = name.find('.') {
+                let recv = name[..dot].to_string();
+                if let Some(rep) = subst.get(&recv) {
+                    if let ExprKind::Ident(rn) = &rep.kind {
+                        *name = format!("{}{}", rn, &name[dot..]);
+                    } else {
+                        return None;
+                    }
+                } else if let Some(r) = rename.get(&recv) {
+                    *name = format!("{}{}", r, &name[dot..]);
+                }
+            }
+            for a in args { rename_expr(a, rename, subst)?; }
+        }
         ExprKind::CallValue { callee, args } => { rename_expr(callee, rename, subst)?; for a in args { rename_expr(a, rename, subst)?; } }
         ExprKind::ArrayLit(xs) => for x in xs { rename_expr(x, rename, subst)?; },
         ExprKind::Interp(parts) => for p in parts { if let StrPart::Expr(i) = p { rename_expr(i, rename, subst)?; } },

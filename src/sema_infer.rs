@@ -184,6 +184,7 @@ impl Ctx {
                     let tr = match recv { Some(Ty::Dyn(tr)) => Some(tr), _ => None };
                     if let Some(tr) = tr {
                         let mname = name[dot+1..].to_string();
+                        if crate::verbose() { eprintln!("[dyn-probe2] trait={} mname={} methods={:?}", tr, mname, self.trait_methods.get(&tr).map(|ms| ms.iter().map(|(n,_,_)| n.clone()).collect::<Vec<_>>())); }
                         let ret = self.trait_methods.get(&tr).and_then(|ms| ms.iter().find(|(n, _, _)| *n == mname).map(|(_, _, r)| r.clone()));
                         if let Some(ret) = ret {
                             for a in args.iter_mut().skip(1) { let _ = self.infer(a); }
@@ -200,7 +201,8 @@ impl Ctx {
                         let mname = name[dot+1..].to_string();
                         let trs: Vec<String> = self.generic_bounds.iter().filter(|(t, _)| t == &tp).map(|(_, tr)| tr.clone()).collect();
                         for tr in trs {
-                            let ret = self.trait_methods.get(&tr).and_then(|ms| ms.iter().find(|(n, _, _)| *n == mname).map(|(_, _, r)| r.clone()));
+                            if crate::verbose() { eprintln!("[dyn-probe2] trait={} mname={} methods={:?}", tr, mname, self.trait_methods.get(&tr).map(|ms| ms.iter().map(|(n,_,_)| n.clone()).collect::<Vec<_>>())); }
+                        let ret = self.trait_methods.get(&tr).and_then(|ms| ms.iter().find(|(n, _, _)| *n == mname).map(|(_, _, r)| r.clone()));
                             if let Some(ret) = ret {
                                 for a in args.iter_mut() { let _ = self.infer(a); }
                                 e.ty = ret.clone();
