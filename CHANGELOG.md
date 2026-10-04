@@ -90,6 +90,12 @@ All notable changes to GTLang. Bilingual (EN / 中文).
 - **闭包捕获外层参数** —— `return |x| g(f(x))` 会捕获 `g`/`f`；提升出的闭包体也会做闭包调用改写。
 - **AST 遍历完备性测试** —— 断言 `each_expr` 与 `convert_closure_calls_expr` 覆盖每个 `ExprKind` 变体。
 - **`loop {` 友好错误**（缺计数，E303）。
+- **match 裸标识符绑定** —— `match v { n if n > 0 => ... }` 绑定主体值。
+- **嵌套解构** —— `match` 里支持 `Some(Some(v))`、`Ok(Some(v))`、`E::A(Some(v))`。
+- **`&T`/`&mut T` 自动解引用** —— 字段访问/赋值、方法调用（`a.x`、`a.方法()`）与借用参数。
+- **`dyn Trait` 自动装箱** —— `struct`/`enum` 传给 `dyn Trait` 形参时自动装箱。
+- **`x or 默认值` 也支持 `Result`**（不再仅限 `Option`）。
+- **`Option[T]` 方括号类型语法**正确解析。
 
 ### 修复
 - **Windows 下 JIT/AOT 换行不一致** —— 两个运行时的 CRT stdout 都设为二进制；一致性测试不再归一化 CRLF（该类 bug 会被抓到）。
@@ -99,6 +105,21 @@ All notable changes to GTLang. Bilingual (EN / 中文).
 - **纯赋值在 RHS 类型未知时不再改变量类型**。
 - **深嵌套 / 长链**改为报语法错而非爆栈；`i64::MIN` 可解析。
 - **`gtlib/random` 的 RNG 种子**按线程扰动（并发 `go` 不再共享序列）。
+- **`|>` 右侧非可调用**不再静默丢弃 LHS。
+- **`if` 与前一语句同行**不再被误判为三元（elif 链可用）。
+- **match 守卫**曾被三元分支吞掉。
+- **`"${x}"`（单个插值）**不再退化为内部表达式 `x`。
+- **非枚举 match 的穷尽性**始终要求 `_`（空 match 不再通过）。
+- **复合类型 match 模式**双端明确拒绝（原来生成非法 IR / 静默走 `_`）。
+- **enum 载荷嵌套解构**不再令 JIT 崩溃 / 内层 tag 误判。
+- **`own`** 在 match 绑定遮蔽外层同名变量时不再误报 use-after-move。
+- **借用上的方法调用**（`a.方法()`，`a: &T`）在 sema/mono/LLVM 全链路修复。
+- **`ariadne` 的 Span** 对齐 UTF-8 字符边界（截断多字节源码不再 panic）。
+- **内联**替换 `recv.method()` 的接收者（否则放弃内联）。
+- **`dyn` vtable 调用**返回 `str`/`bool` 时使用正确的 LLVM 类型。
+- **`opt::collect_calls`** / **`mono::auto_box_args`** 补齐 `MethodOn`/`Borrow`/`DynBox`/`Slice`/`ListComp`/`EnumLit`/`TupleLit`。
+- **跨模块类型前缀**递归 `Dyn`/`Enum`/`Result`/`Option`/`Tuple`/`Ref`/`Closure`。
+- **`Result` 用 `x or y`** 时，`Some(v)` 分支不再绑定 Err 载荷。
 
 ### 变更
 - 拆 `sema.rs`（58→21 KB，+ `sema_infer.rs`）与 `codegen/mod.rs`（51→18 KB，+ `codegen/stmt.rs`）；全部 `.rs` < 50 KB。
