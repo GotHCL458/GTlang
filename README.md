@@ -6,7 +6,7 @@
 
 **GTLang is a statically-typed, compiled, expression-oriented language that runs on a dual backend (LLVM + Cranelift) and speaks Chinese identifiers natively — and its safe defaults match C on tight loops.**
 
-[![Tests](https://img.shields.io/badge/tests-803%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-814%20passed-brightgreen)]()
 [![Backends](https://img.shields.io/badge/backends-LLVM%20%2B%20Cranelift-blue)]()
 [![Warnings](https://img.shields.io/badge/warnings-0-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)]()
@@ -77,6 +77,8 @@ GTLang is a **statically-typed**, **compiled**, **expression-oriented** programm
 | 🔌 | **C interop** — inline C blocks, `extern "C"`, `import c "header.h"` |
 | 🧩 | **Macros** — declarative `macro` + `@derive(Eq, Clone, Debug, ...)` |
 | 🪄 | **First-class functions** — pass a `fn` name as a value; closures capture containers/params |
+| 🔗 | **Ergonomic borrows** — automatic deref for `&T`/`&mut T` fields, methods and params; `dyn Trait` auto-boxing |
+| 🧷 | **Rich patterns** — ident bindings, nested destructuring (`Some(Some(v))`), `x or default` |
 | 💬 | **Smart diagnostics** — stable codes, bilingual, "did you mean X?" |
 | 📦 | **Modules** — `import math` (builtin), `import a.b` (user), `import "x.gt"` |
 | 🛠️ | **Toolchain** — `gtc` (compiler / interpreter) |
@@ -257,6 +259,14 @@ fn inc(x: int) -> int { x + 1 }
 g := inc                                  // first-class function (store in a variable)
 apply(inc, 5)                             // higher-order (pass as an argument)
 fs[0](5)                                  // any expression as callee
+
+o := Some(1)
+v := o or 0                              // Option default value
+
+// ergonomic borrows: automatic deref
+p := 点 { x: 1, y: 2 }
+r := &p
+r.x                                     // same as p.x
 ```
 
 ### Structs / Enums / Traits
@@ -480,9 +490,9 @@ Unit ──┬── jit::run      (Cranelift)
 cargo test --release
 ```
 
-**803 tests**:
-- **140 unit tests** (`--lib`) — type system, unify, cblock, tmp, AST-traversal completeness
-- **141 dual-backend consistency tests** (`tests/consistency.rs`) — same source, both backends, identical stdout (incl. examples/ recursively)
+**814 tests**:
+- **142 unit tests** (`--lib`) — type system, unify, cblock, tmp, AST-traversal completeness
+- **149 dual-backend consistency tests** (`tests/consistency.rs`) — same source, both backends, identical stdout (incl. examples/ recursively)
 - **522 frontend bulk tests** (`tests/bulk.rs`) — parse + type-check coverage
 
 ---

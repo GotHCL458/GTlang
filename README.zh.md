@@ -6,7 +6,7 @@
 
 **GTLang 是一门静态类型、编译型、表达式导向的编程语言，采用双后端（LLVM + Cranelift），原生支持中文标识符 —— 且默认（带安全检查）在紧循环上追平 C。**
 
-[![Tests](https://img.shields.io/badge/tests-803%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-814%20passed-brightgreen)]()
 [![Backends](https://img.shields.io/badge/backends-LLVM%20%2B%20Cranelift-blue)]()
 [![Warnings](https://img.shields.io/badge/warnings-0-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)]()
@@ -77,6 +77,8 @@ GTLang 是一门**静态类型**、**编译型**、**表达式导向**的编程�
 | 🔌 | **C 交互** —— 内联 C、`extern "C"`、`import c "头.h"` |
 | 🧩 | **宏** —— 声明式 `macro` + `@derive(Eq, Clone, Debug, ...)` |
 | 🪄 | **函数作一等值** —— 顶层 `fn` 名可当值传递；闭包可捕获容器/参数 |
+| 🔗 | **顺手的借用** —— `&T`/`&mut T` 的字段/方法/参数自动解引用；`dyn Trait` 自动装箱 |
+| 🧷 | **丰富的模式** —— 裸标识符绑定、嵌套解构（`Some(Some(v))`）、`x or 默认值` |
 | 💬 | **智能诊断** —— 稳定错误码、中英双语、"是否想用 X？" |
 | 📦 | **模块** —— `import math`（内置）、`import a.b`（用户）、`import "x.gt"` |
 | 🛠️ | **工具链** —— `gtc`（编译器 / 解释器） |
@@ -253,6 +255,14 @@ fn 加一(x: int) -> int { x + 1 }
 g := 加一                                 // 函数作一等值（存变量）
 应用(加一, 5)                             // 高阶函数（作实参）
 fs[0](5)                                  // 任意表达式作 callee
+
+o := Some(1)
+v := o or 0                              // Option 默认值
+
+// 顺手的借用：自动解引用
+p := 点 { x: 1, y: 2 }
+r := &p
+r.x                                     // 等价于 p.x
 ```
 
 ### 结构体 / 枚举 / trait
@@ -476,9 +486,9 @@ Unit ──┬── jit::run（Cranelift）
 cargo test --release
 ```
 
-**803 个测试**：
-- **140 个单元测试**（`--lib`）—— 类型系统、unify、cblock、tmp、AST 遍历完备性
-- **141 个双后端一致性测试**（`tests/consistency.rs`）—— 同一源码、两个后端、stdout 相同（含递归扫描 examples/）
+**814 个测试**：
+- **142 个单元测试**（`--lib`）—— 类型系统、unify、cblock、tmp、AST 遍历完备性
+- **149 个双后端一致性测试**（`tests/consistency.rs`）—— 同一源码、两个后端、stdout 相同（含递归扫描 examples/）
 - **522 个前端批量测试**（`tests/bulk.rs`）—— parse + type-check 覆盖
 
 ---
