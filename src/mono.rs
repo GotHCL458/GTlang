@@ -704,6 +704,10 @@ fn auto_box_args_expr(e: &mut Expr, fns: &HashMap<String, Vec<Ty>>) {
         ExprKind::ArrayLit(xs) | ExprKind::TupleLit(xs) => for x in xs { auto_box_args_expr(x, fns); },
         ExprKind::StructLit(_, fs) => for (_, v) in fs { auto_box_args_expr(v, fns); },
         ExprKind::EnumLit(_, _, args) => for a in args { auto_box_args_expr(a, fns); },
+        ExprKind::MethodOn { recv, args, .. } => { auto_box_args_expr(recv, fns); for a in args { auto_box_args_expr(a, fns); } }
+        ExprKind::DynBox { value, .. } => auto_box_args_expr(value, fns),
+        ExprKind::Slice(a, b, c) => { auto_box_args_expr(a, fns); auto_box_args_expr(b, fns); auto_box_args_expr(c, fns); }
+        ExprKind::ListComp { expr, iter, cond, .. } => { auto_box_args_expr(expr, fns); auto_box_args_expr(iter, fns); if let Some(c) = cond { auto_box_args_expr(c, fns); } }
         ExprKind::Match { subject, arms } => {
             auto_box_args_expr(subject, fns);
             for arm in arms { if let Some(g) = &mut arm.guard { auto_box_args_expr(g, fns); } auto_box_args_block(&mut arm.body, fns); }

@@ -2993,6 +2993,21 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn dyn_chain_and_dead_fn_elim_match() {
+    // 回归：造(...).我() 里 造 只在 MethodOn.recv 出现，collect_calls 曾漏掉它而被死代码消除误删。
+    assert_consistent_src(
+        "dyn_chain_elim",
+        &[
+            "trait V { fn 我(self) -> int }",
+            "struct X { n: int }",
+            "impl V for X { fn 我(self) -> int { return self.n } }",
+            "fn 造(v: dyn V) -> dyn V { return v }",
+            "fn main() { put(造(X { n: 5 }).我()) }",
+        ],
+    );
+}
+
+#[test]
 fn dyn_trait_all_return_types_match() {
     // dyn 方法返回 int/f64/str/bool：LLVM 返回类型需精确（i64/double/ptr/i1）
     assert_consistent_src(

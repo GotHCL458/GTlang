@@ -634,6 +634,14 @@ fn collect_calls(e: &Expr, out: &mut std::collections::HashSet<String>) {
             for ca in catches { collect_calls_block(&ca.body, out); }
             if let Some(f) = fin { collect_calls_block(f, out); }
         }
+        // 以下分支此前遗漏，会导致死代码消除误删"仅出现在这些位置的函数"。
+        ExprKind::MethodOn { recv, args, .. } => { collect_calls(recv, out); for a in args { collect_calls(a, out); } }
+        ExprKind::Borrow { inner, .. } => collect_calls(inner, out),
+        ExprKind::DynBox { value, .. } => collect_calls(value, out),
+        ExprKind::TupleLit(xs) => for x in xs { collect_calls(x, out); },
+        ExprKind::Slice(a, b, c) => { collect_calls(a, out); collect_calls(b, out); collect_calls(c, out); }
+        ExprKind::ListComp { expr, iter, cond, .. } => { collect_calls(expr, out); collect_calls(iter, out); if let Some(c) = cond { collect_calls(c, out); } }
+        ExprKind::EnumLit(_, _, args) => for a in args { collect_calls(a, out); },
         _ => {}
     }
 }
