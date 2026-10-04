@@ -39,6 +39,11 @@ fn main() {
 Closure bodies now see the types of captured containers/strings, and
 `return |x| g(f(x))` captures the outer parameters `g`/`f`.
 
+### Ergonomic borrows & richer patterns
+`&T`/`&mut T` auto-derefs for fields, methods and params; `struct` args
+auto-box into `dyn Trait`; `match` supports ident bindings, nested
+destructuring (`Some(Some(v))`), and `x or default` works for `Result` too.
+
 ### Friendlier errors
 `loop {` (missing count) now says *loop requires a count: loop N { ... }*.
 
@@ -54,6 +59,16 @@ Closure bodies now see the types of captured containers/strings, and
 - Deep nesting / long binary chains report a syntax error instead of overflowing
   the stack; `-9223372036854775808` (i64::MIN) parses.
 - `gtlib/random` RNG seed is per-thread (no shared sequence under `go`).
+- **Pipe `|>` to a non-callable** no longer silently drops the LHS.
+- **`if` on the same line as the previous statement** no longer misparsed as a ternary.
+- **`"${x}"` (single interpolation)** no longer degrades to `x`.
+- **Non-enum `match`** always requires `_` (empty match rejected).
+- **Composite-type match patterns** rejected in both backends.
+- **Nested enum payload destructuring** no longer crashes / mis-binds inner tags.
+- **Method calls on borrows** (`a.方法()` where `a: &T`) across sema/mono/LLVM.
+- **`Option[T]` / generic-struct `Box[T]` bracket types** now parse correctly.
+- **`x or y` works for `Result`** too.
+- `ariadne` spans align to UTF-8 char boundaries; **deep nesting** reports an error (no stack overflow).
 
 ## 📈 Performance
 
@@ -70,7 +85,7 @@ Closure bodies now see the types of captured containers/strings, and
 
 ## 📦 Bundle
 
-`gtlang-res-win-x64.zip` — a portable, no-install bundle (`gtc.exe` / `gtfmt.exe` /
+`gtlang-res-win-x64.zip` — a portable, no-install bundle (`gtc.exe` /
 `lib/` / `runtime/` / `tcc/`). **Not bundled**: `clang` / `lld-link`; GTLang locates
 them on `PATH` (or via `GTC_CLANG`).
 
@@ -86,3 +101,5 @@ build.bat        REM needs Rust >= 1.75 and LLVM/clang >= 15 on PATH
 - `doc/STDLIB.md` — standard library
 - `doc/PERFORMANCE.md` · `doc/bench.md` — performance
 - `doc/syntax_status.md` — feature status
+
+
