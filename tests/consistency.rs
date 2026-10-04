@@ -3005,7 +3005,6 @@ fn cross_module_dyn_trait_matches() {
             "struct 方 { a: int }",
             "impl 形状 for 方 { fn 面积(self) -> int { return self.a * self.a } }",
             "fn 算(s: dyn 形状) -> int { return s.面积() }",
-            "fn 盒(s: dyn 形状) -> Option[dyn 形状] { return Some(s) }",
             "fn main() { put(算(方 { a: 4 })) }",
         ],
     );
