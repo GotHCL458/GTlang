@@ -73,8 +73,10 @@ impl Parser {
                 }
                 "Option" | "option" => Ty::Option(Box::new(first)),
                 _ => {
-                    // 未知参数化类型：忽略参数，按名字处理
-                    first
+                    // 用户泛型 struct/别名（如 `盒[T]`）：保留外层名字，
+                    // 参数由 mono 的单态化从字面量字段推导。此前返回内层 T 是错的。
+                    let _ = first;
+                    Ty::Struct(name.clone())
                 }
             };
             self.expect_punct("]")?;
