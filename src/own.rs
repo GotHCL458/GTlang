@@ -550,3 +550,7 @@ fn loans_conflict(a: &Loan, b: &Loan) -> bool {
     }
 }
 
+
+#[path = "own_tests.rs"]
+#[cfg(test)]
+mod own_tests;
