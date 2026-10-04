@@ -165,3 +165,38 @@ fn collect_calls_covers_all_variants() {
     assert!(missing.is_empty(), "collect_calls 未遍历这些变体的子表达式：{:?}", missing);
 }
 
+
+
+/// rename_expr（内联替换）的遍历完备性：每个变体里的哨兵 Ident 都应被替换。
+#[test]
+fn rename_expr_covers_all_variants() {
+    use std::collections::HashMap;
+    let sent = || Expr::new(ExprKind::Ident("__SENT__".into()), 0);
+    let s = || Box::new(sent());
+    let blk = || vec![Stmt::Expr(sent())];
+    let mut subst: HashMap<String, Expr> = HashMap::new();
+    subst.insert("__SENT__".into(), Expr::new(ExprKind::Int(99), 0));
+    let rename: HashMap<String, String> = HashMap::new();
+    let mut cases: Vec<(&str, Expr)> = Vec::new();
+    cases.push(("Unary", e(ExprKind::Unary(UnOp::Neg, s()))));
+    cases.push(("Binary", e(ExprKind::Binary(BinOp::Add, s(), s()))));
+    cases.push(("Call-arg", e(ExprKind::Call("outer".into(), vec![sent()]))));
+    cases.push(("CallValue", e(ExprKind::CallValue { callee: s(), args: vec![sent()] })));
+    cases.push(("Index", e(ExprKind::Index(s(), s()))));
+    cases.push(("ArrayLit", e(ExprKind::ArrayLit(vec![sent()]))));
+    cases.push(("Interp", e(ExprKind::Interp(vec![StrPart::Expr(s())]))));
+    cases.push(("Field", e(ExprKind::Field(s(), "f".into()))));
+    cases.push(("StructLit", e(ExprKind::StructLit("S".into(), vec![("a".into(), sent())]))));
+    cases.push(("If", e(ExprKind::If { cond: s(), then: blk(), els: Some(blk()) })));
+    cases.push(("Closure", e(ExprKind::Closure { params: vec![], param_tys: vec![], ret_ty: None, body: s(), line: 0 })));
+    cases.push(("ClosureNew", e(ExprKind::ClosureNew { fn_name: "c".into(), captures: vec![sent()] })));
+    let mut missing: Vec<&str> = Vec::new();
+    for (name, mut ex) in cases {
+        let ok = super::rename_expr(&mut ex, &rename, &subst);
+        // 替换后不应再含 __SENT__ 标识符（按字符串检查）
+        let dbg = format!("{:?}", ex);
+        if ok.is_some() && dbg.contains("__SENT__") { missing.push(name); }
+    }
+    assert!(missing.is_empty(), "rename_expr 未替换这些变体里的标识符：{:?}", missing);
+}
+
