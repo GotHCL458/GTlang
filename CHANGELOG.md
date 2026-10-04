@@ -30,7 +30,7 @@ All notable changes to GTLang. Bilingual (EN / 中文).
 - `tests/` tracked in the repo again.
 
 ### Tests
-- **626 tests**: 25 unit + 101 dual-backend consistency + 500 frontend bulk. 0 warnings.
+- **803 tests**: 140 unit + 141 dual-backend consistency + 522 frontend bulk. 0 warnings.
 
 ## [0.0.1c] - 2026-09-28
 
@@ -84,7 +84,7 @@ All notable changes to GTLang. Bilingual (EN / 中文).
 - `tests/` 重新纳入仓库。
 
 ### 测试
-- **626 个测试**：25 单元 + 101 双后端一致性 + 500 前端批量。0 warning。
+- **803 个测试**：140 单元 + 141 双后端一致性 + 522 前端批量。0 warning。
 
 ---
 
