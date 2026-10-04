@@ -2993,6 +2993,18 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn or_block_fallback() {
+    // `expr or { ... }`：块形式兜底（块内可含语句，最后表达式为默认值）。
+    assert_consistent_src(
+        "or_block",
+        &[
+            "fn f(n: int) -> Result[int, str] { if n < 0 { return Err(\"neg\") }  return Ok(n * 2) }",
+            "fn main() { put(f(5) or { 0 })  put(f(-1) or { -1 })  put(Some(3) or { 99 })  put(None or { 7 }) }",
+        ],
+    );
+}
+
+#[test]
 fn dyn_trait_in_containers() {
     // 回归：list[dyn Trait] 的元素（push 时自动装箱 + for 迭代 + 方法分发）。
     assert_consistent_src(
