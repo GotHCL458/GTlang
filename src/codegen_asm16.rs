@@ -54,6 +54,10 @@ pub fn compile(prog: &Program) -> Result<Vec<u8>, String> {
         gen_fn(&mut a, f)?;
     }
     resolve_fixups(&mut a)?;
+    // 补 MBR 引导签名（0xAA55 @ 510）
+    while a.out.len() < 510 { a.out.push(0); }
+    a.out.push(0x55);
+    a.out.push(0xAA);
     Ok(a.out)
 }
 
