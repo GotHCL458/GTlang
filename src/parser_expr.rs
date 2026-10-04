@@ -40,12 +40,16 @@ impl Parser {
             if self.at_punct("|>") && min_prec == 0 {
                 let line = self.line();
                 self.bump();
+                // 右值应为可调用表达式：`f` / `f(a)` / `obj.m` / 带参数列表的表达式。
+                // 不在此展开：把 lhs 作为首参插入，并把"右侧表达式"整体作为 callee（值调用），
+                // 这样 `i |> i + 1` 会变成 `(i + 1)(i)`，由类型检查报"不可调用"，
+                // 而不是静默丢掉 lhs（旧实现会产出 `i + 1`，造成无声的错值）。
                 let rhs = self.expr(1)?;
-                // 右值应是"函数调用样式"：`f` 或 `f(a, b)` → 把 lhs 作为首参插入
                 let call = match rhs.kind {
                     ExprKind::Call(name, mut args) => { let mut v = vec![lhs]; v.append(&mut args); Expr::new(ExprKind::Call(name, v), line) }
                     ExprKind::Ident(name) => Expr::new(ExprKind::Call(name, vec![lhs]), line),
-                    other => Expr::new(other, line), // 非调用：保持（类型检查会报错）
+                    // 其他表达式：作为 callee 做值调用，交由 sema 判定可调用性
+                    other => Expr::new(ExprKind::CallValue { callee: Box::new(Expr::new(other, line)), args: vec![lhs] }, line),
                 };
                 lhs = call;
                 continue;

@@ -2993,6 +2993,29 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn pipe_to_non_callable_is_rejected() {
+    // 回归：`i |> i + 1` 过去会静默丢掉 lhs（等价于 i+1），造成无声的错值/死循环。
+    // 现在应报"不可调用"。
+    assert_rejected("pipe_noncallable", &["fn main() { i := 0  i |> i + 1  put(i) }"], "callable");
+}
+
+#[test]
+fn pipe_to_function_still_works() {
+    assert_consistent_src(
+        "pipe_ok",
+        &[
+            "fn double(x: int) -> int { return x * 2 }",
+            "fn main() {",
+            "    put(5 |> double)",
+            "    xs := list()  push(xs, 1)  push(xs, 2)",
+            "    put(xs |> len)",
+            "    put(3 |> double |> double)",
+            "}",
+        ],
+    );
+}
+
+#[test]
 fn runtime_errors_match() {
     // 溢出 / 除零 / 越界：双端给出相同的运行时错误（非 panic）
     assert_runtime_error_matches("overflow", "fn main() { a := 9223372036854775807  put(a + 1) }");
