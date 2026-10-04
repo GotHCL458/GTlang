@@ -2993,6 +2993,22 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn option_bracket_syntax_matches() {
+    // 回归：Option[T] 方括号写法曾被解析成 T（parser_type 的 _ 分支忽略 Option）。
+    assert_consistent_src(
+        "option_bracket",
+        &[
+            "fn f(x: int) -> Option[int] { return Some(x) }",
+            "fn g() -> Option[int] { return None }",
+            "fn main() {",
+            "    match f(5) { Some(v) => { put(v) } None => { put(-1) } }",
+            "    match g() { Some(v) => { put(v) } None => { put(-2) } }",
+            "}",
+        ],
+    );
+}
+
+#[test]
 fn cross_module_dyn_trait_matches() {
     // 回归：跨模块时 prefix_struct_ty/rewrite_struct_ty 漏了 Dyn/Result/Option/Tuple 等，
     // 导致 dyn Trait 名未加前缀，trait_methods 查不到。

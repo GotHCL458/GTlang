@@ -71,6 +71,7 @@ impl Parser {
                     let second = self.parse_type()?;
                     Ty::Result(Box::new(first), Box::new(second))
                 }
+                "Option" | "option" => Ty::Option(Box::new(first)),
                 _ => {
                     // 未知参数化类型：忽略参数，按名字处理
                     first
