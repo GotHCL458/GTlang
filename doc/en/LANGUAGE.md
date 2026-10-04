@@ -127,6 +127,30 @@ Exhaustiveness: enum must list all variants / bool needs true+false / Option nee
     }
     fold(|a: int, b: int| a + b, 0, xs)
 
+### Ergonomic borrows
+
+    struct Point { x: int, y: int }
+    p := Point { x: 1, y: 2 }
+    r := &p
+    r.x                      // same as p.x (field access auto-derefs)
+    r.y = 9                  // &mut can write fields too
+
+    trait Area { fn area(self) -> int }
+    impl Area for Circle { fn area(self) -> int { ... } }
+    fn f(s: dyn Area) -> int { return s.area() }   // dynamic dispatch (vtable)
+    f(Circle { ... })        // struct args are auto-boxed into dyn Trait
+
+### Destructuring & defaults
+
+    match o {
+        Some(Some(v)) => { ... }        // nested destructuring
+        Ok(Some(v))   => { ... }
+        n if n > 0    => { ... }        // ident binding + guard
+        _ => { ... }
+    }
+
+    v := o or 0                         // Option default (Some(v)->v, None->0)
+
 ---
 
 ## 6. Struct / Enum / trait
