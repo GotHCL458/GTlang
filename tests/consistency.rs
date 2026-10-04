@@ -2993,6 +2993,17 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn void_return_in_non_void_fn_rejected() {
+    // 回归：无值 return + 非 void 返回类型曾通过 --check，JIT 生成不完整 IR 而 panic。
+    assert_rejected("void_ret", &["fn f() -> int { return }"], "返回值");
+    assert_rejected(
+        "void_ret_match",
+        &["fn f(x: int) -> int { match x { 0 => { return } _ => { return 1 } } }"],
+        "返回值",
+    );
+}
+
+#[test]
 fn result_or_default_matches() {
     // 回归：x or y 展开的 match 同时含 Some(v)/Ok(v)；对 Result 主体，
     // 此前 Some(v) 的 v 被按 Result 的第二载荷（Err 类型）绑定 -> 非法 IR。

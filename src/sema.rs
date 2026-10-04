@@ -369,7 +369,10 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
                     .insert(p.name.clone(), VarInfo { ty, mutable: true, explicit: p.ty.is_some() });
             }
             ctx.pending_ret.push(f.name.clone());
-            let t = infer_block_ret(&mut ctx, &mut f.body).unwrap_or(Ty::Void);
+            let t = match infer_block_ret(&mut ctx, &mut f.body) {
+                Ok(t) => t,
+                Err(msg) => { errors.push(msg); Ty::Void }
+            };
             ctx.pending_ret.pop();
             ctx.scopes.pop();
 
@@ -525,6 +528,13 @@ fn infer_block_ret(ctx: &mut Ctx, b: &mut Block) -> Result<Ty, String> {
             Stmt::Block(inner) => infer_block_ret(ctx, inner).ok(),
             Stmt::While { body, .. } | Stmt::DoWhile { body, .. } | Stmt::ForRange { body, .. } | Stmt::ForEach { body, .. } => {
                 infer_block_ret(ctx, body).ok()
+            }
+            // 无值 return：非 void 返回类型时报错（在返回类型推断阶段即可捕获）。
+            Stmt::Return(None, line) => {
+                if ctx.cur_ret != Ty::Void && ctx.cur_ret != Ty::Unknown {
+                    return Err(crate::error::msg::missing_return(*line, &ctx.cur_ret.clone()).render());
+                }
+                None
             }
             _ => None,
         };
