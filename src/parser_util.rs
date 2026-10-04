@@ -128,10 +128,13 @@ pub(crate) fn interp(raw: &str, line: usize) -> Result<ExprKind, String> {
     }
     match parts.len() {
         0 => Ok(ExprKind::Str(String::new())),
-        1 => match &parts[0] {
+        // 单个 Lit：退化为普通字符串字面量（无插值，等价）
+        1 if matches!(parts[0], StrPart::Lit(_)) => match &parts[0] {
             StrPart::Lit(s) => Ok(ExprKind::Str(s.clone())),
-            StrPart::Expr(e) => Ok(e.kind.clone()),
+            _ => unreachable!(),
         },
+        // 其余（含"单个 ${expr}"）都保留为 Interp：后者是**字符串**，
+        // 不能退化成内部表达式（否则 "${x}" 会变成 x，类型/值都错）。
         _ => Ok(ExprKind::Interp(parts)),
     }
 }
@@ -175,3 +178,4 @@ pub(crate) fn split_or_pattern(e: &Expr) -> Vec<Expr> {
         _ => vec![e.clone()],
     }
 }
+

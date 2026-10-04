@@ -2993,6 +2993,26 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn single_expr_interpolation_is_string() {
+    // 回归："${x}"（整串只有一个插值）曾被优化成 x 本身，导致类型/值错误。
+    assert_consistent_src(
+        "interp_single",
+        &[
+            "struct 点 { x: int }",
+            "impl 点 { fn to_str(self) -> str { return \"v=${self.x}\" } }",
+            "fn main() {",
+            "    x := 42",
+            "    put(\"${x}\")",
+            "    s := \"${x}\"",
+            "    put(len(s))",
+            "    p := 点 { x: 7 }",
+            "    put(p.to_str())",
+            "}",
+        ],
+    );
+}
+
+#[test]
 fn option_or_default_matches() {
     // `x or y`：Some(v) 取 v，None 取 y
     assert_consistent_src(

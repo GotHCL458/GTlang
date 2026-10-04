@@ -293,7 +293,9 @@ impl Parser {
                 self.bump();
                 None
             } else {
-                Some(self.expr(0)?)
+                // 用 min_prec=1 解析模式：屏蔽三元 `a if c else b` 与 `or`/`|>`，
+                // 否则守卫 `pat if cond =>` 会被当成缺 else 的三元。
+                Some(self.expr(1)?)
             };
             // 范围模式 `lo..hi`
             let range = if self.eat_punct("..") {
