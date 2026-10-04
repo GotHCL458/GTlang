@@ -15,6 +15,12 @@ All notable changes to GTLang. Bilingual (EN / 中文).
 - **Friendly error for `loop {`** without a count (E303).
 - **`x or default`** — Option default-value operator: `Some(v)` yields `v`, `None` yields the fallback (rewritten to a `match`). `v := o or 0`.
 - **String Unicode escapes** — `\uXXXX` and `\u{...}` in string/char literals.
+- **Match ident-binding pattern** — `match v { n if n > 0 => ... }` binds the subject.
+- **Nested destructuring** — `Some(Some(v))`, `Ok(Some(v))`, `E::A(Some(v))` in `match`.
+- **Automatic deref for `&T`/`&mut T`** — field access/assignment and method calls (`a.x`, `a.方法()`) and borrow params.
+- **`dyn Trait` auto-boxing** — passing a `struct`/`enum` to a `dyn Trait` parameter boxes automatically.
+- **`x or default` also works for `Result`** (not just `Option`).
+- **`Option[T]` bracket type syntax** now parsed correctly.
 
 ### Fixed
 - **JIT/AOT newline mismatch on Windows** — CRT stdout is now binary in both runtimes; the consistency test no longer normalizes CRLF (so this class of bug is caught).
@@ -24,13 +30,28 @@ All notable changes to GTLang. Bilingual (EN / 中文).
 - **Plain assignment no longer changes a variable's type when the RHS is Unknown.**
 - **Deep nesting / long chains** report a syntax error instead of overflowing the stack; `i64::MIN` parses.
 - **`gtlib/random` RNG seed** perturbed per thread (concurrent `go` threads no longer share a sequence).
+- **Pipe `|>` to a non-callable RHS** no longer silently drops the LHS.
+- **`if` on the same line as the previous statement** is no longer misparsed as a ternary (elif chains work).
+- **match guards** were swallowed by the ternary branch.
+- **`"${x}"` (single interpolation)** no longer degrades to the inner expression `x`.
+- **Non-enum match exhaustiveness** always requires `_` (empty match no longer passes).
+- **Composite-type match patterns** are rejected in both backends (was invalid IR / silent fallthrough).
+- **Nested enum payload destructuring** no longer crashes JIT / mis-binds inner tags.
+- **`own`** no longer reports a false use-after-move when a match binding shadows an outer name.
+- **Method calls on borrows** (`a.方法()` where `a: &T`) in sema/mono/LLVM.
+- **`ariadne` spans** align to UTF-8 char boundaries (truncated multi-byte source no longer panics).
+- **Inline** substitutes the receiver of `recv.method()` (else abandons inlining).
+- **`dyn` vtable calls** return `str`/`bool` with the correct LLVM type.
+- **`opt::collect_calls`** / **`mono::auto_box_args`** cover `MethodOn`/`Borrow`/`DynBox`/`Slice`/`ListComp`/`EnumLit`/`TupleLit`.
+- **Cross-module type prefixing** recurses into `Dyn`/`Enum`/`Result`/`Option`/`Tuple`/`Ref`/`Closure`.
+- **`Result` with `x or y`** no longer binds the Err payload for a `Some(v)` arm.
 
 ### Changed
 - Split `sema.rs` (58→21 KB, + `sema_infer.rs`) and `codegen/mod.rs` (51→18 KB, + `codegen/stmt.rs`); all `.rs` < 50 KB.
 - `tests/` tracked in the repo again.
 
 ### Tests
-- **803 tests**: 140 unit + 141 dual-backend consistency + 522 frontend bulk. 0 warnings.
+- **814 tests**: 142 unit + 149 dual-backend consistency + 522 frontend bulk. 0 warnings.
 
 ## [0.0.1c] - 2026-09-28
 
@@ -84,7 +105,7 @@ All notable changes to GTLang. Bilingual (EN / 中文).
 - `tests/` 重新纳入仓库。
 
 ### 测试
-- **803 个测试**：140 单元 + 141 双后端一致性 + 522 前端批量。0 warning。
+- **814 个测试**：142 单元 + 149 双后端一致性 + 522 前端批量。0 warning。
 
 ---
 
