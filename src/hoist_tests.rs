@@ -184,3 +184,60 @@ fn convert_fn_refs_leaves_calls_and_other_idents() {
         _ => panic!("expected Expr"),
     }
 }
+
+
+/// 递归检查块里是否还有 Call("__SENT__")（未改写成 CallValue）。
+/// 递归检查块里是否还有 Call("__SENT__")（未改写成 CallValue）。
+/// 递归检查块里是否还有 Call("__SENT__")（未改写成 CallValue）。
+fn stmt_has_sent_call(b: &Block) -> bool {
+    fn walk(e: &Expr, out: &mut bool) {
+        if let ExprKind::Call(n, _) = &e.kind { if n == "__SENT__" { *out = true; } }
+        match &e.kind {
+            ExprKind::Call(_, args) => for a in args { walk(a, out); },
+            ExprKind::CallValue { callee, args } => { walk(callee, out); for a in args { walk(a, out); } },
+            ExprKind::Unary(_, a) => walk(a, out),
+            ExprKind::Binary(_, a, b) => { walk(a, out); walk(b, out); },
+            _ => {}
+        }
+    }
+    let mut out = false;
+    for s in b {
+        match s {
+            Stmt::Go { args, .. } => for a in args { walk(a, &mut out); },
+            Stmt::Throw(e, _) => walk(e, &mut out),
+            Stmt::Labeled { inner, .. } => { if let Stmt::Expr(e) = &**inner { walk(e, &mut out); } },
+            Stmt::Expr(e) | Stmt::Return(Some(e), _) => walk(e, &mut out),
+            _ => {}
+        }
+    }
+    out
+}
+
+/// convert_closure_calls 的语句遍历完备性：每个 Stmt 变体里的闭包调用都应被改写。
+#[test]
+fn convert_closure_calls_covers_stmt_variants() {
+    // 构造 `__SENT__(...)`（闭包变量调用），放进各语句变体。
+    let cc = || Expr::new(ExprKind::Call("__SENT__".into(), vec![]), 0);
+    let mut cv = vec!["__SENT__".to_string()];
+    let rcf: Vec<String> = Vec::new();
+    let blk = |x: Expr| vec![Stmt::Expr(x)];
+    let mut cases: Vec<(&str, Stmt)> = Vec::new();
+    cases.push(("Go", Stmt::Go { func: "g".into(), args: vec![cc()], line: 0 }));
+    cases.push(("Throw", Stmt::Throw(cc(), 0)));
+    cases.push(("Labeled", Stmt::Labeled { label: "L".into(), inner: Box::new(Stmt::Expr(cc())), line: 0 }));
+    cases.push(("Try", Stmt::Try { body: blk(cc()), catches: vec![CatchArm { binding: None, label: None, guard: None, body: blk(cc()), line: 0 }], fin: Some(blk(cc())), line: 0 }));
+    cases.push(("LocalFn", Stmt::LocalFn(FnDef { name: "h".into(), type_params: vec![], params: vec![], ret: None, ret_ty: Ty::Void, body: blk(cc()), line: 0, is_pub: false, bounds: vec![] })));
+    let mut missing: Vec<&str> = Vec::new();
+    for (name, st) in &cases {
+        let mut b: Block = vec![st.clone()];
+        super::convert_closure_calls(&mut b, &mut cv.clone(), &rcf);
+        // 若仍是 Call("__SENT__", ...)（未转 CallValue），说明漏改。
+        let still_call = stmt_has_sent_call(&b);
+        if still_call { missing.push(name); }
+    }
+    assert!(missing.is_empty(), "convert_closure_calls 未改写这些语句变体里的闭包调用：{:?}", missing);
+}
+
+
+
+
