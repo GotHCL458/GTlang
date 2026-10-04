@@ -67,3 +67,77 @@ fn convert_closure_calls_covers_variants() {
     }
     assert!(missing.is_empty(), "convert_closure_calls_expr 未覆盖这些变体里的闭包调用：{:?}", missing);
 }
+
+
+#[test]
+fn is_closure_expr_recognizes_literals_and_idents() {
+    let cl = e(ExprKind::Closure { params: vec![], param_tys: vec![], ret_ty: None, body: Box::new(sentinel_ident()), line: 0 });
+    assert!(super::is_closure_expr(&cl));
+    let cn = e(ExprKind::ClosureNew { fn_name: "c".into(), captures: vec![] });
+    assert!(super::is_closure_expr(&cn));
+    assert!(super::is_closure_expr(&sentinel_ident()));
+    assert!(!super::is_closure_expr(&e(ExprKind::Int(1))));
+}
+
+#[test]
+fn is_closure_expr_recognizes_if_both_branches() {
+    let cl = || e(ExprKind::Closure { params: vec![], param_tys: vec![], ret_ty: None, body: Box::new(sentinel_ident()), line: 0 });
+    let both = e(ExprKind::If { cond: Box::new(sentinel_ident()), then: blk(cl()), els: Some(blk(cl())) });
+    assert!(super::is_closure_expr(&both));
+    let one = e(ExprKind::If { cond: Box::new(sentinel_ident()), then: blk(cl()), els: Some(blk(e(ExprKind::Int(1)))) });
+    assert!(!super::is_closure_expr(&one));
+    let no_else = e(ExprKind::If { cond: Box::new(sentinel_ident()), then: blk(cl()), els: None });
+    assert!(!super::is_closure_expr(&no_else));
+}
+
+#[test]
+fn block_returns_closure_detects_return() {
+    let cl = e(ExprKind::Closure { params: vec![], param_tys: vec![], ret_ty: None, body: Box::new(sentinel_ident()), line: 0 });
+    let yes: Block = vec![Stmt::Return(Some(cl.clone()), 0)];
+    assert!(super::block_returns_closure(&yes));
+    let no: Block = vec![Stmt::Return(Some(e(ExprKind::Int(1))), 0)];
+    assert!(!super::block_returns_closure(&no));
+    let nested: Block = vec![Stmt::If { cond: sentinel_ident(), then: vec![Stmt::Return(Some(cl), 0)], els: None, line: 0 }];
+    assert!(super::block_returns_closure(&nested));
+    assert!(!super::block_returns_closure(&vec![]));
+}
+
+#[test]
+fn convert_fn_refs_rewrites_value_position_idents() {
+    let fn_names = vec!["加一".to_string()];
+    let mut b: Block = vec![Stmt::Let {
+        name: "g".into(),
+        ty: None,
+        value: e(ExprKind::Ident("加一".into())),
+        line: 0,
+        mutable: false,
+    }];
+    super::convert_fn_refs_block(&mut b, &fn_names);
+    match &b[0] {
+        Stmt::Let { value, .. } => match &value.kind {
+            ExprKind::ClosureNew { fn_name, captures } => {
+                assert_eq!(fn_name, "加一");
+                assert!(captures.is_empty());
+            }
+            _ => panic!("expected ClosureNew"),
+        },
+        _ => panic!("expected Let"),
+    }
+}
+
+#[test]
+fn convert_fn_refs_leaves_calls_and_other_idents() {
+    let fn_names = vec!["加一".to_string()];
+    let mut b: Block = vec![Stmt::Expr(e(ExprKind::Call("加一".into(), vec![e(ExprKind::Int(1))])))];
+    super::convert_fn_refs_block(&mut b, &fn_names);
+    match &b[0] {
+        Stmt::Expr(x) => assert!(matches!(x.kind, ExprKind::Call(_, _))),
+        _ => panic!("expected Expr"),
+    }
+    let mut b2: Block = vec![Stmt::Expr(e(ExprKind::Ident("变量".into())))];
+    super::convert_fn_refs_block(&mut b2, &fn_names);
+    match &b2[0] {
+        Stmt::Expr(x) => assert!(matches!(x.kind, ExprKind::Ident(_))),
+        _ => panic!("expected Expr"),
+    }
+}
