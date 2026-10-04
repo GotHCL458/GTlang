@@ -335,7 +335,8 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
                         let inferred = types.get(i).cloned().unwrap_or(Ty::I64);
                         // 无标注且被"以函数方式使用"的参数视为闭包
                         p.ty = if matches!(inferred, Ty::I64 | Ty::Unknown) && param_used_as_fn(&body_snapshot, &p.name) {
-                            Some(Ty::Closure(Vec::new(), Box::new(Ty::I64)))
+                            // 返回类型未知（闭包体由实参决定）
+                            Some(Ty::Closure(Vec::new(), Box::new(Ty::Unknown)))
                         } else {
                             Some(inferred)
                         };
@@ -404,7 +405,7 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
             let ty = if i < caps.len() && caps[i] != Ty::Unknown {
                 caps[i].clone()
             } else {
-                p.ty.clone().unwrap_or_else(|| if param_used_as_fn(&f.body, &p.name) { Ty::Closure(Vec::new(), Box::new(Ty::I64)) } else { Ty::I64 })
+                p.ty.clone().unwrap_or_else(|| if param_used_as_fn(&f.body, &p.name) { Ty::Closure(Vec::new(), Box::new(Ty::Unknown)) } else { Ty::I64 })
             };
             ctx.scopes
                 .last_mut()
