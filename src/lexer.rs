@@ -358,6 +358,28 @@ impl Lexer {
                         'r' => '\r',
                         '0' => '\0',
                         'e' => '\u{1b}', // ESC：便于手写 ANSI 彩色序列
+                        // Unicode escape: \uXXXX (BMP) or \u{...}
+                        'u' => {
+                            let mut hex = String::new();
+                            if self.peek() == Some('{') {
+                                self.bump();
+                                while let Some(c) = self.peek() {
+                                    if c == '}' { self.bump(); break; }
+                                    if c.is_ascii_hexdigit() { hex.push(c); self.bump(); } else { return Err(crate::lb!(line, "invalid unicode escape", "非法的 Unicode 转义")); }
+                                }
+                            } else {
+                                for _ in 0..4 {
+                                    match self.peek() {
+                                        Some(c) if c.is_ascii_hexdigit() => { hex.push(c); self.bump(); }
+                                        _ => return Err(crate::lb!(line, "invalid unicode escape", "非法的 Unicode 转义")),
+                                    }
+                                }
+                            }
+                            let cp = u32::from_str_radix(&hex, 16).map_err(|_| crate::lb!(line, "bad unicode escape", "非法 Unicode 转义"))?;
+                            let ch = char::from_u32(cp).ok_or_else(|| crate::lb!(line, "bad code point", "非法码点"))?;
+                            s.push(ch);
+                            continue;
+                        }
                         // `\$` 需要字面 `$`。这里保留反斜杠，交给语法阶段的插值扫描器
                         // 处理——否则 `\$name` 会先变成 `$name` 又被插值，转义失效。
                         '$' => {
@@ -423,3 +445,4 @@ impl Lexer {
         Err(crate::lb!(line, "unrecognized character '{}'", "无法识别的字符 '{}'", self.peek().unwrap_or('?')))
     }
 }
+

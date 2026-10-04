@@ -323,6 +323,22 @@ fn float_formatting_matches() {
 }
 
 #[test]
+fn unicode_escapes_match() {
+    // \uXXXX（BMP）与 \u{...}（任意码点）
+    assert_consistent_src(
+        "unicode_escapes",
+        &[
+            "fn main() {",
+            "    put(\"\\u4f60\\u597d\")",     // 你好
+            "    put(\"\\u{1F600}\")",          // 😀
+            "    put(len(\"\\u0041\"))",        // 1
+            "    put(\"a\\u0041b\")",           // aAb
+            "}",
+        ],
+    );
+}
+
+#[test]
 fn interpolation_and_escapes_match() {
     assert_consistent_src(
         "interp",
