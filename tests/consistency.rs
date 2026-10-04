@@ -2993,6 +2993,19 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn result_or_default_matches() {
+    // 回归：x or y 展开的 match 同时含 Some(v)/Ok(v)；对 Result 主体，
+    // 此前 Some(v) 的 v 被按 Result 的第二载荷（Err 类型）绑定 -> 非法 IR。
+    assert_consistent_src(
+        "result_or_default",
+        &[
+            "fn f(n: int) -> Result[int, str] { if n == 0 { return Err(\"zero\") }  return Ok(10 / n) }",
+            "fn main() { put(f(2) or -1)  put(f(0) or -1) }",
+        ],
+    );
+}
+
+#[test]
 fn generic_struct_bracket_type_matches() {
     // 回归：泛型 struct 的参数化类型（盒[T]）曾被解析成 T（parser_type 的 _ 分支）。
     assert_consistent_src(

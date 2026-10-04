@@ -195,9 +195,9 @@ impl<'a> Codegen<'a> {
                             if let Some(carg) = carg {
                                 // 递归绑定：支持嵌套解构（Some(Some(v)) 等）。
                                 let bty = match &subj.ty {
-                                    Ty::Result(t, e) => if cname == "Ok" { (**t).clone() } else { (**e).clone() },
-                                    Ty::Option(t) => (**t).clone(),
-                                    _ => Ty::I64,
+                                    Ty::Result(t, e) => match cname { "Ok" => (**t).clone(), "Err" => (**e).clone(), _ => Ty::Unknown },
+                                    Ty::Option(t) => if cname == "Some" { (**t).clone() } else { Ty::Unknown },
+                                    _ => Ty::Unknown,
                                 };
                                 self.declare("declare i64 @gt_result_val(ptr)");
                                 let val = self.new_reg();

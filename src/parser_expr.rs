@@ -48,12 +48,15 @@ impl Parser {
                 self.bump();
                 let rhs = self.expr(1)?;
                 let v = format!("__or_v{}", line);
-                let some_pat = Expr::new(ExprKind::Call("Some".to_string(), vec![
-                    Expr::new(ExprKind::Ident(v.clone()), line),
-                ]), line);
+                let vexpr = || Expr::new(ExprKind::Ident(v.clone()), line);
+                let some_pat = Expr::new(ExprKind::Call("Some".to_string(), vec![vexpr()]), line);
+                let ok_pat = Expr::new(ExprKind::Call("Ok".to_string(), vec![vexpr()]), line);
                 let arms = vec![
+                    // Some(v)（Option）与 Ok(v)（Result）都取内层值；None/Err 落到 _ 取默认值。
                     MatchArm { pat: Some(some_pat), range: None, guard: None,
-                        body: vec![Stmt::Expr(Expr::new(ExprKind::Ident(v), line))], line },
+                        body: vec![Stmt::Expr(vexpr())], line },
+                    MatchArm { pat: Some(ok_pat), range: None, guard: None,
+                        body: vec![Stmt::Expr(vexpr())], line },
                     MatchArm { pat: None, range: None, guard: None,
                         body: vec![Stmt::Expr(rhs)], line },
                 ];

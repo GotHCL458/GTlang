@@ -496,7 +496,7 @@ impl FnState {
                             if let Some(carg) = carg {
                                 // 递归绑定：支持嵌套解构（Some(Some(v)) / Ok(Some(v)) 等）。
                                 let bty = match &subj.1 {
-                                    Ty::Result(t, e) => if cname == "Ok" { (**t).clone() } else { (**e).clone() },
+                                    Ty::Result(t, e) => match cname { "Ok" => (**t).clone(), "Err" => (**e).clone(), _ => Ty::Unknown },
                                     Ty::Option(t) => (**t).clone(),
                                     _ => Ty::I64,
                                 };
