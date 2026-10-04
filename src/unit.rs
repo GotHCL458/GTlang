@@ -135,3 +135,7 @@ impl Unit {
     }
 }
 
+
+#[path = "unit_tests.rs"]
+#[cfg(test)]
+mod unit_tests;
