@@ -1,5 +1,7 @@
 //! GT 标准库元信息。
 
+pub mod boot;
+
 /// 一个标准库模块。
 pub struct StdModule {
     pub dll: &'static str,
@@ -116,6 +118,14 @@ pub const MODULES: &[StdModule] = &[
         ],
     },
     StdModule {
+        dll: "boot",
+        funcs: &[
+            // 裸机引导（引导库提供；仅 --bare 目标链接）
+            "boot_serial_init", "boot_serial_putc", "boot_hlt", "boot_exit",
+            "boot_mem_alloc", "boot_time_ms", "boot_reboot",
+        ],
+    },
+    StdModule {
         dll: "file",
         funcs: &[
             "path_exists", "file_exists", "is_file", "is_dir", "getsize", "file_size",
@@ -133,6 +143,6 @@ pub fn dll_of(func: &str) -> Option<&'static str> {
     None
 }
 
-#[path = "mod_tests.rs"]
 #[cfg(test)]
+#[path = "../gtlib_tests/mod_tests.rs"]
 mod mod_tests;

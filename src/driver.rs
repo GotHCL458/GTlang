@@ -169,6 +169,25 @@ impl RtInput {
     }
 }
 
+/// 裸机目标：用 clang 把 `.ll` 编成「独立目标文件」（不链接 CRT/运行时）。
+/// arch: x86_64 | x86_32 | x86_16（16 位受限于 LLVM 无 16 位 codegen，此处生成 32 位兼容代码）。
+pub fn compile_bare(ll: &Path, out: &Path, opt: u8, arch: &str) -> Result<(), String> {
+    let clang = find_clang().ok_or_else(|| "未找到 clang（裸机目标需要 LLVM）".to_string())?;
+    let triple = match arch {
+        "x86_16" | "x86_32" | "i386" => "i386-unknown-none-elf",
+        _ => "x86_64-unknown-none-elf",
+    };
+    let mut cmd = Command::new(&clang);
+    cmd.arg("-target").arg(triple);
+    cmd.arg("-ffreestanding").arg("-nostdlib").arg("-fno-stack-protector");
+    cmd.arg("-c").arg(ll).arg("-o").arg(out);
+    cmd.arg(format!("-O{}", opt));
+    let o = cmd.output().map_err(|e| format!("无法启动 clang：{}", e))?;
+    if !o.status.success() {
+        return Err(format!("裸机编译失败：\n{}", String::from_utf8_lossy(&o.stderr).trim()));
+    }
+    Ok(())
+}
 /// 查找预编译的运行时静态库 `gt_rt.lib`：
 /// 依次在 `res/lib`、`res`、`toolchain/rt`、exe 同级及其上级目录中查找。
 pub fn find_runtime_lib() -> Option<PathBuf> {

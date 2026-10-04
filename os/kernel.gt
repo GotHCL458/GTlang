@@ -1,0 +1,8 @@
+import boot
+
+fn main() {
+    boot_serial_init()
+    put("hello from GTLang OS!")
+    put(42)
+    boot_hlt()
+}

@@ -85,6 +85,8 @@ enum Mode {
     Check,
     /// 运行测试（`test_` 前缀函数）
     Test,
+    /// 裸机目标（无 CRT/运行时；与引导库配合）
+    Bare,
     /// 只产出 LLVM IR
     EmitLlvm,
     EmitLlvmOpt,
@@ -139,6 +141,7 @@ fn main() -> ExitCode {
     let mut lint_strict = false;
     let mut lint_json = false;
     let mut sources: Vec<PathBuf> = Vec::new();
+    let mut bare_arch: String = "x86_64".to_string();
 
     let mut i = 0;
     while i < args.len() {
@@ -161,6 +164,17 @@ fn main() -> ExitCode {
             "--json" => lint_json = true,
             "--test" | "test" => mode = Mode::Test,
             "--emit-llvm" => mode = Mode::EmitLlvm,
+            "--bare" | "--target" => {
+                // `--target <arch>`：裸机目标（arch: x86_64|x86_32|x86_16）；`--bare` 等价默认 x86_64。
+                mode = Mode::Bare;
+                if a == "--target" {
+                    i += 1;
+                    match args.get(i) {
+                        Some(x) => bare_arch = x.clone(),
+                        None => { eprintln!("{}", lang::tr("error: --target requires an arch (x86_64|x86_32|x86_16)", "错误：--target 需要架构（x86_64|x86_32|x86_16）")); return ExitCode::from(1); }
+                    }
+                }
+            }
 
             "--emit-llvm-opt" | "--ir-ugly" => mode = Mode::EmitLlvmOpt,
             "--no-color" => no_color = true,
@@ -238,14 +252,14 @@ fn main() -> ExitCode {
             if cur != last {
                 last = cur;
                 if lang::is_zh() { println!("\n[watch] 变更，重新构建…"); } else { println!("\n[watch] change detected, rebuilding..."); }
-                if let Err(e) = drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json) {
+                if let Err(e) = drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, &bare_arch) {
                     eprintln!("{}", e);
                 }
             }
         }
     }
 
-    match drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json) {
+    match drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, &bare_arch) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("{}", e);
@@ -304,6 +318,7 @@ fn drive(
     keep_tmp: bool,
     lint_strict: bool,
     lint_json: bool,
+    bare_arch: &str,
 ) -> Result<(), String> {
     let first = &sources[0];
 
@@ -378,6 +393,23 @@ fn drive(
             println!("已生成 LLVM IR：{}", ll.display());
         } else {
             println!("LLVM IR written: {}", ll.display());
+        }
+        return Ok(());
+    }
+
+    // 裸机目标：产出独立 .o（不链接 CRT/运行时），由引导库/链接脚本组装。
+
+    if mode == Mode::Bare {
+        let obj = match out {
+            Some(p) => p.to_path_buf(),
+            None => first.with_extension("o"),
+        };
+        let ll = unit.write_llvm_opt(&obj.with_extension("ll"), opt)?;
+        gtc_rust::driver::compile_bare(&ll, &obj, opt, bare_arch)?;
+        if lang::is_zh() {
+            println!("裸机目标已生成：{}（arch={}）", obj.display(), bare_arch);
+        } else {
+            println!("bare object written: {} (arch={})", obj.display(), bare_arch);
         }
         return Ok(());
     }
