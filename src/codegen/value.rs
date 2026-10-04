@@ -212,7 +212,7 @@ impl<'a> Codegen<'a> {
                             self.body.push_str(&format!("  {} = getelementptr i64, ptr {}, i64 0\n", tp, subj.s));
                             let tag = self.new_reg();
                             self.body.push_str(&format!("  {} = load i64, ptr {}\n", tag, tp));
-                            let eq = self.new_reg();
+                            let mut eq = self.new_reg();
                             self.body.push_str(&format!("  {} = icmp eq i64 {}, {}\n", eq, tag, vidx));
                             // 绑定：把载荷存入新槽（在 arm 块内注入，见下方 bindings）
                             let ptys: Vec<Ty> = self.enum_variants.get(en).and_then(|vs| vs.iter().find(|(n, _)| n == var).map(|(_, ts)| ts.clone())).unwrap_or_default();
@@ -222,6 +222,23 @@ impl<'a> Codegen<'a> {
                                 self.body.push_str(&format!("  {} = getelementptr i64, ptr {}, i64 {}\n", lp, subj.s, i + 1));
                                 let lv = self.new_reg();
                                 self.body.push_str(&format!("  {} = load i64, ptr {}\n", lv, lp));
+                                // inner tag check for destructuring payload (E::A(Some(v)) vs E::A(None))
+                                if !matches!(b.kind, ExprKind::Ident(_)) {
+                                    let want_inner: i64 = match &b.kind {
+                                        ExprKind::None | ExprKind::Err(_) => 1,
+                                        ExprKind::Call(n, _) if n == "None" || n == "Err" => 1,
+                                        _ => 0,
+                                    };
+                                    let lvp = self.new_reg();
+                                    self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", lvp, lv));
+                                    let itag = self.new_reg();
+                                    self.body.push_str(&format!("  {} = load i64, ptr {}\n", itag, lvp));
+                                    let ieq = self.new_reg();
+                                    self.body.push_str(&format!("  {} = icmp eq i64 {}, {}\n", ieq, itag, want_inner));
+                                    let neq = self.new_reg();
+                                    self.body.push_str(&format!("  {} = and i1 {}, {}\n", neq, eq, ieq));
+                                    eq = neq;
+                                }
                                 if let ExprKind::Ident(bn) = &b.kind {
                                     let slot = self.new_alloca(&bty);
                                     // f64 载荷按位模式存储，需 bitcast

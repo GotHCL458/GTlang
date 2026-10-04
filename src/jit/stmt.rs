@@ -417,6 +417,19 @@ impl FnState {
         Ok(Some(b.ins().load(cl_ty(want), MemFlags::new(), a, 0)))
     }
 
+    /// 递归判定解构模式的内层 tag（Result/Option）：`Some`/`Ok`→0，`None`/`Err`→1。
+    /// 用于 `E::A(Some(v))` 与 `E::A(None)` 共存时区分内层。
+    fn pat_tag_cond(&mut self, b: &mut FunctionBuilder, ty: &Ty, val: Value, pat: &Expr) -> Value {
+        let want_tag: i64 = match &pat.kind {
+            ExprKind::None | ExprKind::Err(_) => 1,
+            ExprKind::Call(n, _) if n == "None" || n == "Err" => 1,
+            _ => 0,
+        };
+        let _ = ty;
+        let tag = b.ins().load(types::I64, MemFlags::new(), val, 0);
+        b.ins().icmp_imm(IntCC::Equal, tag, want_tag)
+    }
+
     /// 递归绑定解构模式：`v` 直接绑；`Some(inner)`/`Ok(inner)`/`Err(inner)` 继续解构。
     /// `val` 是当前层的载荷（Result/Option 的值槽，i64 或指针）。
     fn bind_pat_deep(&mut self, b: &mut FunctionBuilder, ty: &Ty, val: Value, pat: &Expr) {
@@ -490,24 +503,13 @@ impl FnState {
                                 self.bind_pat_deep(b, &bty, lv, carg);
                             }
                             match &arm.guard { None => eq, Some(g) => { let gv = self.gen_cond(jit, b, g)?; b.ins().band(eq, gv) } }
-                        } else if let ExprKind::EnumLit(en, var, binds) = &p.kind {
+                        } else if let ExprKind::EnumLit(en, var, _binds) = &p.kind {
                             // 枚举解构：tag 比较并绑定载荷
                             let vidx = jit.enum_variants.get(en).and_then(|vs| vs.iter().position(|(n, _)| n == var)).unwrap_or(0);
                             let tag = b.ins().load(types::I64, MemFlags::new(), subj.0, 0);
                             let eq = b.ins().icmp_imm(IntCC::Equal, tag, vidx as i64);
-                            let ptys: Vec<Ty> = jit.enum_variants.get(en).and_then(|vs| vs.iter().find(|(n, _)| n == var).map(|(_, ts)| ts.clone())).unwrap_or_default();
-                            for (i, bd) in binds.iter().enumerate() {
-                                let bty = ptys.get(i).cloned().unwrap_or(Ty::I64);
-                                let lv = b.ins().load(cl_ty(&bty), MemFlags::new(), subj.0, ((i + 1) * 8) as i32);
-                                if let ExprKind::Ident(bn) = &bd.kind {
-                                    let var = self.new_var(b, &bty);
-                                    b.def_var(var, lv);
-                                    self.scopes.last_mut().unwrap().push((bn.clone(), VarBind { var, ty: bty }));
-                                } else {
-                                    // 载荷本身是解构模式（E::A(Some(v))）：递归绑定
-                                    self.bind_pat_deep(b, &bty, lv, bd);
-                                }
-                            }
+                            // 载荷的 tag 判定与绑定都推迟到 arm 块内（tag 匹配后），
+                            // 避免对"无载荷变体"（E::B）越界读。
                             match &arm.guard { None => eq, Some(g) => { let gv = self.gen_cond(jit, b, g)?; b.ins().band(eq, gv) } }
                         } else if let ExprKind::Ident(bn) = &p.kind {
                             // 裸标识符模式：绑定主体值（如 `match v { n if n > 0 => ... }`）。
@@ -536,6 +538,37 @@ impl FnState {
             };
             b.ins().brif(cond, arm_blk, &[], next_blk, &[]);
             b.switch_to_block(arm_blk); self.terminated = false;
+            // enum 载荷解构：进入 arm 块（外层 tag 已匹配，载荷一定存在）后再判定内层 tag 并绑定。
+            let mut load_ok: Option<Value> = None;
+            if let Some(p) = &arm.pat {
+                if let ExprKind::EnumLit(en, var, binds) = &p.kind {
+                    let ptys: Vec<Ty> = jit.enum_variants.get(en).and_then(|vs| vs.iter().find(|(n, _)| n == var).map(|(_, ts)| ts.clone())).unwrap_or_default();
+                    for (i, bd) in binds.iter().enumerate() {
+                        let bty = ptys.get(i).cloned().unwrap_or(Ty::I64);
+                        let lv = b.ins().load(cl_ty(&bty), MemFlags::new(), subj.0, ((i + 1) * 8) as i32);
+                        if let ExprKind::Ident(bn) = &bd.kind {
+                            let var = self.new_var(b, &bty);
+                            b.def_var(var, lv);
+                            self.scopes.last_mut().unwrap().push((bn.clone(), VarBind { var, ty: bty }));
+                        } else {
+                            let teq = self.pat_tag_cond(b, &bty, lv, bd);
+                            load_ok = Some(match load_ok { None => teq, Some(prev) => b.ins().band(prev, teq) });
+                            self.bind_pat_deep(b, &bty, lv, bd);
+                        }
+                    }
+                }
+            }
+            let body_blk = match load_ok {
+                None => arm_blk,
+                Some(teq) => {
+                    // 内层 tag 不匹配 → 走 next_blk（不执行 body）
+                    let bodyb = self.new_block(b);
+                    b.ins().brif(teq, bodyb, &[], next_blk, &[]);
+                    b.switch_to_block(bodyb); self.terminated = false;
+                    bodyb
+                }
+            };
+            let _ = body_blk;
             let v = self.gen_block_value(jit, b, &arm.body, want)?;
             if !self.terminated {
                 if let Some(v) = v { let a = b.ins().stack_addr(types::I64, slot, 0); b.ins().store(MemFlags::new(), v, a, 0); }
