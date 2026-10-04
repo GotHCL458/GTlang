@@ -46,6 +46,14 @@
 | 36 | parser | **`Option[T]` 方括号写法被解析成 `T`** | fuzz |
 | 37 | parser | **泛型 struct 参数化 `盒[T]` 被解析成 `T`** | fuzz |
 | 38 | sema/codegen/jit | **`x or y`（`x` 为 `Result`）出错**（`Some(v)` 对 `Result` 绑定了 Err 载荷）| fuzz |
+| 39 | sema/JIT | **无值 `return` + 非 void 返回类型**：`--check` 通过但 JIT panic（不完整 IR）| fuzz |
+| 40 | hoist | **`go 工(ch, f(i))`（go 实参含闭包调用）** → codegen/JIT `undefined function` | fuzz |
+| 41 | hoist | **`go 工(加一, 5)`（go 实参传函数名）** → `undefined variable` | fuzz |
+| 42 | JIT/codegen | **enum 解构的守卫 `E::A(n) if n > 5`** → guard 在载荷绑定前求值，`undefined variable 'n'` | fuzz |
+| 43 | codegen | **`match true { true => ... }`（bool 主体）** → AOT 非法 IR（`icmp eq i64 true, true`）| fuzz |
+| 44 | sema | **`set()` 元素类型未从 `insert` 细化** → `for k in set` 输出原始句柄值 | fuzz |
+| 45 | sema/JIT/codegen | **`map` 的 `f64` 值**（`m["k"] = 3.5` / `m["k"]`）：JIT 垃圾值、AOT 非法 IR | fuzz |
+| 46 | JIT/codegen | **`list`/`map` 的 `f64` 元素**（`push(l, 3.5)` / `l[0]`）：JIT 垃圾值、AOT 非法 IR（第 45 的根因统一修复）| fuzz |
 
 ---
 
@@ -159,11 +167,55 @@
 - **根因**：`or` 展开为 `match x { Some(v)=>v, Ok(v)=>v, _=>y }`；`Some(v)` 对 `Result` 主体时，codegen/JIT 按 `Result` 的第二载荷（Err 类型）绑定。
 - **修复**：`Some(v)` 对 `Result`、`Ok(v)` 对 `Option` 视为不匹配（绑定类型 `Unknown`，tag 判定自然不匹配）。
 
+
+### 39. 无值 `return` + 非 void 返回类型
+- **现象**：`fn f() -> int { return }` / `match` arm 里无值 `return` —— `--check` 通过，但 `--run`（JIT）panic（Cranelift `lower.rs` 的 `Option::unwrap()` on `None`，不完整 IR）。
+- **根因**：`sema` 只在 `infer_block_ret` 里处理 `Return(Some(e))`，漏了 `Return(None)`；显式标注返回类型的函数又跳过了块遍历。
+- **修复**：`infer_block_ret` 处理 `Stmt::Return(None)`（非 void 时返回 E301）；显式标注的函数也走一遍块遍历；`sema.rs` 收集该 `Err` 到 errors。
+
+### 40. go 实参含闭包调用
+- **现象**：`go 工(ch, f(i))`（`f` 是闭包变量）—— `--check` 通过，但 codegen/JIT 报 `undefined function 'f'`。
+- **根因**：`hoist::convert_closure_calls` 的 `Stmt` 匹配缺 `Stmt::Go`（同样缺 `Throw`/`Try`/`Labeled`/`LocalFn`）。
+- **修复**：补全这些语句分支（Go 的 args、Throw 的值、Try 的 body/catches/fin、Labeled 内层、LocalFn 的 body）。
+
+### 41. go 实参传函数名
+- **现象**：`go 工(加一, 5)`（`加一` 是顶层函数名，作一等值）—— `undefined variable '加一'`。
+- **根因**：`hoist::convert_fn_refs_block` 与 `collect_free_vars_block` 缺 `Stmt::Go` 等分支，函数名未转成闭包值。
+- **修复**：这两个遍历器同样补全 `Go`/`Throw`/`Try`/`Labeled`/`LocalFn`。
+- **守护**：新增“语句遍历完备性”单元测试（`convert_closure_calls`）。
+
+### 42. enum 解构的守卫在绑定前求值
+- **现象**：`E::A(n) if n > 5 => ...` —— `--check` 通过，`--run` 报 `undefined variable 'n'`（JIT 与 LLVM 都错）。
+- **根因**：enum 载荷的绑定推迟到 arm 块内（tag 匹配后），但 guard 在“cond 阶段”求值，此时 `n` 尚未绑定。
+- **修复**：JIT 把 enum arm 的 guard 求值移入 arm 块（载荷绑定后），内层 tag 判定与 guard 任一不满足都走 next_blk；LLVM 在 guard 求值前临时注入 pending_binds（求值后弹出）。
+- **附带**：无载荷变体（如 `enum E { A(Result) C }` 的 `E::C`）曾因“cond 阶段预绑定”越界读载荷槽而崩溃（0xC0000005），一并修复。
+
+### 43. bool 主体的 match 比较按 i64
+- **现象**：`match true { true => 1; false => 0 }` —— JIT 正常，AOT 生成非法 IR（`icmp eq i64 true, true`，`true` 是 `i1`）。
+- **根因**：`codegen::eq` 末分支一律 `icmp eq i64`，未处理 `Bool`。
+- **修复**：`Bool` 主体用 `icmp eq i1`。
+
+### 44. set 元素类型未从 insert 细化
+- **现象**：`s := set()` 后 `insert(s, "hello")`，`for k in s { put(k) }` 输出 `1462139617280` 这类原始句柄值。
+- **根因**：`sema_infer` 只对 `push`/`append`（list）细化元素类型，未处理 `insert`（set）→ 元素保持 `Unknown` → codegen 按 `i64` 取出。
+- **修复**：`insert(set, x)` 同样细化 `Ty::Set` 的元素类型。
+
+### 45. map 的 f64 值
+- **现象**：`m := map(); m["k"] = 3.5; put(m["k"])` —— JIT 输出垃圾浮点（如 `6.95e-310`）；AOT 非法 IR（`double %t4` 实际是 `i64`）。
+- **根因**：1) `map()` 的键/值类型未从 `m[k] = v` 细化（值类型保持 `Unknown`）；2) 容器以 i64 槽存储，f64 需按位保真存取，实现却用值转换。
+- **修复**：`sema` 的 `IndexAssign` 对 `Ty::Map` 的键/值类型按首次赋值细化；容器存取改走“i64 槽 + f64 bitcast”。
+
+### 46. list/map 的 f64 元素（统一修复）
+- **现象**：`l := list(); push(l, 3.5); put(l[0])` —— JIT 垃圾浮点（`5.26e+83`）；AOT 非法 IR。
+- **根因**：与第 45 同源 —— 容器元素槽是 i64，f64 元素必须 bitcast 保位模式，实现里存/取却是值转换。
+- **修复**：JIT 新增 `to_slot`/`from_slot_jit`（f64↔i64 bitcast），`list_set`/`map_insert` 与 `Index` 的 List/Map 分支改用它们，`convert` 对 `(I64, F64)` 也 bitcast；LLVM 的 `Index` List/Map 分支元素为 F64 时用 `bitcast i64 <-> double`。
+
 ---
 
 ## 统计
 
-- 真实缺陷修复：**38 个**
-- 测试：**626 → 814**（单元 25→142、双后端一致性 101→149、前端批量 500→522）
-- fuzz/深挖用例：约 2500+，全部 `panic=0` 且双端一致
-- 文档：`0.0.1d` 全量更新 + 42 个文档示例逐条核对
+- 真实缺陷修复：**46 个**
+- 测试：**626 → 820**（单元 25→143、双后端一致性 101→155、前端批量 500→522）
+- fuzz/深挖用例：约 3500+，全部 `panic=0` 且双端一致
+- 文档：`0.0.1d` 全量更新 + 文档示例逐条核对
+
