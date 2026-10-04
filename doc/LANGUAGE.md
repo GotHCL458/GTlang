@@ -211,7 +211,7 @@
     v := f(21)?              // ? 传播
     match f(-1) { Ok(v) => { ... } Err(e) => { ... } }
     o := Some(1)             // Option
-    v := o or 0              // 默认值
+    v := o or 0              // 默认值：Some(v) 取 v，None 取 0
     try { throw "异常" } expt e { put(e) } fily { ... }
 
 ---

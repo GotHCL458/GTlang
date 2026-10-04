@@ -207,7 +207,7 @@ Overloadable: add sub mul div rem eq ne lt le gt ge neg
     match f(-1) { Ok(v) => { ... } Err(e) => { ... } }
 
     o := Some(1)
-    v := o or 0
+    v := o or 0              // default: Some(v) yields v, None yields 0
 
     try { throw "boom" } expt e { put(e) } fily { ... }
 

@@ -542,3 +542,9 @@ fn err(src: &str, needle: &str) {
 #[test] fn t516() { err("fn main() { loop { put(1) } }", "loop requires a count"); }
 #[test] fn t517() { err("fn main() { x := 1 + ", "expected"); }
 #[test] fn t518() { err("fn main() { put(未定义函数(1)) }", "undefined"); }
+
+// `x or y`：Option 默认值（Some 取 v / None 取 y）
+#[test] fn t519() { ok("fn f() { return Some(1) }  fn main() { put(f() or 0) }"); }
+#[test] fn t520() { ok("fn main() { o := Some(3)  put(o or 9) }"); }
+#[test] fn t521() { ok("fn main() { n := None  put(n or 42) }"); }
+#[test] fn t522() { ok("fn f(n: int) { if n < 0 { return None }  return Some(n) }  fn main() { put(f(-1) or 7) }"); }

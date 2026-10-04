@@ -5,12 +5,16 @@ All notable changes to GTLang. Bilingual (EN / 中文).
 ## [0.0.1d] - 2026-10-04
 
 ### Added
+- **`x or 默认值`** —— Option 默认值运算符：`Some(v)` 取 `v`，`None` 取默认值（展开为 `match`）。`v := o or 0`。
+- **字符串 Unicode 转义** —— 字符串/字符字面量支持 `\uXXXX` 与 `\u{...}`。
 - **Named functions as first-class values** — pass a top-level `fn` name where a function value is expected (direct arg / let / `if` / `match` / `return` / container). Hoist rewrites it to an anonymous closure.
 - **Any expression as callee** — `fs[0](5)`, `(f)(10)` lower to indirect calls.
 - **Closures capturing containers/strings** — a closure body using `len(xs)` now gets the captured variable's type from the call-site captures.
 - **Closures capturing outer params** — `return |x| g(f(x))` captures `g`/`f`; lifted closure bodies also get closure-call rewriting.
 - **AST traversal completeness tests** — `each_expr` and `convert_closure_calls_expr` are asserted to cover every `ExprKind` variant.
 - **Friendly error for `loop {`** without a count (E303).
+- **`x or default`** — Option default-value operator: `Some(v)` yields `v`, `None` yields the fallback (rewritten to a `match`). `v := o or 0`.
+- **String Unicode escapes** — `\uXXXX` and `\u{...}` in string/char literals.
 
 ### Fixed
 - **JIT/AOT newline mismatch on Windows** — CRT stdout is now binary in both runtimes; the consistency test no longer normalizes CRLF (so this class of bug is caught).
@@ -31,6 +35,8 @@ All notable changes to GTLang. Bilingual (EN / 中文).
 ## [0.0.1c] - 2026-09-28
 
 ### Added
+- **`x or 默认值`** —— Option 默认值运算符：`Some(v)` 取 `v`，`None` 取默认值（展开为 `match`）。`v := o or 0`。
+- **字符串 Unicode 转义** —— 字符串/字符字面量支持 `\uXXXX` 与 `\u{...}`。
 - **-v flag** — print version (gtc -v / gtc --version).
 - **Stdlib os** — getcwd, getenv, setenv, path_exists, is_file, is_dir, getsize, listdir, basename, dirname, path_join, abspath, mkdir, rmdir, os_remove, system.
 - **Stdlib json** — json_dumps, json_loads, json_dump, json_load.
@@ -111,6 +117,8 @@ All notable changes to GTLang. Bilingual (EN / 中文).
 ## [0.0.1b] - 2026-09-27
 
 ### Added
+- **`x or 默认值`** —— Option 默认值运算符：`Some(v)` 取 `v`，`None` 取默认值（展开为 `match`）。`v := o or 0`。
+- **字符串 Unicode 转义** —— 字符串/字符字面量支持 `\uXXXX` 与 `\u{...}`。
 - read_line() / read_int() builtins (dual backend).
 - CLI games: game_2048.gt (interactive), game_of_life.gt.
 

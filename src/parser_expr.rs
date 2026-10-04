@@ -36,6 +36,25 @@ impl Parser {
                 }, line);
                 continue;
             }
+            // Option 默认值：`x or y` → `match x { Some(v) => v, _ => y }`
+            // （x 为 None 时取 y；为 Some(v) 时取 v 本身——按值解包，不做 Option 包装）
+            if self.at_ident("or") && min_prec == 0 {
+                let line = self.line();
+                self.bump();
+                let rhs = self.expr(1)?;
+                let v = format!("__or_v{}", line);
+                let some_pat = Expr::new(ExprKind::Call("Some".to_string(), vec![
+                    Expr::new(ExprKind::Ident(v.clone()), line),
+                ]), line);
+                let arms = vec![
+                    MatchArm { pat: Some(some_pat), range: None, guard: None,
+                        body: vec![Stmt::Expr(Expr::new(ExprKind::Ident(v), line))], line },
+                    MatchArm { pat: None, range: None, guard: None,
+                        body: vec![Stmt::Expr(rhs)], line },
+                ];
+                lhs = Expr::new(ExprKind::Match { subject: Box::new(lhs), arms }, line);
+                continue;
+            }
             // 管道：`x |> f` → `f(x)`（最低优先级，左结合）
             if self.at_punct("|>") && min_prec == 0 {
                 let line = self.line();

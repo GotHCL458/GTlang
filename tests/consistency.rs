@@ -2993,6 +2993,27 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn option_or_default_matches() {
+    // `x or y`：Some(v) 取 v，None 取 y
+    assert_consistent_src(
+        "or_default",
+        &[
+            "fn f(n: int) { if n < 0 { return None }  return Some(n * 2) }",
+            "fn main() {",
+            "    put(f(3) or 0)",
+            "    put(f(-1) or 99)",
+            "    v := f(0) or 7",
+            "    put(v)",
+            "    o := Some(5)",
+            "    put(o or 1)",
+            "    n := None",
+            "    put(n or 42)",
+            "}",
+        ],
+    );
+}
+
+#[test]
 fn pipe_to_non_callable_is_rejected() {
     // 回归：`i |> i + 1` 过去会静默丢掉 lhs（等价于 i+1），造成无声的错值/死循环。
     // 现在应报"不可调用"。
