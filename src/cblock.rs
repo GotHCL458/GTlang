@@ -659,6 +659,67 @@ int add(int a, int b) { if (a) { return a + b; } return b; }
     }
 
     #[test]
+    fn c_type_to_ty_edge_cases() {
+        assert_eq!(c_type_to_ty("unsigned long long"), Ty::I64);
+        assert_eq!(c_type_to_ty("long long"), Ty::I64);
+        assert_eq!(c_type_to_ty("long"), Ty::I64);
+        assert_eq!(c_type_to_ty("int64_t"), Ty::I64);
+        assert_eq!(c_type_to_ty("size_t"), Ty::I64);
+        assert_eq!(c_type_to_ty("float"), Ty::F64);
+        assert_eq!(c_type_to_ty("double"), Ty::F64);
+        assert_eq!(c_type_to_ty("const char *"), Ty::Str);
+        assert_eq!(c_type_to_ty("void"), Ty::Void);
+        // 未知 C 类型默认按 i64（宽松）
+        assert_eq!(c_type_to_ty("my_custom_t"), Ty::I64);
+    }
+
+    #[test]
+    fn extract_handles_nested_braces() {
+        let src = "C {
+    int f(void) { return 1; }
+    int g(void) { if (1) { return 2; } return 3; }
+}
+fn main() { }
+";
+        let (blanked, cb) = extract(src).unwrap();
+        assert!(cb.code.contains("int f"));
+        assert!(cb.code.contains("int g"));
+        assert!(blanked.contains("fn main()"));
+        assert_eq!(blanked.len(), src.len());
+    }
+
+    #[test]
+    fn extract_no_c_block_is_identity() {
+        let src = "fn main() { put(1) }
+";
+        let (blanked, cb) = extract(src).unwrap();
+        assert_eq!(blanked, src);
+        assert!(cb.code.trim().is_empty());
+    }
+
+    #[test]
+    fn parse_returns_void_and_args() {
+        let code = "static void run(int a, double b, const char *s) { }";
+        let fns = parse_c_funcs(code);
+        assert_eq!(fns.len(), 1);
+        assert_eq!(fns[0].name, "run");
+        assert_eq!(fns[0].ret, Ty::Void);
+        assert_eq!(fns[0].params, vec![Ty::I64, Ty::F64, Ty::Str]);
+    }
+
+    #[test]
+    fn multiple_c_functions_parsed() {
+        let code = r#"
+static long long a(long long x) { return x; }
+static long long b(long long x) { return x + 1; }
+static double c(double x) { return x * 2.0; }
+"#;
+        let fns = parse_c_funcs(code);
+        let names: Vec<&str> = fns.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, vec!["a", "b", "c"]);
+    }
+
+    #[test]
     fn comment_and_call_inside_body_are_not_functions() {
         // C 块里"调用 GTLang 函数"的语句、以及提到函数名的注释，
         // 都不能被当成 C 函数定义（否则会误报重名）。
