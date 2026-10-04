@@ -570,3 +570,7 @@ fn related_codes(code: &str) -> Vec<&'static str> {
         _ => vec![],
     }
 }
+
+#[path = "error_tests.rs"]
+#[cfg(test)]
+mod error_tests;
