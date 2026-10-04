@@ -126,6 +126,49 @@ fn convert_fn_refs_rewrites_value_position_idents() {
 }
 
 #[test]
+fn is_call_to_ret_closure_detects_names() {
+    let rcf = vec!["造加法".to_string()];
+    let call = e(ExprKind::Call("造加法".into(), vec![]));
+    assert!(super::is_call_to_ret_closure(&call, &rcf));
+    let other = e(ExprKind::Call("别的".into(), vec![]));
+    assert!(!super::is_call_to_ret_closure(&other, &rcf));
+    // 非调用不算
+    assert!(!super::is_call_to_ret_closure(&sentinel_ident(), &rcf));
+}
+
+#[test]
+fn is_call_to_closure_var_detects_names() {
+    let cv = vec!["造乘".to_string()];
+    let call = e(ExprKind::Call("造乘".into(), vec![]));
+    assert!(super::is_call_to_closure_var(&call, &cv));
+    let other = e(ExprKind::Call("别的".into(), vec![]));
+    assert!(!super::is_call_to_closure_var(&other, &cv));
+    assert!(!super::is_call_to_closure_var(&sentinel_ident(), &cv));
+}
+
+#[test]
+fn collect_free_vars_basic() {
+    // body 引用 x、y；bound=[x] → 只 y 是自由变量
+    let body = e(ExprKind::Binary(
+        BinOp::Add,
+        Box::new(e(ExprKind::Ident("x".into()))),
+        Box::new(e(ExprKind::Ident("y".into()))),
+    ));
+    let mut out = Vec::new();
+    super::collect_free_vars_expr(&body, &["x".to_string()], &mut out);
+    assert_eq!(out, vec!["y".to_string()]);
+}
+
+#[test]
+fn collect_free_vars_skips_underscore_prefix() {
+    // __ 前缀的临时名不算自由变量
+    let body = e(ExprKind::Ident("__tmp".into()));
+    let mut out = Vec::new();
+    super::collect_free_vars_expr(&body, &[], &mut out);
+    assert!(out.is_empty());
+}
+
+#[test]
 fn convert_fn_refs_leaves_calls_and_other_idents() {
     let fn_names = vec!["加一".to_string()];
     let mut b: Block = vec![Stmt::Expr(e(ExprKind::Call("加一".into(), vec![e(ExprKind::Int(1))])))];
