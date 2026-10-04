@@ -192,3 +192,7 @@ fn range_of(ctx: &mut Ctx, e: &Expr) -> Range {
         _ => Range::unknown(),
     }
 }
+
+#[path = "range_tests.rs"]
+#[cfg(test)]
+mod range_tests;
