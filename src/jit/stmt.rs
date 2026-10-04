@@ -505,13 +505,19 @@ impl FnState {
                                 self.bind_pat_deep(b, &bty, lv, carg);
                             }
                             match &arm.guard { None => eq, Some(g) => { let gv = self.gen_cond(jit, b, g)?; b.ins().band(eq, gv) } }
-                        } else if let ExprKind::EnumLit(en, var, _binds) = &p.kind {
+                        } else if let ExprKind::EnumLit(en, var, binds) = &p.kind {
                             // 枚举解构：tag 比较并绑定载荷
                             let vidx = jit.enum_variants.get(en).and_then(|vs| vs.iter().position(|(n, _)| n == var)).unwrap_or(0);
                             let tag = b.ins().load(types::I64, MemFlags::new(), subj.0, 0);
                             let eq = b.ins().icmp_imm(IntCC::Equal, tag, vidx as i64);
-                            // 载荷的 tag 判定与绑定都推迟到 arm 块内（tag 匹配后），
-                            // 避免对"无载荷变体"（E::B）越界读。
+                            // guard 里可能引用载荷绑定（如 E::A(n) if n > 5）：
+                            // 在求值 guard 之前先做一次"预绑定"（arm 块内会再绑定一次，无害）。
+                            let ptys: Vec<Ty> = jit.enum_variants.get(en).and_then(|vs| vs.iter().find(|(n, _)| n == var).map(|(_, ts)| ts.clone())).unwrap_or_default();
+                            for (i, bd) in binds.iter().enumerate() {
+                                let bty = ptys.get(i).cloned().unwrap_or(Ty::I64);
+                                let lv = b.ins().load(cl_ty(&bty), MemFlags::new(), subj.0, ((i + 1) * 8) as i32);
+                                self.bind_pat_deep(b, &bty, lv, bd);
+                            }
                             match &arm.guard { None => eq, Some(g) => { let gv = self.gen_cond(jit, b, g)?; b.ins().band(eq, gv) } }
                         } else if let ExprKind::Ident(bn) = &p.kind {
                             // 裸标识符模式：绑定主体值（如 `match v { n if n > 0 => ... }`）。

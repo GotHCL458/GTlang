@@ -2993,6 +2993,23 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn bool_match_and_enum_guard_matches() {
+    // 回归 1：match true { true => ..., false => ... } —— bool 主体比较曾按 i64（非法 IR）。
+    // 回归 2：E::A(n) if n > 5 —— enum 解构的守卫在绑定前求值（JIT/LLVM undefined variable）。
+    assert_consistent_src(
+        "bool_match_enum_guard",
+        &[
+            "enum E { A(int) B(str) C }",
+            "fn f(e: E) -> int { match e { E::A(n) if n > 5 => { return n } E::A(n) => { return -n } E::B(s) => { return len(s) } E::C => { return 0 } } }",
+            "fn main() {",
+            "    put(match true { true => { 1 } false => { 0 } })",
+            "    put(f(E::A(10)))  put(f(E::A(2)))  put(f(E::B(\"abc\")))  put(f(E::C))",
+            "}",
+        ],
+    );
+}
+
+#[test]
 fn go_arg_fn_ref_matches() {
     // 回归：go 实参里的函数名（一等值）曾未被 convert_fn_refs 改写 -> undefined variable。
     assert_consistent_src(

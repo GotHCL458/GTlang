@@ -255,7 +255,13 @@ impl<'a> Codegen<'a> {
                                     self.bind_pat_deep(&bty, &lv, b, &mut pending_binds);
                                 }
                             }
-                            match &arm.guard { None => eq, Some(g) => { let gv = self.cond(g)?; let r = self.new_reg(); self.body.push_str(&format!("  {} = and i1 {}, {}\n", r, eq, gv)); r } }
+                            // guard 里可能引用载荷绑定（如 E::A(n) if n > 5）：
+                            // 先临时注入绑定作用域，再求值 guard。
+                            self.push_scope();
+                            for (n2, l2) in &pending_binds { self.scopes.last_mut().unwrap().insert(n2.clone(), l2.clone()); }
+                            let gres = match &arm.guard { None => eq, Some(g) => { let gv = self.cond(g)?; let r = self.new_reg(); self.body.push_str(&format!("  {} = and i1 {}, {}\n", r, eq, gv)); r } };
+                            self.pop_scope();
+                            gres
                         } else if let ExprKind::Ident(bn) = &p.kind {
                             // 裸标识符模式：绑定主体值（与 JIT 侧一致）。
                             // 若该名字已在作用域中，退回"比较"语义（外层变量当模式）。
@@ -324,11 +330,15 @@ impl<'a> Codegen<'a> {
             self.body.push_str(&format!("  {} = icmp eq i32 {}, 0\n", r, c));
         } else if a.ty == Ty::F64 || b.ty == Ty::F64 {
             self.body.push_str(&format!("  {} = fcmp oeq double {}, {}\n", r, a.s, b.s));
+        } else if a.ty == Ty::Bool || b.ty == Ty::Bool {
+            // 布尔字面量是 i1；按 i64 比较会生成非法 IR。
+            self.body.push_str(&format!("  {} = icmp eq i1 {}, {}\n", r, a.s, b.s));
         } else {
             self.body.push_str(&format!("  {} = icmp eq i64 {}, {}\n", r, a.s, b.s));
         }
         Ok(r)
     }
 }
+
 
 
