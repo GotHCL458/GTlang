@@ -541,9 +541,14 @@ impl Ctx {
                         self.scopes.push(HashMap::new());
                         pushed_scope = true;
                         for (i, b) in binds.iter().enumerate() {
+                            let ty = payload.get(i).cloned().unwrap_or(Ty::Unknown);
                             if let ExprKind::Ident(bn) = &b.kind {
-                                let ty = payload.get(i).cloned().unwrap_or(Ty::Unknown);
                                 self.scopes.last_mut().unwrap().insert(bn.clone(), VarInfo { ty, mutable: false, explicit: false });
+                            } else {
+                                // 载荷本身是解构模式（如 E::A(Some(v)) / E::A(Ok(v))）：递归绑定
+                                for (bn, bty) in match_result_binds_deep(b, &ty) {
+                                    self.scopes.last_mut().unwrap().insert(bn, VarInfo { ty: bty, mutable: false, explicit: false });
+                                }
                             }
                         }
                     } else if let Some(ExprKind::Ident(bname)) = arm.pat.as_ref().map(|p| &p.kind) {

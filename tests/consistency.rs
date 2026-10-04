@@ -2993,6 +2993,19 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn enum_payload_destructuring_matches() {
+    // enum 载荷本身是解构模式（E::A(Some(v))）：sema/JIT/LLVM 都需递归绑定。
+    assert_consistent_src(
+        "enum_payload_destr",
+        &[
+            "enum E { A(Option[int]) B }",
+            "fn f(e: E) -> int { match e { E::A(Some(v)) => { return v } E::A(None) => { return -1 } E::B => { return 0 } } }",
+            "fn main() { put(f(E::A(Some(5))))  put(f(E::A(None)))  put(f(E::B)) }",
+        ],
+    );
+}
+
+#[test]
 fn composite_match_pattern_rejected() {
     // 复合类型（元组）不能作 match 模式：--run 与 --c 都应明确拒绝
     // （不生成非法 IR、不静默走 _）。该错误在代码生成阶段，--check 不报。

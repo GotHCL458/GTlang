@@ -217,12 +217,12 @@ impl<'a> Codegen<'a> {
                             // 绑定：把载荷存入新槽（在 arm 块内注入，见下方 bindings）
                             let ptys: Vec<Ty> = self.enum_variants.get(en).and_then(|vs| vs.iter().find(|(n, _)| n == var).map(|(_, ts)| ts.clone())).unwrap_or_default();
                             for (i, b) in binds.iter().enumerate() {
+                                let bty = ptys.get(i).cloned().unwrap_or(Ty::I64);
+                                let lp = self.new_reg();
+                                self.body.push_str(&format!("  {} = getelementptr i64, ptr {}, i64 {}\n", lp, subj.s, i + 1));
+                                let lv = self.new_reg();
+                                self.body.push_str(&format!("  {} = load i64, ptr {}\n", lv, lp));
                                 if let ExprKind::Ident(bn) = &b.kind {
-                                    let bty = ptys.get(i).cloned().unwrap_or(Ty::I64);
-                                    let lp = self.new_reg();
-                                    self.body.push_str(&format!("  {} = getelementptr i64, ptr {}, i64 {}\n", lp, subj.s, i + 1));
-                                    let lv = self.new_reg();
-                                    self.body.push_str(&format!("  {} = load i64, ptr {}\n", lv, lp));
                                     let slot = self.new_alloca(&bty);
                                     // f64 载荷按位模式存储，需 bitcast
                                     if bty == Ty::F64 {
@@ -233,6 +233,9 @@ impl<'a> Codegen<'a> {
                                         self.body.push_str(&format!("  store i64 {}, ptr {}\n", lv, slot));
                                     }
                                     pending_binds.push((bn.clone(), Local { ptr: slot, ty: bty }));
+                                } else {
+                                    // 载荷本身是解构模式（E::A(Some(v))）：递归绑定
+                                    self.bind_pat_deep(&bty, &lv, b, &mut pending_binds);
                                 }
                             }
                             match &arm.guard { None => eq, Some(g) => { let gv = self.cond(g)?; let r = self.new_reg(); self.body.push_str(&format!("  {} = and i1 {}, {}\n", r, eq, gv)); r } }
@@ -310,4 +313,5 @@ impl<'a> Codegen<'a> {
         Ok(r)
     }
 }
+
 

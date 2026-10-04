@@ -497,12 +497,15 @@ impl FnState {
                             let eq = b.ins().icmp_imm(IntCC::Equal, tag, vidx as i64);
                             let ptys: Vec<Ty> = jit.enum_variants.get(en).and_then(|vs| vs.iter().find(|(n, _)| n == var).map(|(_, ts)| ts.clone())).unwrap_or_default();
                             for (i, bd) in binds.iter().enumerate() {
+                                let bty = ptys.get(i).cloned().unwrap_or(Ty::I64);
+                                let lv = b.ins().load(cl_ty(&bty), MemFlags::new(), subj.0, ((i + 1) * 8) as i32);
                                 if let ExprKind::Ident(bn) = &bd.kind {
-                                    let bty = ptys.get(i).cloned().unwrap_or(Ty::I64);
-                                    let lv = b.ins().load(cl_ty(&bty), MemFlags::new(), subj.0, ((i + 1) * 8) as i32);
                                     let var = self.new_var(b, &bty);
                                     b.def_var(var, lv);
                                     self.scopes.last_mut().unwrap().push((bn.clone(), VarBind { var, ty: bty }));
+                                } else {
+                                    // 载荷本身是解构模式（E::A(Some(v))）：递归绑定
+                                    self.bind_pat_deep(b, &bty, lv, bd);
                                 }
                             }
                             match &arm.guard { None => eq, Some(g) => { let gv = self.gen_cond(jit, b, g)?; b.ins().band(eq, gv) } }
