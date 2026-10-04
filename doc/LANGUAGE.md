@@ -129,6 +129,32 @@
 
 > 注：闭包体里对"被捕获的闭包参数"的调用会降级为间接调用。
 
+### 借用自动解引用 / Ergonomic borrows
+
+    struct 点 { x: int, y: int }
+    p := 点 { x: 1, y: 2 }
+    r := &p
+    r.x                      // 等价于 p.x（字段访问自动解引用）
+    r.y = 9                  // &mut 亦可写字段
+    m := &mut p
+    m.x = 10
+
+    trait 形状 { fn 面积(self) -> int }
+    impl 形状 for 圆 { fn 面积(self) -> int { ... } }
+    fn f(s: dyn 形状) -> int { return s.面积() }   // 动态分发（vtable）
+    f(圆 { ... })            // struct 实参自动装箱为 dyn Trait
+
+### 解构与默认值 / Destructuring & defaults
+
+    match o {
+        Some(Some(v)) => { ... }        // 嵌套解构
+        Ok(Some(v))   => { ... }
+        n if n > 0    => { ... }        // 裸标识符绑定 + 守卫
+        _ => { ... }
+    }
+
+    v := o or 0                         // Option 默认值（Some(v)->v, None->0）
+
 ---
 
 ## 6. 结构体 / 枚举 / trait
