@@ -63,6 +63,20 @@ fn convert_fn_refs_block(b: &mut Block, fn_names: &[String]) {
             Stmt::ForRange { from, to, body, .. } => { convert_fn_refs_expr(from, fn_names); convert_fn_refs_expr(to, fn_names); convert_fn_refs_block(body, fn_names); }
             Stmt::ForEach { iter, body, .. } => { convert_fn_refs_expr(iter, fn_names); convert_fn_refs_block(body, fn_names); }
             Stmt::Block(inner) => convert_fn_refs_block(inner, fn_names),
+            // go f(args)：实参里可能有函数名作一等值。
+            Stmt::Go { args, .. } => for a in args.iter_mut() { convert_fn_refs_expr(a, fn_names); },
+            Stmt::Throw(e, _) => convert_fn_refs_expr(e, fn_names),
+            Stmt::Labeled { inner, .. } => {
+                let mut blk: Block = vec![(**inner).clone()];
+                convert_fn_refs_block(&mut blk, fn_names);
+                if let Some(x) = blk.into_iter().next() { **inner = x; }
+            }
+            Stmt::Try { body, catches, fin, .. } => {
+                convert_fn_refs_block(body, fn_names);
+                for c in catches.iter_mut() { convert_fn_refs_block(&mut c.body, fn_names); }
+                if let Some(f) = fin { convert_fn_refs_block(f, fn_names); }
+            }
+            Stmt::LocalFn(f) => convert_fn_refs_block(&mut f.body, fn_names),
             _ => {}
         }
     }
@@ -850,6 +864,15 @@ fn collect_free_vars_block(b: &Block, bound: &[String], out: &mut Vec<String>) {
             }
             Stmt::Block(inner) => collect_free_vars_block(inner, &bound, out),
             Stmt::FieldAssign { value, .. } => collect_free_vars_expr(value, &bound, out),
+            // 以下语句里的表达式也可能引用自由变量（闭包捕获需要）。
+            Stmt::Go { args, .. } => for a in args { collect_free_vars_expr(a, &bound, out); },
+            Stmt::Throw(e, _) => collect_free_vars_expr(e, &bound, out),
+            Stmt::Try { body, catches, fin, .. } => {
+                collect_free_vars_block(body, &bound, out);
+                for c in catches { collect_free_vars_block(&c.body, &bound, out); }
+                if let Some(f) = fin { collect_free_vars_block(f, &bound, out); }
+            }
+            Stmt::LocalFn(_) => { /* 内层函数不递归（不引入外层自由变量） */ }
             _ => {}
         }
     }

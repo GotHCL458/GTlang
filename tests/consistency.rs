@@ -2993,6 +2993,19 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn go_arg_fn_ref_matches() {
+    // 回归：go 实参里的函数名（一等值）曾未被 convert_fn_refs 改写 -> undefined variable。
+    assert_consistent_src(
+        "go_fn_ref",
+        &[
+            "fn 工(f, v: int) { put(f(v)) }",
+            "fn 加一(x: int) -> int { return x + 1 }",
+            "fn main() { go 工(加一, 5)  sleep(100) }",
+        ],
+    );
+}
+
+#[test]
 fn go_arg_closure_call_matches() {
     // 回归：go 的实参里含闭包调用（go 工(ch, f(i))）曾未被 convert_closure_calls 改写，
     // codegen/JIT 报 undefined function 'f'。
