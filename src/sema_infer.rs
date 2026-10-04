@@ -508,6 +508,25 @@ impl Ctx {
                 for arm in arms.iter_mut() {
                     let mut pushed_scope = false;
                     // Result/Option 变体绑定：Ok(v) / Err(e) / Some(v)
+                    if let Some(p) = arm.pat.as_ref() {
+                        let deep = match_result_binds_deep(p, &st);
+                        if !deep.is_empty() {
+                            self.scopes.push(HashMap::new());
+                            pushed_scope = true;
+                            for (bn, bty) in deep {
+                                self.scopes.last_mut().unwrap().insert(bn, VarInfo { ty: bty, mutable: false, explicit: false });
+                            }
+                            if let Some(g) = arm.guard.as_mut() { let _ = self.infer(g); }
+                            let bt = infer_block_ret(self, &mut arm.body)?;
+                            if pushed_scope { self.scopes.pop(); }
+                            result = Some(match (result.take(), &bt) {
+                                (None, _) => bt,
+                                (Some(prev), Ty::Void) => prev,
+                                (Some(prev), _) => if prev == Ty::Void { bt } else { type_join(&prev, &bt) },
+                            });
+                            continue;
+                        }
+                    }
                     if let Some((ctor, bind)) = match_result_bind(arm.pat.as_ref()) {
                         let inner = match &st {
                             Ty::Result(t, e) => if ctor == "Ok" { (**t).clone() } else { (**e).clone() },

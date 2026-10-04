@@ -2993,6 +2993,25 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn nested_destructuring_matches() {
+    // 嵌套解构：Some(Some(v)) / Ok(Some(v)) / enum 多载荷
+    assert_consistent_src(
+        "match_nested",
+        &[
+            "enum T { 叶(int) 枝(T, T) }",
+            "fn 深(t: T) -> int { match t { T::叶(v) => { return v } T::枝(l, r) => { return 1 + 深(l) + 深(r) } } }",
+            "fn main() {",
+            "    o := Some(Some(5))",
+            "    match o { Some(Some(v)) => { put(v) } _ => { put(0) } }",
+            "    r := Ok(Some(3))",
+            "    match r { Ok(Some(v)) => { put(v) } _ => { put(0) } }",
+            "    put(深(T::枝(T::叶(1), T::叶(2))))",
+            "}",
+        ],
+    );
+}
+
+#[test]
 fn match_ident_binding_matches() {
     // 裸标识符模式绑定主体值（文档 "n if n > 0 =>" 的写法）
     assert_consistent_src(

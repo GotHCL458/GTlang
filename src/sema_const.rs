@@ -22,6 +22,36 @@ pub(crate) fn match_result_bind(pat: Option<&Expr>) -> Option<(String, String)> 
     None
 }
 
+/// 递归收集 Result/Option 解构模式里的**所有**绑定（支持嵌套，如 `Some(Some(v))`）。
+/// 返回 (绑定名, 该绑定对应的载荷类型) 列表；模式不是 Result/Option 构造时返回空。
+pub(crate) fn match_result_binds_deep(pat: &Expr, subject: &Ty) -> Vec<(String, Ty)> {
+    let mut out = Vec::new();
+    collect_binds_deep(pat, subject, &mut out);
+    out
+}
+
+fn collect_binds_deep(pat: &Expr, subj: &Ty, out: &mut Vec<(String, Ty)>) {
+    let (ctor, inner): (String, &Expr) = match &pat.kind {
+        ExprKind::Ok(a) => ("Ok".to_string(), a),
+        ExprKind::Err(a) => ("Err".to_string(), a),
+        ExprKind::Some(a) => ("Some".to_string(), a),
+        ExprKind::Call(n, args) if matches!(n.as_str(), "Ok" | "Err" | "Some") && args.len() == 1 => (n.clone(), &args[0]),
+        _ => return,
+    };
+    let inner_ty = match subj {
+        Ty::Result(t, e) => if ctor == "Ok" { (**t).clone() } else { (**e).clone() },
+        Ty::Option(t) => (**t).clone(),
+        _ => Ty::Unknown,
+    };
+    match &inner.kind {
+        ExprKind::Ident(b) => out.push((b.clone(), inner_ty)),
+        // 嵌套构造（Some(Some(v)) / Ok(Some(v)) 等）
+        ExprKind::Ok(_) | ExprKind::Err(_) | ExprKind::Some(_)
+        | ExprKind::Call(_, _) => collect_binds_deep(inner, &inner_ty, out),
+        _ => {}
+    }
+}
+
 pub(crate) fn compatible(expected: &Ty, actual: &Ty) -> bool {
     is_assignable(expected, actual)
 }

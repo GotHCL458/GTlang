@@ -83,6 +83,66 @@ impl<'a> Codegen<'a> {
         match slot { Some(slot) => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load {}, ptr {}\n", r, want.llvm(), slot)); Ok(Val::new(want, r)) } None => Ok(Val::new(&Ty::Void, "0")) }
     }
 
+    /// 递归绑定解构模式（Result/Option 嵌套）：把 `val`（i64 槽）按模式写入 `pending_binds`。
+    /// - `Ident(b)` → 绑定 b = val
+    /// - `Some(inner)` / `Ok(inner)` / `Err(inner)` → 取内层载荷，递归
+    fn bind_pat_deep(&mut self, ty: &Ty, val: &str, pat: &Expr, pending_binds: &mut Vec<(String, Local)>) {
+        match &pat.kind {
+            ExprKind::Ident(bn) => {
+                let slot = self.new_alloca(ty);
+                if *ty == Ty::F64 {
+                    let d = self.new_reg();
+                    self.body.push_str(&format!("  {} = bitcast i64 {} to double
+", d, val));
+                    self.body.push_str(&format!("  store double {}, ptr {}
+", d, slot));
+                } else if ty.llvm() == "ptr" {
+                    let p = self.new_reg();
+                    self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr
+", p, val));
+                    self.body.push_str(&format!("  store ptr {}, ptr {}
+", p, slot));
+                } else {
+                    self.body.push_str(&format!("  store i64 {}, ptr {}
+", val, slot));
+                }
+                pending_binds.push((bn.clone(), Local { ptr: slot, ty: ty.clone() }));
+            }
+            ExprKind::Some(a) | ExprKind::Ok(a) | ExprKind::Err(a) => {
+                let is_ok = matches!(pat.kind, ExprKind::Ok(_));
+                let inner_ty = match ty {
+                    Ty::Result(t, e) => if is_ok { (**t).clone() } else { (**e).clone() },
+                    Ty::Option(t) => (**t).clone(),
+                    _ => Ty::I64,
+                };
+                let v2 = self.recv_val_load(val);
+                self.bind_pat_deep(&inner_ty, &v2, a, pending_binds);
+            }
+            ExprKind::Call(n, args) if matches!(n.as_str(), "Some" | "Ok" | "Err") && args.len() == 1 => {
+                let inner_ty = match ty {
+                    Ty::Result(t, e) => if n == "Ok" { (**t).clone() } else { (**e).clone() },
+                    Ty::Option(t) => (**t).clone(),
+                    _ => Ty::I64,
+                };
+                let v2 = self.recv_val_load(val);
+                self.bind_pat_deep(&inner_ty, &v2, &args[0], pending_binds);
+            }
+            _ => {}
+        }
+    }
+
+    /// 嵌套解构：从"内层 Result/Option（i64 句柄）"取载荷（i64 槽）。
+    fn recv_val_load(&mut self, val: &str) -> String {
+        self.declare("declare i64 @gt_result_val(ptr)");
+        let p = self.new_reg();
+        self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr
+", p, val));
+        let v = self.new_reg();
+        self.body.push_str(&format!("  {} = call i64 @gt_result_val(ptr {})
+", v, p));
+        v
+    }
+
     pub(crate) fn match_value(&mut self, subject: &Expr, arms: &[MatchArm], want: &Ty, line: usize) -> Result<Val, String> {
         let subj = self.expr(subject)?;
         let slot = if want != &Ty::Void { Some(self.new_alloca(want)) } else { None };
@@ -133,7 +193,7 @@ impl<'a> Codegen<'a> {
                             let eq = self.new_reg();
                             self.body.push_str(&format!("  {} = icmp eq i64 {}, {}\n", eq, tag, want_tag));
                             if let Some(carg) = carg {
-                            if let ExprKind::Ident(bn) = &carg.kind {
+                                // 递归绑定：支持嵌套解构（Some(Some(v)) 等）。
                                 let bty = match &subj.ty {
                                     Ty::Result(t, e) => if cname == "Ok" { (**t).clone() } else { (**e).clone() },
                                     Ty::Option(t) => (**t).clone(),
@@ -142,21 +202,7 @@ impl<'a> Codegen<'a> {
                                 self.declare("declare i64 @gt_result_val(ptr)");
                                 let val = self.new_reg();
                                 self.body.push_str(&format!("  {} = call i64 @gt_result_val(ptr {})\n", val, sp));
-                                let slot = self.new_alloca(&bty);
-                                if bty == Ty::F64 {
-                                    let d = self.new_reg();
-                                    self.body.push_str(&format!("  {} = bitcast i64 {} to double\n", d, val));
-                                    self.body.push_str(&format!("  store double {}, ptr {}\n", d, slot));
-                                } else if bty.llvm() == "ptr" {
-                                    // 载荷是 ptr 类（str/容器/结构体）：运行时以 i64 存放，取出后 inttoptr 再存
-                                    let p = self.new_reg();
-                                    self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, val));
-                                    self.body.push_str(&format!("  store ptr {}, ptr {}\n", p, slot));
-                                } else {
-                                    self.body.push_str(&format!("  store i64 {}, ptr {}\n", val, slot));
-                                }
-                                pending_binds.push((bn.clone(), Local { ptr: slot, ty: bty }));
-                            }
+                                self.bind_pat_deep(&bty, &val, carg, &mut pending_binds);
                             }
                             match &arm.guard { None => eq, Some(g) => { let gv = self.cond(g)?; let r = self.new_reg(); self.body.push_str(&format!("  {} = and i1 {}, {}\n", r, eq, gv)); r } }
                         } else if let ExprKind::EnumLit(en, var, binds) = &p.kind {
@@ -257,3 +303,4 @@ impl<'a> Codegen<'a> {
         Ok(r)
     }
 }
+

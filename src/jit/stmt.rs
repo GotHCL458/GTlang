@@ -417,6 +417,37 @@ impl FnState {
         Ok(Some(b.ins().load(cl_ty(want), MemFlags::new(), a, 0)))
     }
 
+    /// 递归绑定解构模式：`v` 直接绑；`Some(inner)`/`Ok(inner)`/`Err(inner)` 继续解构。
+    /// `val` 是当前层的载荷（Result/Option 的值槽，i64 或指针）。
+    fn bind_pat_deep(&mut self, b: &mut FunctionBuilder, ty: &Ty, val: Value, pat: &Expr) {
+        match &pat.kind {
+            ExprKind::Ident(bn) => {
+                let var = self.new_var(b, ty);
+                b.def_var(var, val);
+                self.scopes.last_mut().unwrap().push((bn.clone(), VarBind { var, ty: ty.clone() }));
+            }
+            ExprKind::Some(a) | ExprKind::Ok(a) | ExprKind::Err(a) => {
+                let inner_ty = match ty {
+                    Ty::Result(t, e) => if matches!(pat.kind, ExprKind::Ok(_)) { (**t).clone() } else { (**e).clone() },
+                    Ty::Option(t) => (**t).clone(),
+                    _ => Ty::I64,
+                };
+                let lv = b.ins().load(cl_ty(&inner_ty), MemFlags::new(), val, 8);
+                self.bind_pat_deep(b, &inner_ty, lv, a);
+            }
+            ExprKind::Call(n, args) if matches!(n.as_str(), "Some" | "Ok" | "Err") && args.len() == 1 => {
+                let inner_ty = match ty {
+                    Ty::Result(t, e) => if n == "Ok" { (**t).clone() } else { (**e).clone() },
+                    Ty::Option(t) => (**t).clone(),
+                    _ => Ty::I64,
+                };
+                let lv = b.ins().load(cl_ty(&inner_ty), MemFlags::new(), val, 8);
+                self.bind_pat_deep(b, &inner_ty, lv, &args[0]);
+            }
+            _ => {}
+        }
+    }
+
     pub(crate) fn gen_match(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, subject: &Expr, arms: &[MatchArm], want: &Ty, line: usize) -> Result<(Value, Ty), String> {
         let subj = self.gen_expr(jit, b, subject)?;
         let slot = b.func.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, 8, 3));
@@ -448,17 +479,15 @@ impl FnState {
                             let tag = b.ins().load(types::I64, MemFlags::new(), subj.0, 0);
                             let eq = b.ins().icmp_imm(IntCC::Equal, tag, want_tag);
                             if let Some(carg) = carg {
-                            if let ExprKind::Ident(bn) = &carg.kind {
+                                // 递归绑定：支持嵌套解构（Some(Some(v)) / Ok(Some(v)) 等）。
                                 let bty = match &subj.1 {
                                     Ty::Result(t, e) => if cname == "Ok" { (**t).clone() } else { (**e).clone() },
                                     Ty::Option(t) => (**t).clone(),
                                     _ => Ty::I64,
                                 };
+                                // 载荷值（i64 槽）
                                 let lv = b.ins().load(cl_ty(&bty), MemFlags::new(), subj.0, 8);
-                                let var = self.new_var(b, &bty);
-                                b.def_var(var, lv);
-                                self.scopes.last_mut().unwrap().push((bn.clone(), VarBind { var, ty: bty }));
-                            }
+                                self.bind_pat_deep(b, &bty, lv, carg);
                             }
                             match &arm.guard { None => eq, Some(g) => { let gv = self.gen_cond(jit, b, g)?; b.ins().band(eq, gv) } }
                         } else if let ExprKind::EnumLit(en, var, binds) = &p.kind {
