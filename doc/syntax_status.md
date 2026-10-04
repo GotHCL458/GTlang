@@ -2,7 +2,7 @@
 
 > [English](en/syntax_status.md)
 
-> 版本 0.0.1b ｜ 双后端（LLVM + Cranelift）逐字节一致
+> 版本 0.0.1d ｜ 双后端（LLVM + Cranelift）逐字节一致
 
 ---
 
@@ -18,18 +18,18 @@
 ### 1.3 控制流
 `if/elif/else`、`while`、`do-while`、`for i in a..b`、`for v in 容器`、`for-else`、
 **标签循环** `outer: for { break outer }`、`break/continue`、
-`match`（字面量/通配/守卫/**范围**/**OR**）、**成员 `in`**、**下标糖**、**`++`/`--`**
+`match`（字面量/通配/守卫/**范围**/**OR**/**裸标识符绑定**/**嵌套解构**）、**成员 `in`**、**下标糖**、**`++`/`--`**
 
 ### 1.4 函数
 参数/返回类型可省略、中文名、递归、**嵌套函数**、泛型（单态化 + **where 约束**）、
 闭包、**默认参数**、**命名参数**、**trait 默认方法**、**闭包标注** `|x: int| -> int`、
 **函数作一等值**（顶层 fn 名可传参/存变量/放 `if`/`match`/`return`/容器）、
 **任意表达式作 callee**（`fs[0](5)`、`(f)(10)`）、**高阶函数**（无标注闭包参数）、
-**函数返回闭包**（`return |x| x * n`）
+**函数返回闭包**（`return |x| x * n`）、**字符串 Unicode 转义**
 
 ### 1.5 类型
 基础、定长数组、list/set/map、struct、泛型 struct、trait+impl（含 blanket）、
-借用 `&T`/`&mut T`、**元组**、**枚举**、**`dyn Trait`**（vtable 动态分发）
+借用 `&T`/`&mut T`（**字段/方法/参数自动解引用**）、**元组**、**枚举**、**`dyn Trait`**（vtable 动态分发 + **struct 实参自动装箱**）
 
 ### 1.6 数据扩展
 元组 `(1,2)`（`t.0`）、解构 `let (a,b) = t`、切片 `s[0..5]`、负索引 `l[-1]`、
@@ -51,7 +51,7 @@
 内联 C `C { ... }`、`extern "C"`、`import c "a.h"`
 
 ### 1.12 错误处理
-Result/Option + `?`、`try/expt/fily` + `throw/raise`、`expr or 默认值`
+Result/Option + `?`、`try/expt/fily` + `throw/raise`、`expr or 默认值`（Option 与 Result 均支持）
 
 ### 1.13 所有权
 move 语义、借用冲突（`&mut` 独占）、**流敏感 NLL**（last_use + 分支 join + 不可达）
@@ -69,7 +69,7 @@ move 语义、借用冲突（`&mut` 独占）、**流敏感 NLL**（last_use + �
 局部双向推断（`let x: T = 值`）、`match` arm 结果 `type_join`、调用点迭代推断
 
 ### 1.18 `match` 穷尽性
-enum 列全 / bool 需 true+false / Option 需 Some+None / Result 需 Ok+Err（或 `_`）
+enum 列全 / bool 需 true+false / Option 需 Some+None / Result 需 Ok+Err（或 `_`）；整数/浮点/字符串主体始终要求 `_`
 
 ### 1.19 内置函数
 range、assert、三元、pad_left/right/fmt_int、put/len/str/int/f64/bool、
@@ -105,3 +105,5 @@ mem_*（裸内存）、chan/sleep
 ## 4. 测试
 
 **803 测试**（140 单元 + 141 双后端一致性 + 522 前端批量），`cargo test --release` 全绿，**0 warning**。
+
+

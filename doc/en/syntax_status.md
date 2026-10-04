@@ -2,7 +2,7 @@
 
 > [中文](../syntax_status.md)
 
-> Version 0.0.1b | Dual backend (LLVM + Cranelift), byte-for-byte consistent
+> Version 0.0.1d | Dual backend (LLVM + Cranelift), byte-for-byte consistent
 
 ## 1. Implemented (100%)
 
@@ -15,7 +15,7 @@ integers (0x/0b/0o/_), floats, string interpolation $X/\${expr}, raw strings r".
 
 ### 1.3 Control Flow
 if/elif/else, while, do-while, for i in a..b, for v in container, for-else,
-**labeled loops**, break/continue, match (literal/wildcard/guard/**range**/**OR**),
+**labeled loops**, break/continue, match (literal/wildcard/guard/**range**/**OR**/**ident binding**/**nested destructuring**),
 **membership in**, **index sugar**, **++/--**, **loop N**
 
 ### 1.4 Functions
@@ -24,11 +24,11 @@ generics (monomorphization + **where**), closures, **default args**, **named arg
 **trait default methods**, **closure annotations** |x: int| -> int,
 **first-class functions** (a top-level `fn` name works as a value: arg / let / `if` / `match` / `return` / container),
 **any expression as callee** (`fs[0](5)`, `(f)(10)`), **higher-order functions** (unannotated closure param),
-**function returning a closure** (`return |x| x * n`)
+**function returning a closure** (`return |x| x * n`), **string Unicode escapes**
 
 ### 1.5 Types
 basic, fixed array, list/set/map, struct, generic struct, trait+impl (blanket),
-borrow &T/&mut T, **tuple**, **enum**, **dyn Trait** (vtable dynamic dispatch)
+borrow &T/&mut T (**auto-deref fields/methods/params**), **tuple**, **enum**, **dyn Trait** (vtable dynamic dispatch + **auto-boxing struct args**)
 
 ### 1.6 Data Extensions
 tuple (1,2) (t.0), destructuring let (a,b) = t, slicing s[0..5], negative index l[-1],
@@ -50,7 +50,7 @@ import math (builtin), import a.b (user), import "x.gt", import c "a.h"
 inline C block, extern "C", import c "a.h"
 
 ### 1.12 Error Handling
-Result/Option + ?, try/expt/fily + throw/raise, expr or default
+Result/Option + ?, try/expt/fily + throw/raise, expr or default (both Option and Result)
 
 ### 1.13 Ownership
 move semantics, borrow conflicts, **flow-sensitive NLL**
@@ -69,7 +69,7 @@ inline + constant folding + propagation + dead code + range analysis
 bidirectional (let x: T = v), match arm type_join, iterative call-site inference
 
 ### 1.18 Match Exhaustiveness
-enum all variants / bool true+false / Option Some+None / Result Ok+Err (or _)
+enum all variants / bool true+false / Option Some+None / Result Ok+Err (or _); int/f64/str subjects always need _
 
 ### 1.19 Builtins
 range, assert, ternary, pad_left/right/fmt_int, put/len/str/int/f64/bool,
@@ -97,3 +97,4 @@ container ops, string ops, mem_*, chan/sleep
 
 **803 tests** (140 unit + 141 dual-backend consistency + 522 frontend bulk),
 cargo test --release all green, 0 warnings.
+
