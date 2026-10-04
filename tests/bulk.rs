@@ -509,3 +509,36 @@ fn ok(src: &str) {
 #[test] fn t498() { ok("fn main() { put(str(98)) }"); }
 #[test] fn t499() { ok("fn main() { put(str(99)) }"); }
 #[test] fn t500() { ok("fn main() { put(str(100)) }"); }
+
+// ===== v0.0.1d: 前端覆盖新增特性 =====
+
+fn err(src: &str, needle: &str) {
+    match build("t.gt", src) {
+        Ok(_) => panic!("should fail: {}", src),
+        Err(diags) => {
+            let msg: Vec<String> = diags.iter().map(|d| d.message.clone()).collect();
+            let joined = msg.join("|");
+            assert!(joined.contains(needle), "expected {:?} in {:?}", needle, joined);
+        }
+    }
+}
+
+#[test] fn t501() { ok("fn 加一(n: int) -> int { return n + 1 }  fn main() { g := 加一  put(g(1)) }"); }
+#[test] fn t502() { ok("fn 加一(n: int) -> int { return n + 1 }  fn 应(f, x: int) -> int { return f(x) }  fn main() { put(应(加一, 1)) }"); }
+#[test] fn t503() { ok("fn 加一(n: int) -> int { return n + 1 }  fn 乘二(n: int) -> int { return n * 2 }  fn main() { h := if true { 加一 } else { 乘二 }  put(h(1)) }"); }
+#[test] fn t504() { ok("fn 加一(n: int) -> int { return n + 1 }  fn main() { fs := list()  push(fs, 加一)  put(fs[0](1)) }"); }
+#[test] fn t505() { ok("fn main() { f := |x: int| x + 1  put(f(1)) }"); }
+#[test] fn t506() { ok("fn main() { f := |x: int| |y: int| x + y  g := f(1)  put(g(2)) }"); }
+#[test] fn t507() { ok("fn main() { xs := list()  push(xs, 1)  g := |x: int| len(xs) + x  put(g(1)) }"); }
+#[test] fn t508() { ok("fn 复合(f, g) { return |x: int| g(f(x)) }  fn main() { inc := |x: int| x + 1  dbl := |x: int| x * 2  h := 复合(inc, dbl)  put(h(1)) }"); }
+#[test] fn t509() { ok("fn 恒等[T](x: T) -> T { return x }  fn main() { put(恒等(1))  put(恒等(\"s\")) }"); }
+#[test] fn t510() { ok("fn 首[T](xs: list[T]) -> T { return xs[0] }  fn main() { a := list()  push(a, 1)  put(首(a)) }"); }
+#[test] fn t511() { ok("fn f(b: int) { if b == 0 { return Err(\"x\") }  return Ok(1) }  fn main() { r := f(0)  match r { Ok(v) => { put(v) }  Err(e) => { put(0) } } }"); }
+#[test] fn t512() { ok("fn main() { put(-9223372036854775808) }"); }
+#[test] fn t513() { ok("fn main() { i := 0  loop 3 { i = i + 1 }  put(i) }"); }
+#[test] fn t514() { ok("fn main() { c := chan()  go 生产者(c)  sleep(1) }  fn 生产者(c) { chan_send(c, 1) }"); }
+#[test] fn t515() { ok("fn main() { f := |a: int, b: int| a + b  put(f(1, 2)) }"); }
+
+#[test] fn t516() { err("fn main() { loop { put(1) } }", "loop requires a count"); }
+#[test] fn t517() { err("fn main() { x := 1 + ", "expected"); }
+#[test] fn t518() { err("fn main() { put(未定义函数(1)) }", "undefined"); }
