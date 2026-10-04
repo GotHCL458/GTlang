@@ -290,6 +290,13 @@ impl<'a> Codegen<'a> {
 
     pub(crate) fn eq(&mut self, a: &Val, b: &Val, _line: usize) -> Result<String, String> {
         let r = self.new_reg();
+        // 非标量（元组/结构体/容器等 ptr 类）不能按 i64 比较——否则生成非法 IR。
+        // 明确拒绝，交由上层报"不支持的模式"。
+        if matches!(a.ty, Ty::Tuple(_) | Ty::Struct(_) | Ty::Enum(_) | Ty::List(_) | Ty::Set(_) | Ty::Map(_, _) | Ty::Array(_, _))
+            || matches!(b.ty, Ty::Tuple(_) | Ty::Struct(_) | Ty::Enum(_) | Ty::List(_) | Ty::Set(_) | Ty::Map(_, _) | Ty::Array(_, _))
+        {
+            return Err(crate::lb!(_line, "match pattern of composite type is not supported", "不支持复合类型的 match 模式"));
+        }
         if a.ty == Ty::Str || b.ty == Ty::Str {
             self.declare("declare i32 @strcmp(ptr, ptr)");
             let c = self.new_reg();

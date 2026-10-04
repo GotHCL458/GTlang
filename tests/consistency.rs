@@ -2993,6 +2993,25 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn composite_match_pattern_rejected() {
+    // 复合类型（元组）不能作 match 模式：--run 与 --c 都应明确拒绝
+    // （不生成非法 IR、不静默走 _）。该错误在代码生成阶段，--check 不报。
+    let p = tmp_dir().join("composite_pat.gt");
+    std::fs::write(&p, "fn main() { t := (1, 2)  match t { (1, 2) => { put(10) } _ => { put(0) } } }\n").unwrap();
+
+    let jit = Command::new(gtc()).arg("--run").arg(&p).output().expect("gtc --run");
+    assert!(!jit.status.success(), "--run 未拒绝复合模式");
+    let je = decode(&jit.stderr) + &decode(&jit.stdout);
+    assert!(je.contains("composite"), "--run 缺少提示：\n{}", je);
+
+    let exe = tmp_dir().join("composite_pat.exe");
+    let aot = Command::new(gtc()).arg("--c").arg(&p).arg("-o").arg(&exe).output().expect("gtc --c");
+    assert!(!aot.status.success(), "--c 未拒绝复合模式");
+    let ae = decode(&aot.stderr) + &decode(&aot.stdout);
+    assert!(ae.contains("composite"), "--c 缺少提示：\n{}", ae);
+}
+
+#[test]
 fn nested_destructuring_matches() {
     // 嵌套解构：Some(Some(v)) / Ok(Some(v)) / enum 多载荷
     assert_consistent_src(

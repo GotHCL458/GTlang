@@ -520,6 +520,10 @@ impl FnState {
                                 match &arm.guard { None => b.ins().iconst(types::I8, 1), Some(g) => self.gen_cond(jit, b, g)? }
                             }
                         } else {
+                            // 非标量（元组/结构体/容器）模式：与 LLVM 侧保持一致，明确拒绝。
+                            if matches!(p.ty, Ty::Tuple(_) | Ty::Struct(_) | Ty::Enum(_) | Ty::List(_) | Ty::Set(_) | Ty::Map(_, _) | Ty::Array(_, _)) {
+                                return Err(crate::lb!(p.line, "match pattern of composite type is not supported", "不支持复合类型的 match 模式"));
+                            }
                             let pv = self.gen_expr(jit, b, p)?;
                             let eq = self.gen_eq(jit, b, &subj, &pv)?;
                             match &arm.guard { None => eq, Some(g) => { let gv = self.gen_cond(jit, b, g)?; b.ins().band(eq, gv) } }
