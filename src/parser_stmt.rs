@@ -17,10 +17,11 @@ impl Parser {
     }
 
     pub(crate) fn block(&mut self) -> Result<Block, String> {
-        let saved = self.depth;
-        self.depth = 0;
+        // 注意：不重置 depth —— 块嵌套必须累加（防深嵌套爆栈）。
+        // "每函数独立"由 fn_def 的 body 解析前重置 depth 保证。
+        self.enter_depth()?;
         let r = self.block_inner();
-        self.depth = saved;
+        self.leave_depth();
         r
     }
 

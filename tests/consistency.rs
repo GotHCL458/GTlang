@@ -2911,6 +2911,16 @@ fn long_binary_chain_is_rejected() {
 }
 
 #[test]
+fn deeply_nested_if_is_rejected() {
+    // 500 层嵌套 if 应报"嵌套过深"而非爆栈（回归）
+    let n = 500;
+    let src = format!("fn main() {{ {}put(1) {} }}", "if true { ".repeat(n), "} ".repeat(n));
+    let p = tmp_dir().join("deep_if.gt");
+    std::fs::write(&p, &src).unwrap();
+    assert_rejected("deep_if", &[src.as_str()], "过深");
+}
+
+#[test]
 fn loop_without_count_is_rejected() {
     assert_rejected(
         "loop_no_count",
