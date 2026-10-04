@@ -2993,6 +2993,14 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn type_boundary_rejections() {
+    // 回归：list 用非整数下标 / for-range 用非整数边界曾被放行
+    //（list 崩"index out of bounds"、for 浮点边界死循环）。
+    assert_rejected("list_str_index", &["fn main() { l := list()  push(l, 1)  put(l[\"k\"]) }"], "下标");
+    assert_rejected("forrange_f64", &["fn main() { for i in 0..3.5 { put(i) } }"], "整数");
+}
+
+#[test]
 fn f64_container_and_bool_match_regressions() {
     // 回归：list/map 的 f64 元素曾以"值"而非"位模式"存入 i64 槽 -> JIT/LLVM 输出垃圾。
     assert_consistent_src(

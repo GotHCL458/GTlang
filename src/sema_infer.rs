@@ -423,10 +423,24 @@ impl Ctx {
                 let bt = self.infer(base)?;
                 let it = self.infer(idx)?;
                 match bt {
-                    Ty::Array(el, _) => (*el).clone(),
-                    Ty::Str => Ty::I64,
-                    Ty::List(el) if false => (*el).clone(),
-                    Ty::List(el) => (*el).clone(),
+                    Ty::Array(el, _) => {
+                        if it != Ty::Unknown && !it.is_int() {
+                            return Err(crate::lb!(e.line, "index must be an integer, found {}", "下标应为整数，实际是 {}", it));
+                        }
+                        (*el).clone()
+                    }
+                    Ty::Str => {
+                        if it != Ty::Unknown && !it.is_int() {
+                            return Err(crate::lb!(e.line, "index must be an integer, found {}", "下标应为整数，实际是 {}", it));
+                        }
+                        Ty::I64
+                    }
+                    Ty::List(el) => {
+                        if it != Ty::Unknown && !it.is_int() {
+                            return Err(crate::lb!(e.line, "list index must be an integer, found {}", "list 下标应为整数，实际是 {}", it));
+                        }
+                        (*el).clone()
+                    }
                     Ty::Map(k, v) => {
                         // map 下标：键须匹配键类型
                         if it != Ty::Unknown && !is_assignable(&k, &it) {

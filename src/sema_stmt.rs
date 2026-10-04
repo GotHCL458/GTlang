@@ -245,12 +245,20 @@ pub(crate) fn check_stmt(ctx: &mut Ctx, s: &mut Stmt, errors: &mut Vec<String>) 
             check_block(ctx, body, errors);
             ctx.loop_depth -= 1;
         }
-        Stmt::ForRange { var, from, to, body, els: _, line: _ } => {
+        Stmt::ForRange { var, from, to, body, els: _, line } => {
             for e in [from, to] {
-                if let Err(err) = ctx.infer(e) {
-                    errors.push(err);
+                match ctx.infer(e) {
+                    Ok(t) if !t.is_int() && t != Ty::Unknown => errors.push(crate::lb!(
+                        e.line,
+                        "for-range bound must be an integer, found {}",
+                        "for 范围边界应为整数，实际是 {}",
+                        t
+                    )),
+                    Ok(_) => {}
+                    Err(err) => errors.push(err),
                 }
             }
+            let _ = line;
             ctx.scopes.push(HashMap::new());
             ctx.scopes.last_mut().unwrap().insert(var.clone(), VarInfo { ty: Ty::I64, mutable: true, explicit: false });
             ctx.loop_depth += 1;
