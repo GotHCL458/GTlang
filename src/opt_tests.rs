@@ -121,3 +121,47 @@ fn propagate_does_not_replace_string() {
         other => panic!("expected Call, got {:?}", other),
     }
 }
+
+
+/// 哨兵调用：可被 collect_calls 识别的唯一函数名。
+fn sentinel_call() -> Expr { e(ExprKind::Call("__SENT_CALL__".into(), vec![])) }
+
+/// collect_calls 的遍历完备性：每个 ExprKind 变体的子位置都应被递归。
+#[test]
+fn collect_calls_covers_all_variants() {
+    use std::collections::HashSet;
+    let s = || Box::new(sentinel_call());
+    let blk = || vec![Stmt::Expr(sentinel_call())];
+    let mut cases: Vec<(&str, Expr)> = Vec::new();
+    cases.push(("Unary", e(ExprKind::Unary(UnOp::Neg, s()))));
+    cases.push(("Binary", e(ExprKind::Binary(BinOp::Add, s(), s()))));
+    cases.push(("Call-arg", e(ExprKind::Call("outer".into(), vec![sentinel_call()]))));
+    cases.push(("CallValue", e(ExprKind::CallValue { callee: s(), args: vec![sentinel_call()] })));
+    cases.push(("MethodOn", e(ExprKind::MethodOn { recv: s(), method: "m".into(), args: vec![sentinel_call()] })));
+    cases.push(("Borrow", e(ExprKind::Borrow { mutable: false, inner: s() })));
+    cases.push(("DynBox", e(ExprKind::DynBox { trait_name: "T".into(), value: s() })));
+    cases.push(("Index", e(ExprKind::Index(s(), s()))));
+    cases.push(("Slice", e(ExprKind::Slice(s(), s(), s()))));
+    cases.push(("TupleLit", e(ExprKind::TupleLit(vec![sentinel_call()]))));
+    cases.push(("ListComp", e(ExprKind::ListComp { expr: s(), var: "x".into(), iter: s(), cond: Some(s()) })));
+    cases.push(("Field", e(ExprKind::Field(s(), "f".into()))));
+    cases.push(("StructLit", e(ExprKind::StructLit("S".into(), vec![("a".into(), sentinel_call())]))));
+    cases.push(("EnumLit", e(ExprKind::EnumLit("E".into(), "V".into(), vec![sentinel_call()]))));
+    cases.push(("If", e(ExprKind::If { cond: s(), then: blk(), els: Some(blk()) })));
+    cases.push(("Match", e(ExprKind::Match { subject: s(), arms: vec![MatchArm { pat: Some(sentinel_call()), range: None, guard: Some(sentinel_call()), body: blk(), line: 0 }] })));
+    cases.push(("Closure", e(ExprKind::Closure { params: vec![], param_tys: vec![], ret_ty: None, body: s(), line: 0 })));
+    cases.push(("ClosureNew", e(ExprKind::ClosureNew { fn_name: "c".into(), captures: vec![sentinel_call()] })));
+    cases.push(("Ok", e(ExprKind::Ok(s()))));
+    cases.push(("Err", e(ExprKind::Err(s()))));
+    cases.push(("Try", e(ExprKind::Try(s()))));
+    cases.push(("Some", e(ExprKind::Some(s()))));
+    cases.push(("Interp", e(ExprKind::Interp(vec![StrPart::Expr(s())]))));
+    let mut missing: Vec<&str> = Vec::new();
+    for (name, ex) in &cases {
+        let mut out: HashSet<String> = HashSet::new();
+        super::collect_calls(ex, &mut out);
+        if !out.contains("__SENT_CALL__") { missing.push(name); }
+    }
+    assert!(missing.is_empty(), "collect_calls 未遍历这些变体的子表达式：{:?}", missing);
+}
+
