@@ -356,6 +356,22 @@ impl Ctx {
                             ).render());
                         }
                     }
+                    // 形参是 list[dyn T] 而实参是 list[X]：把实参变量细化为形参类型，
+                    // 使 push(l, X) 能在 codegen/mono 阶段按 dyn 装箱。
+                    for (i, (want, got)) in sig.params.iter().zip(arg_tys.iter()).enumerate() {
+                        if let (Ty::List(we), Ty::List(_)) = (want, got) {
+                            if matches!(**we, Ty::Dyn(_)) {
+                                if i < args.len() {
+                                    if let ExprKind::Ident(vn) = &args[i].kind {
+                                        let vn = vn.clone();
+                                        let want = want.clone();
+                                        if let Some(vi) = self.lookup_var_mut(&vn) { vi.ty = want.clone(); }
+                                        args[i].ty = want;
+                                    }
+                                }
+                            }
+                        }
+                    }
                     if sig.ret == Ty::Unknown { Ty::I64 } else { sig.ret }
                 } else if let Some(r) = builtin_ret(&name, &arg_tys) {
                     r.map_err(|why| crate::lb!(e.line, "{}", "{}", why))?

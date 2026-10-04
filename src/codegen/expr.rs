@@ -36,7 +36,10 @@ impl<'a> Codegen<'a> {
                     self.body.push_str(&format!("  {} = load i64, ptr {}\n", addr, vp));
                     let fp = self.new_reg();
                     self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", fp, addr));
-                    let mut ops: Vec<String> = vec!["i64".into(), data];
+                    // data 是被调方法的 self（ptr）：与 `类型__方法(ptr ...)` 签名一致
+                    let dpp = self.new_reg();
+                    self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", dpp, data));
+                    let mut ops: Vec<String> = vec!["ptr".into(), dpp];
                     for a in args { let v = self.expr(a)?; ops.push("i64".into()); ops.push(self.as_i64(&v)); }
                     let argstr: Vec<String> = ops.chunks(2).map(|c| format!("{} {}", c[0], c[1])).collect();
                     let ret_llvm = if e.ty.llvm() == "double" { "double" } else { "i64" };

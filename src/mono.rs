@@ -738,10 +738,17 @@ pub fn lower_method_calls(prog: &mut Program, methods: &HashMap<String, Vec<Stri
             param_tys.insert(f.name.clone(), f.params.iter().map(|p| p.ty.clone().unwrap_or(Ty::Unknown)).collect());
         }
     }
+    // 收集“list 变量 → 最终元素类型”（可能由调用点细化出来），供 push 装箱判断。
+    let mut list_elem_tys: HashMap<String, Ty> = HashMap::new();
+    for item in &prog.items {
+        if let Item::Fn(f) = item {
+            collect_list_elem_tys_block(&f.body, &mut list_elem_tys);
+        }
+    }
     // 实参自动装箱：实参是 Struct/Enum 而形参是 dyn Trait → 包一层 DynBox
     for item in &mut prog.items {
         if let Item::Fn(f) = item {
-            auto_box_args_block(&mut f.body, &param_tys);
+            auto_box_args_block(&mut f.body, &param_tys, &list_elem_tys);
         }
     }
     // 变量名 → 结构体类型（作用域内）
@@ -765,48 +772,103 @@ pub fn lower_method_calls(prog: &mut Program, methods: &HashMap<String, Vec<Stri
     }
 }
 
+/// 收集“变量名 → list 元素类型”（取最具体/最后的推断）。
+fn collect_list_elem_tys_block(b: &Block, out: &mut HashMap<String, Ty>) {
+    for s in b {
+        collect_list_elem_tys_stmt(s, out);
+    }
+}
+
+fn collect_list_elem_tys_stmt(s: &Stmt, out: &mut HashMap<String, Ty>) {
+    match s {
+        Stmt::Let { name, ty: _, value, .. } => { note_ident(name, value, out); collect_list_elem_tys_expr(value, out); }
+        Stmt::Const { value, .. } | Stmt::Assign { value, .. } | Stmt::FieldAssign { value, .. } => collect_list_elem_tys_expr(value, out),
+        Stmt::Expr(e) | Stmt::Return(Some(e), _) | Stmt::Throw(e, _) => collect_list_elem_tys_expr(e, out),
+        Stmt::If { cond, then, els, .. } => { collect_list_elem_tys_expr(cond, out); collect_list_elem_tys_block(then, out); if let Some(z) = els { collect_list_elem_tys_block(z, out); } }
+        Stmt::While { cond, body, .. } => { collect_list_elem_tys_expr(cond, out); collect_list_elem_tys_block(body, out); }
+        Stmt::ForRange { from, to, body, .. } => { collect_list_elem_tys_expr(from, out); collect_list_elem_tys_expr(to, out); collect_list_elem_tys_block(body, out); }
+        Stmt::ForEach { iter, body, .. } => { collect_list_elem_tys_expr(iter, out); collect_list_elem_tys_block(body, out); }
+        Stmt::Block(inner) => collect_list_elem_tys_block(inner, out),
+        Stmt::Go { args, .. } => for a in args { collect_list_elem_tys_expr(a, out); },
+        Stmt::Try { body, catches, fin, .. } => { collect_list_elem_tys_block(body, out); for c in catches { collect_list_elem_tys_block(&c.body, out); } if let Some(z) = fin { collect_list_elem_tys_block(z, out); } }
+        Stmt::LocalFn(f) => collect_list_elem_tys_block(&f.body, out),
+        Stmt::Labeled { inner, .. } => { let one: Block = vec![(**inner).clone()]; collect_list_elem_tys_block(&one, out); }
+        _ => {}
+    }
+}
+
+fn note_ident(_name: &str, _value: &Expr, _out: &mut HashMap<String, Ty>) {
+    // 变量声明的“元素类型”统一由 collect_list_elem_tys_expr 从 Ident.ty 提取（见下）。
+}
+
+fn collect_list_elem_tys_expr(e: &Expr, out: &mut HashMap<String, Ty>) {
+    // 变量引用 `l`：其类型是容器；记录“变量名 -> 元素类型”。优先记录 dyn（最需要装箱）。
+    if let ExprKind::Ident(n) = &e.kind {
+        if let Ty::List(el) = &e.ty {
+            if !matches!(**el, Ty::Unknown) {
+                let is_dyn = matches!(**el, Ty::Dyn(_));
+                let cur = out.get(n);
+                let replace = match cur { None => true, Some(t) => !matches!(t, Ty::Dyn(_)) && is_dyn };
+                if replace { out.insert(n.clone(), (**el).clone()); }
+            }
+        }
+    }
+    match &e.kind {
+        ExprKind::Call(_, args) | ExprKind::ArrayLit(args) | ExprKind::TupleLit(args) => for a in args { collect_list_elem_tys_expr(a, out); },
+        ExprKind::CallValue { callee, args } => { collect_list_elem_tys_expr(callee, out); for a in args { collect_list_elem_tys_expr(a, out); } }
+        ExprKind::Unary(_, a) | ExprKind::Field(a, _) | ExprKind::Try(a) | ExprKind::Ok(a) | ExprKind::Err(a) | ExprKind::Some(a) | ExprKind::Borrow { inner: a, .. } => collect_list_elem_tys_expr(a, out),
+        ExprKind::Binary(_, a, b) | ExprKind::Index(a, b) => { collect_list_elem_tys_expr(a, out); collect_list_elem_tys_expr(b, out); }
+        ExprKind::Interp(parts) => for p in parts { if let StrPart::Expr(i) = p { collect_list_elem_tys_expr(i, out); } },
+        ExprKind::StructLit(_, fs) => for (_, v) in fs { collect_list_elem_tys_expr(v, out); },
+        ExprKind::EnumLit(_, _, args) => for a in args { collect_list_elem_tys_expr(a, out); },
+        ExprKind::MethodOn { recv, args, .. } => { collect_list_elem_tys_expr(recv, out); for a in args { collect_list_elem_tys_expr(a, out); } }
+        ExprKind::DynBox { value, .. } => collect_list_elem_tys_expr(value, out),
+        ExprKind::Slice(a, b, c) => { collect_list_elem_tys_expr(a, out); collect_list_elem_tys_expr(b, out); collect_list_elem_tys_expr(c, out); }
+        _ => {}
+    }
+}
 /// 递归：把"实参 Struct/Enum → 形参 dyn Trait"的实参包成 DynBox。
-fn auto_box_args_block(b: &mut Block, fns: &HashMap<String, Vec<Ty>>) {
+fn auto_box_args_block(b: &mut Block, fns: &HashMap<String, Vec<Ty>>, le: &HashMap<String, Ty>) {
     for s in b.iter_mut() {
         match s {
-            Stmt::Expr(e) | Stmt::Return(Some(e), _) => auto_box_args_expr(e, fns),
-            Stmt::Let { value, .. } | Stmt::Assign { value, .. } | Stmt::Const { value, .. } => auto_box_args_expr(value, fns),
+            Stmt::Expr(e) | Stmt::Return(Some(e), _) => auto_box_args_expr(e, fns, le),
+            Stmt::Let { value, .. } | Stmt::Assign { value, .. } | Stmt::Const { value, .. } => auto_box_args_expr(value, fns, le),
             Stmt::If { cond, then, els, .. } => {
-                auto_box_args_expr(cond, fns);
-                auto_box_args_block(then, fns);
-                if let Some(e) = els { auto_box_args_block(e, fns); }
+                auto_box_args_expr(cond, fns, le);
+                auto_box_args_block(then, fns, le);
+                if let Some(e) = els { auto_box_args_block(e, fns, le); }
             }
-            Stmt::While { cond, body, .. } => { auto_box_args_expr(cond, fns); auto_box_args_block(body, fns); }
-            Stmt::ForRange { from, to, body, .. } => { auto_box_args_expr(from, fns); auto_box_args_expr(to, fns); auto_box_args_block(body, fns); }
-            Stmt::ForEach { iter, body, .. } => { auto_box_args_expr(iter, fns); auto_box_args_block(body, fns); }
-            Stmt::Block(inner) => auto_box_args_block(inner, fns),
-            Stmt::FieldAssign { value, .. } => auto_box_args_expr(value, fns),
+            Stmt::While { cond, body, .. } => { auto_box_args_expr(cond, fns, le); auto_box_args_block(body, fns, le); }
+            Stmt::ForRange { from, to, body, .. } => { auto_box_args_expr(from, fns, le); auto_box_args_expr(to, fns, le); auto_box_args_block(body, fns, le); }
+            Stmt::ForEach { iter, body, .. } => { auto_box_args_expr(iter, fns, le); auto_box_args_block(body, fns, le); }
+            Stmt::Block(inner) => auto_box_args_block(inner, fns, le),
+            Stmt::FieldAssign { value, .. } => auto_box_args_expr(value, fns, le),
             _ => {}
         }
     }
 }
 
-fn auto_box_args_expr(e: &mut Expr, fns: &HashMap<String, Vec<Ty>>) {
+fn auto_box_args_expr(e: &mut Expr, fns: &HashMap<String, Vec<Ty>>, le: &HashMap<String, Ty>) {
     // 先递归
     match &mut e.kind {
-        ExprKind::Call(_, args) => for a in args { auto_box_args_expr(a, fns); },
-        ExprKind::CallValue { callee, args } => { auto_box_args_expr(callee, fns); for a in args { auto_box_args_expr(a, fns); } }
-        ExprKind::Binary(_, a, b) => { auto_box_args_expr(a, fns); auto_box_args_expr(b, fns); }
-        ExprKind::Unary(_, a) | ExprKind::Ok(a) | ExprKind::Err(a) | ExprKind::Some(a) | ExprKind::Try(a) | ExprKind::Borrow { inner: a, .. } => auto_box_args_expr(a, fns),
-        ExprKind::Index(a, b) => { auto_box_args_expr(a, fns); auto_box_args_expr(b, fns); }
-        ExprKind::Field(base, _) => auto_box_args_expr(base, fns),
-        ExprKind::Interp(parts) => for p in parts { if let StrPart::Expr(i) = p { auto_box_args_expr(i, fns); } },
-        ExprKind::If { cond, then, els } => { auto_box_args_expr(cond, fns); auto_box_args_block(then, fns); if let Some(x) = els { auto_box_args_block(x, fns); } }
-        ExprKind::ArrayLit(xs) | ExprKind::TupleLit(xs) => for x in xs { auto_box_args_expr(x, fns); },
-        ExprKind::StructLit(_, fs) => for (_, v) in fs { auto_box_args_expr(v, fns); },
-        ExprKind::EnumLit(_, _, args) => for a in args { auto_box_args_expr(a, fns); },
-        ExprKind::MethodOn { recv, args, .. } => { auto_box_args_expr(recv, fns); for a in args { auto_box_args_expr(a, fns); } }
-        ExprKind::DynBox { value, .. } => auto_box_args_expr(value, fns),
-        ExprKind::Slice(a, b, c) => { auto_box_args_expr(a, fns); auto_box_args_expr(b, fns); auto_box_args_expr(c, fns); }
-        ExprKind::ListComp { expr, iter, cond, .. } => { auto_box_args_expr(expr, fns); auto_box_args_expr(iter, fns); if let Some(c) = cond { auto_box_args_expr(c, fns); } }
+        ExprKind::Call(_, args) => for a in args { auto_box_args_expr(a, fns, le); },
+        ExprKind::CallValue { callee, args } => { auto_box_args_expr(callee, fns, le); for a in args { auto_box_args_expr(a, fns, le); } }
+        ExprKind::Binary(_, a, b) => { auto_box_args_expr(a, fns, le); auto_box_args_expr(b, fns, le); }
+        ExprKind::Unary(_, a) | ExprKind::Ok(a) | ExprKind::Err(a) | ExprKind::Some(a) | ExprKind::Try(a) | ExprKind::Borrow { inner: a, .. } => auto_box_args_expr(a, fns, le),
+        ExprKind::Index(a, b) => { auto_box_args_expr(a, fns, le); auto_box_args_expr(b, fns, le); }
+        ExprKind::Field(base, _) => auto_box_args_expr(base, fns, le),
+        ExprKind::Interp(parts) => for p in parts { if let StrPart::Expr(i) = p { auto_box_args_expr(i, fns, le); } },
+        ExprKind::If { cond, then, els } => { auto_box_args_expr(cond, fns, le); auto_box_args_block(then, fns, le); if let Some(x) = els { auto_box_args_block(x, fns, le); } }
+        ExprKind::ArrayLit(xs) | ExprKind::TupleLit(xs) => for x in xs { auto_box_args_expr(x, fns, le); },
+        ExprKind::StructLit(_, fs) => for (_, v) in fs { auto_box_args_expr(v, fns, le); },
+        ExprKind::EnumLit(_, _, args) => for a in args { auto_box_args_expr(a, fns, le); },
+        ExprKind::MethodOn { recv, args, .. } => { auto_box_args_expr(recv, fns, le); for a in args { auto_box_args_expr(a, fns, le); } }
+        ExprKind::DynBox { value, .. } => auto_box_args_expr(value, fns, le),
+        ExprKind::Slice(a, b, c) => { auto_box_args_expr(a, fns, le); auto_box_args_expr(b, fns, le); auto_box_args_expr(c, fns, le); }
+        ExprKind::ListComp { expr, iter, cond, .. } => { auto_box_args_expr(expr, fns, le); auto_box_args_expr(iter, fns, le); if let Some(c) = cond { auto_box_args_expr(c, fns, le); } }
         ExprKind::Match { subject, arms } => {
-            auto_box_args_expr(subject, fns);
-            for arm in arms { if let Some(g) = &mut arm.guard { auto_box_args_expr(g, fns); } auto_box_args_block(&mut arm.body, fns); }
+            auto_box_args_expr(subject, fns, le);
+            for arm in arms { if let Some(g) = &mut arm.guard { auto_box_args_expr(g, fns, le); } auto_box_args_block(&mut arm.body, fns, le); }
         }
         _ => {}
     }
@@ -823,6 +885,21 @@ fn auto_box_args_expr(e: &mut Expr, fns: &HashMap<String, Vec<Ty>>) {
                         *a = Expr::new(ExprKind::DynBox { trait_name: tr.clone(), value: Box::new(inner) }, a.line);
                         a.ty = want.clone();
                     }
+                }
+            }
+        }
+        // push/append/insert 到“元素类型为 dyn Trait 的容器”：把实参装箱。
+        if (name == "push" || name == "append" || name == "insert") && args.len() == 2 {
+            let elem = match &args[0].kind {
+                ExprKind::Ident(cn) => le.get(cn).cloned(),
+                _ => None,
+            };
+            if let Some(Ty::Dyn(tr)) = elem {
+                let a = &mut args[1];
+                if matches!(a.ty, Ty::Struct(_) | Ty::Enum(_)) {
+                    let inner = std::mem::replace(a, Expr::new(ExprKind::None, a.line));
+                    *a = Expr::new(ExprKind::DynBox { trait_name: tr.clone(), value: Box::new(inner) }, a.line);
+                    a.ty = Ty::Dyn(tr.clone());
                 }
             }
         }

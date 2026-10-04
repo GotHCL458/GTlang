@@ -331,7 +331,7 @@ impl FnState {
                     let off = b.ins().imul_imm(i2, 8);
                     let addr = b.ins().iadd(data, off);
                     let raw = b.ins().load(types::I64, MemFlags::new(), addr, 0);
-                    if elem == Ty::F64 { b.ins().bitcast(types::F64, MemFlags::new(), raw) } else { raw }
+                    if elem == Ty::F64 { b.ins().bitcast(types::F64, MemFlags::new(), raw) } else if cl_ty(&elem) == types::I64 { raw } else { b.ins().bitcast(cl_ty(&elem), MemFlags::new(), raw) }
                 } else if is_str {
                     let f = self.rt_ref(jit, b, "str_char_at")?;
                     let call = b.ins().call(f, &[base, i2]);
@@ -340,12 +340,12 @@ impl FnState {
                     let f = self.rt_ref(jit, b, "set_at")?;
                     let call = b.ins().call(f, &[base, i2]);
                     let raw = b.inst_results(call)[0];
-                    if elem == Ty::F64 { b.ins().bitcast(types::F64, MemFlags::new(), raw) } else { raw }
+                    if elem == Ty::F64 { b.ins().bitcast(types::F64, MemFlags::new(), raw) } else if cl_ty(&elem) == types::I64 { raw } else { b.ins().bitcast(cl_ty(&elem), MemFlags::new(), raw) }
                 } else if is_map {
                     let f = self.rt_ref(jit, b, "map_key_at")?;
                     let call = b.ins().call(f, &[base, i2]);
                     let raw = b.inst_results(call)[0];
-                    if elem == Ty::F64 { b.ins().bitcast(types::F64, MemFlags::new(), raw) } else { raw }
+                    if elem == Ty::F64 { b.ins().bitcast(types::F64, MemFlags::new(), raw) } else if cl_ty(&elem) == types::I64 { raw } else { b.ins().bitcast(cl_ty(&elem), MemFlags::new(), raw) }
                 } else {
                     let off = b.ins().imul_imm(i2, 8); let addr = b.ins().iadd(base, off);
                     b.ins().load(cl_ty(&elem), MemFlags::new(), addr, 0)

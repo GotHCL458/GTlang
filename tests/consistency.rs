@@ -2993,6 +2993,23 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn dyn_trait_in_containers() {
+    // 回归：list[dyn Trait] 的元素（push 时自动装箱 + for 迭代 + 方法分发）。
+    assert_consistent_src(
+        "dyn_containers",
+        &[
+            "trait 形状 { fn 面积(self) -> int }",
+            "struct 方 { a: int }",
+            "struct 圆 { r: int }",
+            "impl 形状 for 方 { fn 面积(self) -> int { return self.a * self.a } }",
+            "impl 形状 for 圆 { fn 面积(self) -> int { return self.r * self.r * 3 } }",
+            "fn 总(xs: list[dyn 形状]) -> int { s := 0  for x in xs { s = s + x.面积() }  return s }",
+            "fn main() { l := list()  push(l, 方 { a: 2 })  push(l, 圆 { r: 1 })  put(总(l)) }",
+        ],
+    );
+}
+
+#[test]
 fn generic_name_shadowed_by_local() {
     // 回归：顶层泛型函数名与变量/参数同名时，变量不应被转成“函数作一等值”的闭包。
     assert_consistent_src(
