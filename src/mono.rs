@@ -38,6 +38,13 @@ pub fn monomorphize(prog: &mut Program) -> Vec<String> {
             }
         }
     }
+    // 基础类型内置的常见 trait 满足关系（int/f64/str/bool 天然满足 Ord/Eq/Hash/...）。
+    for tr in ["Ord", "Eq", "PartialEq", "Hash", "Clone", "Debug", "Display", "Copy", "Default", "PartialOrd"] {
+        let set = trait_impls.entry(tr.to_string()).or_default();
+        for base in ["i64", "int", "f64", "float", "str", "string", "bool"] {
+            set.insert(base.to_string());
+        }
+    }
     let mut errors: Vec<String> = Vec::new();
 
     // ---------- 泛型 struct 单态化 ----------
@@ -89,6 +96,8 @@ pub fn monomorphize(prog: &mut Program) -> Vec<String> {
     // 迭代扫描：从 plain_fns + 已生成实例中收集泛型调用，生成实�?
     let mut instances: Vec<FnDef> = Vec::new();
     let mut emitted: HashSet<String> = HashSet::new();
+    // 实例名 -> 类型实参（供实例体内的 Generic(T) 替换）
+    let mut inst_tys: HashMap<String, Vec<Ty>> = HashMap::new();
     let mut subst_map: HashMap<String, String> = HashMap::new();
 
     loop {
@@ -102,6 +111,7 @@ pub fn monomorphize(prog: &mut Program) -> Vec<String> {
         let mut changed = false;
         for (gname, tys) in sites {
             let inst = instance_name(&gname, &tys);
+            inst_tys.insert(inst.clone(), tys.clone());
             subst_map.insert(format!("{}<{}>", gname, tys_key(&tys)), inst.clone());
             if emitted.insert(inst.clone()) {
                 if let Some(gf) = generics.get(&gname) {
@@ -139,6 +149,19 @@ pub fn monomorphize(prog: &mut Program) -> Vec<String> {
     // 改写所有非泛型函数体内的泛型调�?
     for f in plain_fns.iter_mut() {
         rewrite_calls(&mut f.body, &generics, &subst_map);
+    }
+    // 泛型实例之间也可能互相调用（如 a[T] 调用定义在它之后的 b[T]）：
+    // 实例体内的泛型调用同样要改写成实例名；并用实例自身的类型映射替换 Generic(T)。
+    for f in instances.iter_mut() {
+        let mut cur: HashMap<String, Ty> = HashMap::new();
+        if let Some(gf) = generics.get(f.name.split('$').next().unwrap_or("")) {
+            if let Some(tys) = inst_tys.get(&f.name) {
+                for (i, tp) in gf.type_params.iter().enumerate() {
+                    if let Some(t) = tys.get(i) { cur.insert(tp.clone(), t.clone()); }
+                }
+            }
+        }
+        rewrite_calls_m(&mut f.body, &generics, &subst_map, &cur);
     }
 
     // 组装最�?items：非函数�?+ 非泛型函�?+ 实例函数
@@ -245,7 +268,29 @@ fn collect_expr(e: &Expr, generics: &HashMap<String, FnDef>, out: &mut Vec<(Stri
 /// �?HM `Unifier`：把每个 `Generic(T)` 换成一�?fresh 类型变量�?
 /// 与实参类型合一；再读回变量绑定。比"字符串直接替�?更可靠—�?
 /// 同一 `T` 出现在多个形参时会强制它们一致（�?`fn f[T](x: T, y: T)`）�?
+fn infer_type_args_m(gf: &FnDef, args: &[Expr], cur: &HashMap<String, Ty>) -> Option<Vec<Ty>> {
+    // 实参类型里的 Generic(T) 先按当前实例的类型映射替换，再做合一。
+    fn apply_cur(t: &Ty, cur: &HashMap<String, Ty>) -> Ty {
+        match t {
+            Ty::Generic(n) => cur.get(n).cloned().unwrap_or_else(|| t.clone()),
+            Ty::List(e) => Ty::List(Box::new(apply_cur(e, cur))),
+            Ty::Set(e) => Ty::Set(Box::new(apply_cur(e, cur))),
+            Ty::Map(k, v) => Ty::Map(Box::new(apply_cur(k, cur)), Box::new(apply_cur(v, cur))),
+            Ty::Option(e) => Ty::Option(Box::new(apply_cur(e, cur))),
+            Ty::Ref(e) => Ty::Ref(Box::new(apply_cur(e, cur))),
+            Ty::RefMut(e) => Ty::RefMut(Box::new(apply_cur(e, cur))),
+            Ty::Tuple(ts) => Ty::Tuple(ts.iter().map(|x| apply_cur(x, cur)).collect()),
+            other => other.clone(),
+        }
+    }
+    infer_type_args_impl(gf, args, cur, apply_cur)
+}
+
 fn infer_type_args(gf: &FnDef, args: &[Expr]) -> Option<Vec<Ty>> {
+    infer_type_args_m(gf, args, &HashMap::new())
+}
+
+fn infer_type_args_impl(gf: &FnDef, args: &[Expr], cur: &HashMap<String, Ty>, apply_cur: fn(&Ty, &HashMap<String, Ty>) -> Ty) -> Option<Vec<Ty>> {
     use crate::unify::Unifier;
     use std::collections::HashMap as Map;
     let mut u = Unifier::new();
@@ -269,7 +314,7 @@ fn infer_type_args(gf: &FnDef, args: &[Expr]) -> Option<Vec<Ty>> {
         }
     }
     for (i, p) in gf.params.iter().enumerate() {
-        let at = args.get(i)?.ty.clone();
+        let at = apply_cur(&args.get(i)?.ty, cur);
         if let Some(pty) = &p.ty {
             let want = subst(pty, &vars);
             // 合一失败则退回宽松处理（避免误报�?
@@ -542,51 +587,102 @@ fn subst_ty_a(t: &Ty, map: &HashMap<String, Ty>, assoc: &HashMap<(String, String
         Ty::Map(k, v) => Ty::Map(Box::new(subst_ty_a(k, map, assoc)), Box::new(subst_ty_a(v, map, assoc))),
         Ty::Result(t, e) => Ty::Result(Box::new(subst_ty_a(t, map, assoc)), Box::new(subst_ty_a(e, map, assoc))),
         Ty::Array(e, n) => Ty::Array(Box::new(subst_ty_a(e, map, assoc)), *n),
+        Ty::Tuple(ts) => Ty::Tuple(ts.iter().map(|t| subst_ty_a(t, map, assoc)).collect()),
+        Ty::Option(e) => Ty::Option(Box::new(subst_ty_a(e, map, assoc))),
+        Ty::Ref(e) => Ty::Ref(Box::new(subst_ty_a(e, map, assoc))),
+        Ty::RefMut(e) => Ty::RefMut(Box::new(subst_ty_a(e, map, assoc))),
         other => other.clone(),
     }
 }
 
-fn subst_block_ty(_b: &mut Block, _map: &HashMap<String, Ty>) {
-    // 类型替换主要在签名层；体内的 Ty �?sema 重新推断，这里不深入
+fn subst_block_ty(b: &mut Block, map: &HashMap<String, Ty>) {
+    fn e(x: &mut Expr, map: &HashMap<String, Ty>) {
+        x.ty = subst_ty_a(&x.ty, map, &HashMap::new());
+        match &mut x.kind {
+            ExprKind::Call(_, args) | ExprKind::ArrayLit(args) | ExprKind::TupleLit(args) => for a in args { e(a, map); },
+            ExprKind::CallValue { callee, args } => { e(callee, map); for a in args { e(a, map); } }
+            ExprKind::Unary(_, a) | ExprKind::Field(a, _) | ExprKind::Try(a) | ExprKind::Ok(a) | ExprKind::Err(a) | ExprKind::Some(a) | ExprKind::Borrow { inner: a, .. } => e(a, map),
+            ExprKind::Binary(_, a, c) | ExprKind::Index(a, c) => { e(a, map); e(c, map); }
+            ExprKind::If { cond, then, els } => { e(cond, map); blk(then, map); if let Some(z) = els { blk(z, map); } }
+            ExprKind::Interp(parts) => for p in parts { if let StrPart::Expr(i) = p { e(i, map); } },
+            ExprKind::StructLit(_, fs) => for (_, v) in fs { e(v, map); },
+            ExprKind::EnumLit(_, _, args) => for a in args { e(a, map); },
+            ExprKind::MethodOn { recv, args, .. } => { e(recv, map); for a in args { e(a, map); } }
+            ExprKind::DynBox { value, .. } => e(value, map),
+            ExprKind::Slice(a, c, d) => { e(a, map); e(c, map); e(d, map); }
+            ExprKind::Match { subject, arms } => { e(subject, map); for arm in arms { if let Some(p) = &mut arm.pat { e(p, map); } if let Some(g) = &mut arm.guard { e(g, map); } blk(&mut arm.body, map); } }
+            _ => {}
+        }
+    }
+    fn blk(b: &mut Block, map: &HashMap<String, Ty>) {
+        for s in b.iter_mut() {
+            match s {
+                Stmt::Let { value, .. } | Stmt::Const { value, .. } | Stmt::Assign { value, .. } | Stmt::FieldAssign { value, .. } => e(value, map),
+                Stmt::Expr(x) | Stmt::Return(Some(x), _) | Stmt::Throw(x, _) => e(x, map),
+                Stmt::If { cond, then, els, .. } => { e(cond, map); blk(then, map); if let Some(z) = els { blk(z, map); } }
+                Stmt::While { cond, body, .. } => { e(cond, map); blk(body, map); }
+                Stmt::ForRange { from, to, body, .. } => { e(from, map); e(to, map); blk(body, map); }
+                Stmt::ForEach { iter, body, .. } => { e(iter, map); blk(body, map); }
+                Stmt::Block(inner) => blk(inner, map),
+                Stmt::Go { args, .. } => for a in args { e(a, map); },
+                Stmt::Try { body, catches, fin, .. } => { blk(body, map); for c in catches.iter_mut() { blk(&mut c.body, map); } if let Some(z) = fin { blk(z, map); } }
+                Stmt::LocalFn(f) => blk(&mut f.body, map),
+                _ => {}
+            }
+        }
+    }
+    blk(b, map);
 }
 
 /// 改写函数体内的泛型调用为实例�?
 fn rewrite_calls(b: &mut Block, generics: &HashMap<String, FnDef>, subst: &HashMap<String, String>) {
+    rewrite_calls_m(b, generics, subst, &HashMap::new())
+}
+
+/// 带当前函数类型映射的改写：泛型实例体内把 Generic(T) 换成实例的具体类型后再推实参。
+fn rewrite_calls_m(b: &mut Block, generics: &HashMap<String, FnDef>, subst: &HashMap<String, String>, cur: &HashMap<String, Ty>) {
     for s in b.iter_mut() {
         match s {
-            Stmt::Let { value, .. } => rewrite_expr(value, generics, subst),
-            Stmt::Assign { value, .. } => rewrite_expr(value, generics, subst),
-            Stmt::Expr(e) | Stmt::Return(Some(e), _) => rewrite_expr(e, generics, subst),
+            Stmt::Let { value, .. } => rewrite_expr_m(value, generics, subst, cur),
+            Stmt::Assign { value, .. } => rewrite_expr_m(value, generics, subst, cur),
+            Stmt::Expr(e) | Stmt::Return(Some(e), _) => rewrite_expr_m(e, generics, subst, cur),
             Stmt::If { cond, then, els, .. } => {
-                rewrite_expr(cond, generics, subst);
-                rewrite_calls(then, generics, subst);
-                if let Some(e) = els { rewrite_calls(e, generics, subst); }
+                rewrite_expr_m(cond, generics, subst, cur);
+                rewrite_calls_m(then, generics, subst, cur);
+                if let Some(e) = els { rewrite_calls_m(e, generics, subst, cur); }
             }
             Stmt::While { cond, body, .. } => {
-                rewrite_expr(cond, generics, subst);
-                rewrite_calls(body, generics, subst);
+                rewrite_expr_m(cond, generics, subst, cur);
+                rewrite_calls_m(body, generics, subst, cur);
             }
             Stmt::ForRange { from, to, body, .. } => {
-                rewrite_expr(from, generics, subst);
-                rewrite_expr(to, generics, subst);
-                rewrite_calls(body, generics, subst);
+                rewrite_expr_m(from, generics, subst, cur);
+                rewrite_expr_m(to, generics, subst, cur);
+                rewrite_calls_m(body, generics, subst, cur);
             }
             Stmt::ForEach { iter, body, .. } => {
-                rewrite_expr(iter, generics, subst);
-                rewrite_calls(body, generics, subst);
+                rewrite_expr_m(iter, generics, subst, cur);
+                rewrite_calls_m(body, generics, subst, cur);
             }
-            Stmt::Block(inner) => rewrite_calls(inner, generics, subst),
-            Stmt::FieldAssign { value, .. } => rewrite_expr(value, generics, subst),
+            Stmt::Block(inner) => rewrite_calls_m(inner, generics, subst, cur),
+            Stmt::FieldAssign { value, .. } => rewrite_expr_m(value, generics, subst, cur),
             _ => {}
         }
     }
 }
 
+// （保留：旧的 rewrite_expr 入口已由 rewrite_expr_m 取代）
+#[allow(dead_code)]
 fn rewrite_expr(e: &mut Expr, generics: &HashMap<String, FnDef>, subst: &HashMap<String, String>) {
+    rewrite_expr_m(e, generics, subst, &HashMap::new())
+}
+
+/// 带当前函数类型映射的改写：把实参类型里的 Generic(T) 换成具体类型后再推实参。
+fn rewrite_expr_m(e: &mut Expr, generics: &HashMap<String, FnDef>, subst: &HashMap<String, String>, cur: &HashMap<String, Ty>) {
     // 方法链 `recv.方法(args)` 降级为 `类型__方法(recv, ...args)`
     if let ExprKind::Call(name, args) = &mut e.kind {
         if let Some(gf) = generics.get(name.as_str()) {
-            if let Some(tys) = infer_type_args(gf, args) {
+            if let Some(tys) = infer_type_args_m(gf, args, cur) {
                 let key = format!("{}<{}>", name, tys_key(&tys));
                 if let Some(inst) = subst.get(&key) {
                     *name = inst.clone();
@@ -595,27 +691,27 @@ fn rewrite_expr(e: &mut Expr, generics: &HashMap<String, FnDef>, subst: &HashMap
         }
     }
     match &mut e.kind {
-        ExprKind::Call(_, args) => for a in args { rewrite_expr(a, generics, subst); },
-        ExprKind::Unary(_, a) => rewrite_expr(a, generics, subst),
-        ExprKind::Binary(_, a, b) => { rewrite_expr(a, generics, subst); rewrite_expr(b, generics, subst); }
-        ExprKind::Index(a, b) => { rewrite_expr(a, generics, subst); rewrite_expr(b, generics, subst); }
-        ExprKind::ArrayLit(xs) => for x in xs { rewrite_expr(x, generics, subst); },
-        ExprKind::Interp(parts) => for p in parts { if let StrPart::Expr(i) = p { rewrite_expr(i, generics, subst); } },
+        ExprKind::Call(_, args) => for a in args { rewrite_expr_m(a, generics, subst, cur); },
+        ExprKind::Unary(_, a) => rewrite_expr_m(a, generics, subst, cur),
+        ExprKind::Binary(_, a, b) => { rewrite_expr_m(a, generics, subst, cur); rewrite_expr_m(b, generics, subst, cur); }
+        ExprKind::Index(a, b) => { rewrite_expr_m(a, generics, subst, cur); rewrite_expr_m(b, generics, subst, cur); }
+        ExprKind::ArrayLit(xs) => for x in xs { rewrite_expr_m(x, generics, subst, cur); },
+        ExprKind::Interp(parts) => for p in parts { if let StrPart::Expr(i) = p { rewrite_expr_m(i, generics, subst, cur); } },
         ExprKind::If { cond, then, els } => {
-            rewrite_expr(cond, generics, subst);
-            rewrite_calls(then, generics, subst);
-            if let Some(e) = els { rewrite_calls(e, generics, subst); }
+            rewrite_expr_m(cond, generics, subst, cur);
+            rewrite_calls_m(then, generics, subst, cur);
+            if let Some(e) = els { rewrite_calls_m(e, generics, subst, cur); }
         }
         ExprKind::Match { subject, arms } => {
-            rewrite_expr(subject, generics, subst);
+            rewrite_expr_m(subject, generics, subst, cur);
             for arm in arms {
-                if let Some(p) = &mut arm.pat { rewrite_expr(p, generics, subst); }
-                if let Some(g) = &mut arm.guard { rewrite_expr(g, generics, subst); }
-                rewrite_calls(&mut arm.body, generics, subst);
+                if let Some(p) = &mut arm.pat { rewrite_expr_m(p, generics, subst, cur); }
+                if let Some(g) = &mut arm.guard { rewrite_expr_m(g, generics, subst, cur); }
+                rewrite_calls_m(&mut arm.body, generics, subst, cur);
             }
         }
-        ExprKind::Field(base, _) => rewrite_expr(base, generics, subst),
-        ExprKind::StructLit(_, fields) => for (_, v) in fields { rewrite_expr(v, generics, subst); },
+        ExprKind::Field(base, _) => rewrite_expr_m(base, generics, subst, cur),
+        ExprKind::StructLit(_, fields) => for (_, v) in fields { rewrite_expr_m(v, generics, subst, cur); },
         _ => {}
     }
 }

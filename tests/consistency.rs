@@ -2993,6 +2993,37 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn generic_name_shadowed_by_local() {
+    // 回归：顶层泛型函数名与变量/参数同名时，变量不应被转成“函数作一等值”的闭包。
+    assert_consistent_src(
+        "generic_name_shadow",
+        &[
+            "fn a[T](x: T) -> T { return b(x) }",
+            "fn b[T](x: T) -> T { return x }",
+            "fn max2[T](a: T, b: T) -> T where T: Ord { if a > b { return a }  return b }",
+            "fn main() { put(max2(3, 7))  put(a(9)) }",
+        ],
+    );
+}
+
+#[test]
+fn generics_regressions() {
+    // 回归 1：泛型函数前向引用（a[T] 调定义在它之后的 b[T]）
+    // 回归 2：元组返回类型 -> (T, T)
+    // 回归 3：基础类型满足 where T: Ord
+    assert_consistent_src(
+        "generics_forward_tuple_ord",
+        &[
+            "fn max2[T](a: T, b: T) -> T where T: Ord { if a > b { return a }  return b }",
+            "fn pair[T](a: T, b: T) -> (T, T) { return (a, b) }",
+            "fn a[T](x: T) -> T { return b(x) }",
+            "fn b[T](x: T) -> T { return x }",
+            "fn main() { put(max2(3, 7))  p := pair(1, 2)  put(p.0)  put(p.1)  put(a(9)) }",
+        ],
+    );
+}
+
+#[test]
 fn type_boundary_rejections() {
     // 回归：list 用非整数下标 / for-range 用非整数边界曾被放行
     //（list 崩"index out of bounds"、for 浮点边界死循环）。

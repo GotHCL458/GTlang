@@ -112,7 +112,7 @@ fn convert_fn_refs_rewrites_value_position_idents() {
         line: 0,
         mutable: false,
     }];
-    super::convert_fn_refs_block(&mut b, &fn_names);
+    super::convert_fn_refs_block(&mut b, &fn_names, &std::collections::HashSet::new());
     match &b[0] {
         Stmt::Let { value, .. } => match &value.kind {
             ExprKind::ClosureNew { fn_name, captures } => {
@@ -172,13 +172,13 @@ fn collect_free_vars_skips_underscore_prefix() {
 fn convert_fn_refs_leaves_calls_and_other_idents() {
     let fn_names = vec!["加一".to_string()];
     let mut b: Block = vec![Stmt::Expr(e(ExprKind::Call("加一".into(), vec![e(ExprKind::Int(1))])))];
-    super::convert_fn_refs_block(&mut b, &fn_names);
+    super::convert_fn_refs_block(&mut b, &fn_names, &std::collections::HashSet::new());
     match &b[0] {
         Stmt::Expr(x) => assert!(matches!(x.kind, ExprKind::Call(_, _))),
         _ => panic!("expected Expr"),
     }
     let mut b2: Block = vec![Stmt::Expr(e(ExprKind::Ident("变量".into())))];
-    super::convert_fn_refs_block(&mut b2, &fn_names);
+    super::convert_fn_refs_block(&mut b2, &fn_names, &std::collections::HashSet::new());
     match &b2[0] {
         Stmt::Expr(x) => assert!(matches!(x.kind, ExprKind::Ident(_))),
         _ => panic!("expected Expr"),
@@ -237,6 +237,7 @@ fn convert_closure_calls_covers_stmt_variants() {
     }
     assert!(missing.is_empty(), "convert_closure_calls 未改写这些语句变体里的闭包调用：{:?}", missing);
 }
+
 
 
 

@@ -32,6 +32,24 @@ impl Parser {
             let tname = self.ident("trait 名")?;
             return Ok(Ty::Dyn(tname));
         }
+        // 元组类型 (T1, T2, ...)
+        if self.at_punct("(") {
+            self.bump();
+            let mut ts: Vec<Ty> = Vec::new();
+            if !self.at_punct(")") {
+                loop {
+                    ts.push(self.parse_type()?);
+                    if self.eat_punct(",") {
+                        if self.at_punct(")") { break; }
+                        continue;
+                    }
+                    break;
+                }
+            }
+            self.expect_punct(")")?;
+            if ts.len() == 1 { return Ok(ts.into_iter().next().unwrap()); }
+            return Ok(Ty::Tuple(ts));
+        }
         // 定长数组 [T; N]
         if self.eat_punct("[") {
             let elem = self.parse_type()?;

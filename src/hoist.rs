@@ -45,81 +45,103 @@ fn block_returns_closure(b: &Block) -> bool {
 /// 把"值位置出现的全局函数名"（如 `组合(加一, ...)` 里的 `加一`）转成
 /// 无捕获闭包构造 `ClosureNew { fn_name, captures: [] }`，使函数名可作一等值。
 /// `Call` 的 callee 是字符串（不是 Ident），因此不会误转普通调用。
+/// 收集函数体内的局部绑定名（参数 + let/const/:=/for 变量），
+/// 用于在“函数作一等值”改写时避免把与函数同名的变量误当函数引用。
+fn collect_local_names(f: &FnDef) -> std::collections::HashSet<String> {
+    let mut s = std::collections::HashSet::new();
+    for p in &f.params { s.insert(p.name.clone()); }
+    fn blk(b: &Block, s: &mut std::collections::HashSet<String>) {
+        for st in b {
+            match st {
+                Stmt::Let { name, .. } | Stmt::Const { name, .. } => { s.insert(name.clone()); }
+                Stmt::ForRange { var, body, .. } | Stmt::ForEach { var, body, .. } => { s.insert(var.clone()); blk(body, s); }
+                Stmt::If { then, els, .. } => { blk(then, s); if let Some(e) = els { blk(e, s); } }
+                Stmt::While { body, .. } | Stmt::Block(body) => blk(body, s),
+                Stmt::Try { body, catches, fin, .. } => { blk(body, s); for c in catches { blk(&c.body, s); } if let Some(z) = fin { blk(z, s); } }
+                Stmt::Labeled { inner, .. } => { let one: Block = vec![(**inner).clone()]; blk(&one, s); }
+                Stmt::LocalFn(lf) => { s.insert(lf.name.clone()); blk(&lf.body, s); }
+                _ => {}
+            }
+        }
+    }
+    blk(&f.body, &mut s);
+    s
+}
 fn convert_fn_refs(prog: &mut Program, fn_names: &[String]) {
     for item in &mut prog.items {
         if let Item::Fn(f) = item {
-            convert_fn_refs_block(&mut f.body, fn_names);
+            let locals = collect_local_names(f); convert_fn_refs_block(&mut f.body, fn_names, &locals);
         }
     }
 }
 
-fn convert_fn_refs_block(b: &mut Block, fn_names: &[String]) {
+fn convert_fn_refs_block(b: &mut Block, fn_names: &[String], locals: &std::collections::HashSet<String>) {
     for s in b.iter_mut() {
         match s {
-            Stmt::Let { value, .. } | Stmt::Const { value, .. } | Stmt::Assign { value, .. } | Stmt::FieldAssign { value, .. } => convert_fn_refs_expr(value, fn_names),
-            Stmt::Expr(e) | Stmt::Return(Some(e), _) => convert_fn_refs_expr(e, fn_names),
-            Stmt::If { cond, then, els, .. } => { convert_fn_refs_expr(cond, fn_names); convert_fn_refs_block(then, fn_names); if let Some(e) = els { convert_fn_refs_block(e, fn_names); } }
-            Stmt::While { cond, body, .. } => { convert_fn_refs_expr(cond, fn_names); convert_fn_refs_block(body, fn_names); }
-            Stmt::ForRange { from, to, body, .. } => { convert_fn_refs_expr(from, fn_names); convert_fn_refs_expr(to, fn_names); convert_fn_refs_block(body, fn_names); }
-            Stmt::ForEach { iter, body, .. } => { convert_fn_refs_expr(iter, fn_names); convert_fn_refs_block(body, fn_names); }
-            Stmt::Block(inner) => convert_fn_refs_block(inner, fn_names),
+            Stmt::Let { value, .. } | Stmt::Const { value, .. } | Stmt::Assign { value, .. } | Stmt::FieldAssign { value, .. } => convert_fn_refs_expr(value, fn_names, locals),
+            Stmt::Expr(e) | Stmt::Return(Some(e), _) => convert_fn_refs_expr(e, fn_names, locals),
+            Stmt::If { cond, then, els, .. } => { convert_fn_refs_expr(cond, fn_names, locals); convert_fn_refs_block(then, fn_names, locals); if let Some(e) = els { convert_fn_refs_block(e, fn_names, locals); } }
+            Stmt::While { cond, body, .. } => { convert_fn_refs_expr(cond, fn_names, locals); convert_fn_refs_block(body, fn_names, locals); }
+            Stmt::ForRange { from, to, body, .. } => { convert_fn_refs_expr(from, fn_names, locals); convert_fn_refs_expr(to, fn_names, locals); convert_fn_refs_block(body, fn_names, locals); }
+            Stmt::ForEach { iter, body, .. } => { convert_fn_refs_expr(iter, fn_names, locals); convert_fn_refs_block(body, fn_names, locals); }
+            Stmt::Block(inner) => convert_fn_refs_block(inner, fn_names, locals),
             // go f(args)：实参里可能有函数名作一等值。
-            Stmt::Go { args, .. } => for a in args.iter_mut() { convert_fn_refs_expr(a, fn_names); },
-            Stmt::Throw(e, _) => convert_fn_refs_expr(e, fn_names),
+            Stmt::Go { args, .. } => for a in args.iter_mut() { convert_fn_refs_expr(a, fn_names, locals); },
+            Stmt::Throw(e, _) => convert_fn_refs_expr(e, fn_names, locals),
             Stmt::Labeled { inner, .. } => {
                 let mut blk: Block = vec![(**inner).clone()];
-                convert_fn_refs_block(&mut blk, fn_names);
+                convert_fn_refs_block(&mut blk, fn_names, locals);
                 if let Some(x) = blk.into_iter().next() { **inner = x; }
             }
             Stmt::Try { body, catches, fin, .. } => {
-                convert_fn_refs_block(body, fn_names);
-                for c in catches.iter_mut() { convert_fn_refs_block(&mut c.body, fn_names); }
-                if let Some(f) = fin { convert_fn_refs_block(f, fn_names); }
+                convert_fn_refs_block(body, fn_names, locals);
+                for c in catches.iter_mut() { convert_fn_refs_block(&mut c.body, fn_names, locals); }
+                if let Some(f) = fin { convert_fn_refs_block(f, fn_names, locals); }
             }
-            Stmt::LocalFn(f) => convert_fn_refs_block(&mut f.body, fn_names),
+            Stmt::LocalFn(f) => convert_fn_refs_block(&mut f.body, fn_names, locals),
             _ => {}
         }
     }
 }
 
-fn convert_fn_refs_expr(e: &mut Expr, fn_names: &[String]) {
+fn convert_fn_refs_expr(e: &mut Expr, fn_names: &[String], locals: &std::collections::HashSet<String>) {
     // 先递归（不含 CallValue 的 callee——那是闭包变量调用，不应转成函数引用）
     match &mut e.kind {
-        ExprKind::Call(_, args) => for a in args { convert_fn_refs_expr(a, fn_names); },
-        ExprKind::CallValue { args, .. } => for a in args { convert_fn_refs_expr(a, fn_names); },
-        ExprKind::Unary(_, a) => convert_fn_refs_expr(a, fn_names),
-        ExprKind::Binary(_, a, b) => { convert_fn_refs_expr(a, fn_names); convert_fn_refs_expr(b, fn_names); }
-        ExprKind::Index(a, b) => { convert_fn_refs_expr(a, fn_names); convert_fn_refs_expr(b, fn_names); }
-        ExprKind::ArrayLit(xs) => for x in xs { convert_fn_refs_expr(x, fn_names); },
-        ExprKind::Interp(parts) => for p in parts { if let StrPart::Expr(i) = p { convert_fn_refs_expr(i, fn_names); } },
-        ExprKind::TupleLit(xs) => for x in xs { convert_fn_refs_expr(x, fn_names); },
-        ExprKind::Slice(a, b, c) => { convert_fn_refs_expr(a, fn_names); convert_fn_refs_expr(b, fn_names); convert_fn_refs_expr(c, fn_names); }
-        ExprKind::Field(b, _) => convert_fn_refs_expr(b, fn_names),
-        ExprKind::StructLit(_, fs) => for (_, v) in fs { convert_fn_refs_expr(v, fn_names); },
-        ExprKind::EnumLit(_, _, args) => for a in args { convert_fn_refs_expr(a, fn_names); },
-        ExprKind::DynBox { value, .. } => convert_fn_refs_expr(value, fn_names),
+        ExprKind::Call(_, args) => for a in args { convert_fn_refs_expr(a, fn_names, locals); },
+        ExprKind::CallValue { args, .. } => for a in args { convert_fn_refs_expr(a, fn_names, locals); },
+        ExprKind::Unary(_, a) => convert_fn_refs_expr(a, fn_names, locals),
+        ExprKind::Binary(_, a, b) => { convert_fn_refs_expr(a, fn_names, locals); convert_fn_refs_expr(b, fn_names, locals); }
+        ExprKind::Index(a, b) => { convert_fn_refs_expr(a, fn_names, locals); convert_fn_refs_expr(b, fn_names, locals); }
+        ExprKind::ArrayLit(xs) => for x in xs { convert_fn_refs_expr(x, fn_names, locals); },
+        ExprKind::Interp(parts) => for p in parts { if let StrPart::Expr(i) = p { convert_fn_refs_expr(i, fn_names, locals); } },
+        ExprKind::TupleLit(xs) => for x in xs { convert_fn_refs_expr(x, fn_names, locals); },
+        ExprKind::Slice(a, b, c) => { convert_fn_refs_expr(a, fn_names, locals); convert_fn_refs_expr(b, fn_names, locals); convert_fn_refs_expr(c, fn_names, locals); }
+        ExprKind::Field(b, _) => convert_fn_refs_expr(b, fn_names, locals),
+        ExprKind::StructLit(_, fs) => for (_, v) in fs { convert_fn_refs_expr(v, fn_names, locals); },
+        ExprKind::EnumLit(_, _, args) => for a in args { convert_fn_refs_expr(a, fn_names, locals); },
+        ExprKind::DynBox { value, .. } => convert_fn_refs_expr(value, fn_names, locals),
         ExprKind::If { cond, then, els } => {
-            convert_fn_refs_expr(cond, fn_names);
-            convert_fn_refs_block(then, fn_names);
-            if let Some(e) = els { convert_fn_refs_block(e, fn_names); }
+            convert_fn_refs_expr(cond, fn_names, locals);
+            convert_fn_refs_block(then, fn_names, locals);
+            if let Some(e) = els { convert_fn_refs_block(e, fn_names, locals); }
         }
         ExprKind::Match { subject, arms } => {
-            convert_fn_refs_expr(subject, fn_names);
+            convert_fn_refs_expr(subject, fn_names, locals);
             for arm in arms {
-                if let Some(p) = &mut arm.pat { convert_fn_refs_expr(p, fn_names); }
-                if let Some(g) = &mut arm.guard { convert_fn_refs_expr(g, fn_names); }
-                convert_fn_refs_block(&mut arm.body, fn_names);
+                if let Some(p) = &mut arm.pat { convert_fn_refs_expr(p, fn_names, locals); }
+                if let Some(g) = &mut arm.guard { convert_fn_refs_expr(g, fn_names, locals); }
+                convert_fn_refs_block(&mut arm.body, fn_names, locals);
             }
         }
-        ExprKind::Borrow { inner, .. } => convert_fn_refs_expr(inner, fn_names),
-        ExprKind::Ok(a) | ExprKind::Err(a) | ExprKind::Try(a) | ExprKind::Some(a) => convert_fn_refs_expr(a, fn_names),
-        ExprKind::MethodOn { recv, args, .. } => { convert_fn_refs_expr(recv, fn_names); for a in args { convert_fn_refs_expr(a, fn_names); } }
-        ExprKind::ClosureNew { captures, .. } => for c in captures { convert_fn_refs_expr(c, fn_names); },
+        ExprKind::Borrow { inner, .. } => convert_fn_refs_expr(inner, fn_names, locals),
+        ExprKind::Ok(a) | ExprKind::Err(a) | ExprKind::Try(a) | ExprKind::Some(a) => convert_fn_refs_expr(a, fn_names, locals),
+        ExprKind::MethodOn { recv, args, .. } => { convert_fn_refs_expr(recv, fn_names, locals); for a in args { convert_fn_refs_expr(a, fn_names, locals); } }
+        ExprKind::ClosureNew { captures, .. } => for c in captures { convert_fn_refs_expr(c, fn_names, locals); },
         _ => {}
     }
     // 值位置的函数名 → 无捕获闭包
     if let ExprKind::Ident(n) = &e.kind {
-        if fn_names.iter().any(|f| f == n) {
+        if fn_names.iter().any(|f| f == n) && !locals.contains(n) {
             e.kind = ExprKind::ClosureNew { fn_name: n.clone(), captures: vec![] };
         }
     }
