@@ -477,6 +477,19 @@ impl FnState {
                                 }
                             }
                             match &arm.guard { None => eq, Some(g) => { let gv = self.gen_cond(jit, b, g)?; b.ins().band(eq, gv) } }
+                        } else if let ExprKind::Ident(bn) = &p.kind {
+                            // 裸标识符模式：绑定主体值（如 `match v { n if n > 0 => ... }`）。
+                            // 若该名字已在作用域中，退回"比较"语义（外层变量当模式）。
+                            if self.lookup(bn).is_some() {
+                                let pv = self.gen_expr(jit, b, p)?;
+                                let eq = self.gen_eq(jit, b, &subj, &pv)?;
+                                match &arm.guard { None => eq, Some(g) => { let gv = self.gen_cond(jit, b, g)?; b.ins().band(eq, gv) } }
+                            } else {
+                                let var = self.new_var(b, &subj.1);
+                                b.def_var(var, subj.0);
+                                self.scopes.last_mut().unwrap().push((bn.clone(), VarBind { var, ty: subj.1.clone() }));
+                                match &arm.guard { None => b.ins().iconst(types::I8, 1), Some(g) => self.gen_cond(jit, b, g)? }
+                            }
                         } else {
                             let pv = self.gen_expr(jit, b, p)?;
                             let eq = self.gen_eq(jit, b, &subj, &pv)?;

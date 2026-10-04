@@ -506,6 +506,7 @@ impl Ctx {
                 let st = self.infer(subject)?;
                 let mut result: Option<Ty> = None;
                 for arm in arms.iter_mut() {
+                    let mut pushed_scope = false;
                     // Result/Option 变体绑定：Ok(v) / Err(e) / Some(v)
                     if let Some((ctor, bind)) = match_result_bind(arm.pat.as_ref()) {
                         let inner = match &st {
@@ -514,14 +515,33 @@ impl Ctx {
                             _ => Ty::Unknown,
                         };
                         self.scopes.push(HashMap::new());
+                        pushed_scope = true;
                         self.scopes.last_mut().unwrap().insert(bind.clone(), VarInfo { ty: inner, mutable: false, explicit: false });
                     } else if let Some(ExprKind::EnumLit(en, var, binds)) = arm.pat.as_ref().map(|p| &p.kind) {
                         let payload: Vec<Ty> = self.enums.get(en).and_then(|vs| vs.iter().find(|(n, _)| n == var).map(|(_, ts)| ts.clone())).unwrap_or_default();
                         self.scopes.push(HashMap::new());
+                        pushed_scope = true;
                         for (i, b) in binds.iter().enumerate() {
                             if let ExprKind::Ident(bn) = &b.kind {
                                 let ty = payload.get(i).cloned().unwrap_or(Ty::Unknown);
                                 self.scopes.last_mut().unwrap().insert(bn.clone(), VarInfo { ty, mutable: false, explicit: false });
+                            }
+                        }
+                    } else if let Some(ExprKind::Ident(bname)) = arm.pat.as_ref().map(|p| &p.kind) {
+                        // 裸标识符模式：绑定主体值（如 `match v { n if n > 0 => ... }`）。
+                        // 但若该名字已在作用域中（外层变量），保持旧的"比较/守卫"语义。
+                        let already = self.lookup(bname).is_some();
+                        if already {
+                            let pt = self.infer(arm.pat.as_mut().unwrap())?;
+                            if pt != Ty::Unknown && st != Ty::Unknown && !compatible(&st, &pt) && !compatible(&pt, &st) {
+                                return Err(crate::lb!(arm.line, "match pattern type {} does not match subject {}", "match 模式类型 {} 与主体 {} 不匹配", pt, st));
+                            }
+                        } else {
+                            self.scopes.push(HashMap::new());
+                            pushed_scope = true;
+                            self.scopes.last_mut().unwrap().insert(bname.clone(), VarInfo { ty: st.clone(), mutable: false, explicit: false });
+                            if let Some(p) = arm.pat.as_mut() {
+                                p.ty = st.clone();
                             }
                         }
                     } else if let Some(p) = arm.pat.as_mut() {
@@ -543,8 +563,8 @@ impl Ctx {
                         }
                     }
                     let bt = infer_block_ret(self, &mut arm.body)?;
-                    // 枚举解构模式推入的 scope 需弹出
-                    if matches!(arm.pat.as_ref().map(|p| &p.kind), Some(ExprKind::EnumLit(..))) {
+                    // 解构/绑定模式推入的 scope 需弹出
+                    if pushed_scope {
                         self.scopes.pop();
                     }
                     result = Some(match (result.take(), &bt) {

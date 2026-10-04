@@ -190,6 +190,31 @@ impl<'a> Codegen<'a> {
                                 }
                             }
                             match &arm.guard { None => eq, Some(g) => { let gv = self.cond(g)?; let r = self.new_reg(); self.body.push_str(&format!("  {} = and i1 {}, {}\n", r, eq, gv)); r } }
+                        } else if let ExprKind::Ident(bn) = &p.kind {
+                            // 裸标识符模式：绑定主体值（与 JIT 侧一致）。
+                            // 若该名字已在作用域中，退回"比较"语义（外层变量当模式）。
+                            if self.lookup(bn).is_some() {
+                                let pv = self.expr(p)?;
+                                let eq = self.eq(&subj, &pv, line)?;
+                                match &arm.guard { None => eq, Some(g) => { let gv = self.cond(g)?; let r = self.new_reg(); self.body.push_str(&format!("  {} = and i1 {}, {}\n", r, eq, gv)); r } }
+                            } else {
+                                let bty = subj.ty.clone();
+                                let slot = self.new_alloca(&bty);
+                                if bty == Ty::F64 {
+                                    self.body.push_str(&format!("  store double {}, ptr {}\n", subj.s, slot));
+                                } else if bty.llvm() == "ptr" {
+                                    self.body.push_str(&format!("  store ptr {}, ptr {}\n", subj.s, slot));
+                                } else {
+                                    self.body.push_str(&format!("  store i64 {}, ptr {}\n", subj.s, slot));
+                                }
+                                pending_binds.push((bn.clone(), Local { ptr: slot, ty: bty }));
+                                // guard 可能引用本绑定：临时注入作用域后求值
+                                self.push_scope();
+                                for (n2, l2) in &pending_binds { self.scopes.last_mut().unwrap().insert(n2.clone(), l2.clone()); }
+                                let gres = match &arm.guard { None => "true".to_string(), Some(g) => self.cond(g)? };
+                                self.pop_scope();
+                                gres
+                            }
                         } else {
                             let pv = self.expr(p)?;
                             let eq = self.eq(&subj, &pv, line)?;

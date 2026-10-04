@@ -2993,6 +2993,21 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn match_ident_binding_matches() {
+    // 裸标识符模式绑定主体值（文档 "n if n > 0 =>" 的写法）
+    assert_consistent_src(
+        "match_bind",
+        &[
+            "fn main() {",
+            "    v := 5",
+            "    match v { n if n > 0 => { put(n) } _ => { put(0) } }",
+            "    match v { n if n < 0 => { put(n) } _ => { put(9) } }",
+            "}",
+        ],
+    );
+}
+
+#[test]
 fn empty_match_is_rejected() {
     // 回归：空 match（无分支）曾被认为"穷尽"而通过检查。
     assert_rejected("empty_match", &["fn main() { match 1 { }  put(1) }"], "穷尽");
