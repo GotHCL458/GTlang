@@ -2993,6 +2993,22 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn set_iteration_matches() {
+    // 回归：set() 的元素类型未从 insert 细化 -> for k in set 拿到指针值。
+    assert_consistent_src(
+        "set_iter",
+        &[
+            "fn main() {",
+            "    s := set()",
+            "    insert(s, \"hello\")  insert(s, \"world\")",
+            "    put(len(s))",
+            "    for k in s { put(k) }",
+            "}",
+        ],
+    );
+}
+
+#[test]
 fn bool_match_and_enum_guard_matches() {
     // 回归 1：match true { true => ..., false => ... } —— bool 主体比较曾按 i64（非法 IR）。
     // 回归 2：E::A(n) if n > 5 —— enum 解构的守卫在绑定前求值（JIT/LLVM undefined variable）。

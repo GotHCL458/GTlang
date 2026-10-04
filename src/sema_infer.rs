@@ -258,13 +258,16 @@ impl Ctx {
                 }
                 // push(l, x)：若 l 是"元素未知的 list 变量"，用 x 的类型细化其元素类型。
                 // 这让 codegen/jit 能判断"元素是否为堆指针"，从而正确设置 GC 的 elem_ptr。
-                if (name == "push" || name == "append") && args.len() == 2 {
+                if (name == "push" || name == "append" || name == "insert") && args.len() == 2 {
                     if let Some(vty) = arg_tys.get(1).cloned() {
                         match &args[0].kind {
                             ExprKind::Ident(lname) => {
                                 if let Some(vi) = self.lookup_var_mut(lname) {
                                     if let Ty::List(e) = &vi.ty {
-                                        if matches!(**e, Ty::Unknown) { vi.ty = Ty::List(Box::new(vty)); }
+                                        if matches!(**e, Ty::Unknown) { vi.ty = Ty::List(Box::new(vty.clone())); }
+                                    } else if let Ty::Set(e) = &vi.ty {
+                                        // set 也要细化：否则 for k in s 取元素时按 Unknown 处理（拿到指针值）。
+                                        if matches!(**e, Ty::Unknown) { vi.ty = Ty::Set(Box::new(vty.clone())); }
                                     }
                                 }
                             }
