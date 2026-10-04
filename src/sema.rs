@@ -358,6 +358,11 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
                 if let Some(sig) = ctx.fns.get_mut(&f.name) {
                     sig.ret = f.ret_ty.clone();
                 }
+                // 仍走一遍块遍历，以捕获"无值 return + 非 void 返回类型"（否则 JIT 会崩）。
+                ctx.cur_ret = f.ret_ty.clone();
+                if let Err(msg) = infer_block_ret(&mut ctx, &mut f.body) {
+                    errors.push(msg);
+                }
                 continue;
             }
             ctx.scopes.push(HashMap::new());
