@@ -2993,6 +2993,21 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn dyn_trait_all_return_types_match() {
+    // dyn 方法返回 int/f64/str/bool：LLVM 返回类型需精确（i64/double/ptr/i1）
+    assert_consistent_src(
+        "dyn_all_rets",
+        &[
+            "trait V { fn i(self) -> int  fn f(self) -> f64  fn s(self) -> str  fn b(self) -> bool }",
+            "struct X { n: int }",
+            "impl V for X { fn i(self) -> int { return self.n }  fn f(self) -> f64 { return 1.5 }  fn s(self) -> str { return \"hi\" }  fn b(self) -> bool { return true } }",
+            "fn 测(v: dyn V) { put(v.i())  put(v.f())  put(v.s())  put(v.b()) }",
+            "fn main() { 测(X { n: 7 }) }",
+        ],
+    );
+}
+
+#[test]
 fn dyn_trait_str_return_matches() {
     // dyn 方法返回 str（ptr 类）：AOT 曾按 i64 返回，生成非法 IR。
     assert_consistent_src(

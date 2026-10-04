@@ -33,7 +33,7 @@ impl<'a> Codegen<'a> {
                     let argstr: Vec<String> = ops.chunks(2).map(|c| format!("{} {}", c[0], c[1])).collect();
                     // 返回类型按方法签名（f64 → double，ptr 类保持 ptr，其余 i64）
                     let ret_llvm = call_ty.llvm();
-                    let ret_llvm: String = if ret_llvm == "double" { "double".into() } else if ret_llvm == "void" { "void".into() } else if ret_llvm == "ptr" { "ptr".into() } else { "i64".into() };
+                    let ret_llvm: String = if ret_llvm == "double" { "double".into() } else if ret_llvm == "void" { "void".into() } else if ret_llvm == "ptr" { "ptr".into() } else if ret_llvm == "i1" { "i1".into() } else { "i64".into() };
                     let r = self.new_reg();
                     if ret_llvm == "void" {
                         self.body.push_str(&format!("  call void {}({})\n", fp, argstr.join(", ")));
