@@ -179,4 +179,104 @@ mod tests {
         assert!(u.unify(&Ty::List(Box::new(v.clone())), &Ty::List(Box::new(Ty::Str))).is_err());
         assert_eq!(u.apply(&v), Ty::I64, "failed unify must not mutate bindings");
     }
+
+    #[test]
+    fn apply_is_transitive() {
+        let mut u = Unifier::new();
+        let a = u.fresh();
+        let b = u.fresh();
+        assert!(u.unify(&a, &b).is_ok());
+        assert!(u.unify(&b, &Ty::I64).is_ok());
+        assert_eq!(u.apply(&a), Ty::I64);
+        assert_eq!(u.apply(&b), Ty::I64);
+    }
+
+    #[test]
+    fn unify_map_key_and_value() {
+        let mut u = Unifier::new();
+        let k = u.fresh();
+        let v = u.fresh();
+        let a = Ty::Map(Box::new(k.clone()), Box::new(v.clone()));
+        let b = Ty::Map(Box::new(Ty::Str), Box::new(Ty::F64));
+        assert!(u.unify(&a, &b).is_ok());
+        assert_eq!(u.apply(&k), Ty::Str);
+        assert_eq!(u.apply(&v), Ty::F64);
+    }
+
+    #[test]
+    fn unify_closure_signature() {
+        let mut u = Unifier::new();
+        let p = u.fresh();
+        let r = u.fresh();
+        let a = Ty::Closure(vec![p.clone()], Box::new(r.clone()));
+        let b = Ty::Closure(vec![Ty::I64], Box::new(Ty::Str));
+        assert!(u.unify(&a, &b).is_ok());
+        assert_eq!(u.apply(&p), Ty::I64);
+        assert_eq!(u.apply(&r), Ty::Str);
+    }
+
+    #[test]
+    fn unify_result_and_option() {
+        let mut u = Unifier::new();
+        let a = u.fresh();
+        let b = u.fresh();
+        let x = Ty::Result(Box::new(a.clone()), Box::new(b.clone()));
+        let y = Ty::Result(Box::new(Ty::I64), Box::new(Ty::Str));
+        assert!(u.unify(&x, &y).is_ok());
+        assert_eq!(u.apply(&a), Ty::I64);
+        assert_eq!(u.apply(&b), Ty::Str);
+
+        let c = u.fresh();
+        assert!(u.unify(&Ty::Option(Box::new(c.clone())), &Ty::Option(Box::new(Ty::F64))).is_ok());
+        assert_eq!(u.apply(&c), Ty::F64);
+    }
+
+    #[test]
+    fn unify_tuple_and_ref() {
+        let mut u = Unifier::new();
+        let a = u.fresh();
+        let b = u.fresh();
+        let ta = Ty::Tuple(vec![a.clone(), b.clone()]);
+        let tb = Ty::Tuple(vec![Ty::I64, Ty::Str]);
+        assert!(u.unify(&ta, &tb).is_ok());
+        assert_eq!(u.apply(&a), Ty::I64);
+        assert_eq!(u.apply(&b), Ty::Str);
+
+        let r = u.fresh();
+        assert!(u.unify(&Ty::Ref(Box::new(r.clone())), &Ty::Ref(Box::new(Ty::F64))).is_ok());
+        assert_eq!(u.apply(&r), Ty::F64);
+    }
+
+    #[test]
+    fn unify_same_var_twice() {
+        let mut u = Unifier::new();
+        let v = u.fresh();
+        assert!(u.unify(&v, &Ty::I64).is_ok());
+        // 同一变量再次与相同类型合一：成功
+        assert!(u.unify(&v, &Ty::I64).is_ok());
+        // 与不同类型合一：失败
+        assert!(u.unify(&v, &Ty::Str).is_err());
+        assert_eq!(u.apply(&v), Ty::I64);
+    }
+
+    #[test]
+    fn array_and_set_unify() {
+        let mut u = Unifier::new();
+        let e = u.fresh();
+        assert!(u.unify(&Ty::Array(Box::new(e.clone()), 3), &Ty::Array(Box::new(Ty::I64), 3)).is_ok());
+        assert_eq!(u.apply(&e), Ty::I64);
+        // 长度不同 → 失败
+        assert!(u.unify(&Ty::Array(Box::new(Ty::I64), 3), &Ty::Array(Box::new(Ty::I64), 4)).is_err());
+
+        let s = u.fresh();
+        assert!(u.unify(&Ty::Set(Box::new(s.clone())), &Ty::Set(Box::new(Ty::Str))).is_ok());
+        assert_eq!(u.apply(&s), Ty::Str);
+    }
+
+    #[test]
+    fn unknown_unifies_with_anything() {
+        let mut u = Unifier::new();
+        assert!(u.unify(&Ty::Unknown, &Ty::I64).is_ok());
+        assert!(u.unify(&Ty::Str, &Ty::Unknown).is_ok());
+    }
 }
