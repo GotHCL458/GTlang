@@ -2993,6 +2993,19 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn generic_struct_bracket_type_matches() {
+    // 回归：泛型 struct 的参数化类型（盒[T]）曾被解析成 T（parser_type 的 _ 分支）。
+    assert_consistent_src(
+        "generic_struct_brk",
+        &[
+            "struct 盒[T] { v: T }",
+            "fn 造[T](x: T) -> 盒[T] { return 盒 { v: x } }",
+            "fn main() { b := 造(7)  put(b.v)  c := 盒 { v: \"s\" }  put(c.v) }",
+        ],
+    );
+}
+
+#[test]
 fn option_bracket_syntax_matches() {
     // 回归：Option[T] 方括号写法曾被解析成 T（parser_type 的 _ 分支忽略 Option）。
     assert_consistent_src(
