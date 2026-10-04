@@ -67,7 +67,10 @@ pub(crate) fn check_match_exhaustive(st: &Ty, arms: &[MatchArm], ctx: &Ctx) -> O
             if has_ok && has_err { None } else { Some(if zh { "match 不穷尽：Result 需覆盖 Ok 和 Err（或用 _ 兜底）".into() } else { "match not exhaustive: Result needs Ok and Err".into() }) }
         }
         Ty::I64 | Ty::F64 | Ty::Str => {
-            if has_value { Some(if zh { "match 不穷尽：非枚举主体需用 _ 兜底".into() } else { "match not exhaustive: non-enum subject needs _".into() }) } else { None }
+            // 整数/浮点/字符串是"无限"主体：字面量分支永远无法穷尽，
+            // 必须显式 _ 兜底（空 match 同样不穷尽）。
+            let _ = has_value;
+            Some(if zh { "match 不穷尽：非枚举主体需用 _ 兜底".into() } else { "match not exhaustive: non-enum subject needs _".into() })
         }
         _ => None,
     }

@@ -2993,6 +2993,18 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn empty_match_is_rejected() {
+    // 回归：空 match（无分支）曾被认为"穷尽"而通过检查。
+    assert_rejected("empty_match", &["fn main() { match 1 { }  put(1) }"], "exhaustive");
+}
+
+#[test]
+fn non_enum_match_needs_wildcard() {
+    // 整数主体的 match 必须有 _ 兜底（字面量永远无法穷尽）。
+    assert_rejected("match_no_wild", &["fn main() { match 1 { 1 => { put(1) } } }"], "exhaustive");
+}
+
+#[test]
 fn if_stmt_same_line_as_prev_stmt() {
     // 回归：`a := 1  if a > 0 { ... }`（if 与前一语句同行）曾被误判为三元，报"缺 else"。
     assert_consistent_src(
