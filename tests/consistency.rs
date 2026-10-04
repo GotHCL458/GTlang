@@ -2740,3 +2740,300 @@ fn stdlib_sql_crud_matches() {
         ],
     );
 }
+
+// ============================================================
+// 36. 函数作一等值 / 闭包（v0.0.1d）
+// ============================================================
+
+#[test]
+fn first_class_fn_stored_and_called() {
+    assert_consistent_src(
+        "fn_first_class",
+        &[
+            "fn 加一(n: int) -> int { return n + 1 }",
+            "fn 乘二(n: int) -> int { return n * 2 }",
+            "fn main() {",
+            "    g := 加一",
+            "    put(g(10))",
+            "    fs := list()",
+            "    push(fs, 加一)",
+            "    push(fs, 乘二)",
+            "    put(fs[0](5))",
+            "    put(fs[1](5))",
+            "}",
+        ],
+    );
+}
+
+#[test]
+fn first_class_fn_as_higher_order_arg() {
+    assert_consistent_src(
+        "fn_higher_order",
+        &[
+            "fn 加一(n: int) -> int { return n + 1 }",
+            "fn 乘二(n: int) -> int { return n * 2 }",
+            "fn 应用(f, x: int) -> int { return f(x) }",
+            "fn 组合(f, g, x: int) -> int { return g(f(x)) }",
+            "fn main() {",
+            "    put(应用(加一, 10))",
+            "    put(组合(加一, 乘二, 5))",
+            "}",
+        ],
+    );
+}
+
+#[test]
+fn first_class_fn_from_if_and_match() {
+    assert_consistent_src(
+        "fn_from_if_match",
+        &[
+            "fn 加一(n: int) -> int { return n + 1 }",
+            "fn 乘二(n: int) -> int { return n * 2 }",
+            "fn 选(f: int) { if f == 1 { return 加一 }  return 乘二 }",
+            "fn main() {",
+            "    h := if true { 加一 } else { 乘二 }",
+            "    put(h(100))",
+            "    h2 := match 2 { 1 => { 加一 }  _ => { 乘二 } }",
+            "    put(h2(10))",
+            "    g := 选(1)",
+            "    put(g(5))",
+            "}",
+        ],
+    );
+}
+
+#[test]
+fn closure_returning_closure_matches() {
+    assert_consistent_src(
+        "closure_factory",
+        &[
+            "fn main() {",
+            "    造乘 := |n: int| |x: int| x * n",
+            "    m3 := 造乘(3)",
+            "    m5 := 造乘(5)",
+            "    put(m3(10))",
+            "    put(m5(10))",
+            "    外 := |a: int| |b: int| a + b",
+            "    add2 := 外(2)",
+            "    put(add2(3))",
+            "}",
+        ],
+    );
+}
+
+#[test]
+fn closure_capturing_container_matches() {
+    assert_consistent_src(
+        "closure_capture_container",
+        &[
+            "fn main() {",
+            "    xs := list()",
+            "    push(xs, 1)",
+            "    push(xs, 2)",
+            "    g := |x: int| len(xs) + x",
+            "    put(g(10))",
+            "    s := \"hello\"",
+            "    h := |x: int| len(s) + x",
+            "    put(h(0))",
+            "}",
+        ],
+    );
+}
+
+#[test]
+fn closure_compose_and_fold_matches() {
+    assert_consistent_src(
+        "closure_compose_fold",
+        &[
+            "fn 复合(f, g) { return |x: int| g(f(x)) }",
+            "fn main() {",
+            "    inc := |x: int| x + 1",
+            "    dbl := |x: int| x * 2",
+            "    h := 复合(inc, dbl)",
+            "    put(h(5))",
+            "    h2 := 复合(dbl, inc)",
+            "    put(h2(5))",
+            "}",
+        ],
+    );
+}
+
+// ============================================================
+// 37. 深嵌套 / 边界（v0.0.1d 加固）
+// ============================================================
+
+#[test]
+fn i64_min_literal_matches() {
+    assert_consistent_src(
+        "i64_min",
+        &[
+            "fn main() {",
+            "    put(-9223372036854775808)",
+            "    put(9223372036854775807)",
+            "}",
+        ],
+    );
+}
+
+#[test]
+fn deeply_nested_type_is_rejected() {
+    let n = 3200;
+    let ty = "list[".repeat(n) + "int" + &"]".repeat(n);
+    let lines = [format!("struct S {{ f: {} }}", ty), "fn main() { put(1) }".to_string()];
+    let refs: Vec<&str> = lines.iter().map(|s| s.as_str()).collect();
+    assert_rejected("deep_type", &refs, "过深");
+}
+
+#[test]
+fn long_binary_chain_is_rejected() {
+    let body = "1 + ".repeat(2000) + "1";
+    let lines = [format!("fn main() {{ x := {}  put(x) }}", body)];
+    let refs: Vec<&str> = lines.iter().map(|s| s.as_str()).collect();
+    assert_rejected("long_chain", &refs, "过深");
+}
+
+#[test]
+fn loop_without_count_is_rejected() {
+    assert_rejected(
+        "loop_no_count",
+        &[
+            "fn main() {",
+            "    loop { put(1) }",
+            "}",
+        ],
+        "循环次数",
+    );
+}
+
+// ============================================================
+// 38. 并发 / 通道（v0.0.1d）
+// ============================================================
+
+#[test]
+fn go_thread_pool_matches() {
+    assert_consistent_src(
+        "go_pool",
+        &[
+            "fn 生产者(c, n: int) { chan_send(c, n * n) }",
+            "fn main() {",
+            "    c := chan()",
+            "    i := 0",
+            "    while i < 20 {",
+            "        go 生产者(c, i)",
+            "        i = i + 1",
+            "    }",
+            "    total := 0",
+            "    j := 0",
+            "    while j < 20 { total = total + chan_recv(c)  j = j + 1 }",
+            "    put(total)",
+            "}",
+        ],
+    );
+}
+
+// ============================================================
+// 39. 泛型（v0.0.1d）
+// ============================================================
+
+#[test]
+fn generic_multi_instantiation_matches() {
+    assert_consistent_src(
+        "generic_multi_inst",
+        &[
+            "fn 恒等[T](x: T) -> T { return x }",
+            "fn main() {",
+            "    put(恒等(42))",
+            "    put(恒等(\"hi\"))",
+            "    put(恒等(3.5))",
+            "}",
+        ],
+    );
+}
+
+#[test]
+fn generic_list_element_matches() {
+    assert_consistent_src(
+        "generic_list_elem",
+        &[
+            "fn 首[T](xs: list[T]) -> T { return xs[0] }",
+            "fn main() {",
+            "    a := list()",
+            "    push(a, 42)",
+            "    put(首(a))",
+            "    b := list()",
+            "    push(b, \"hi\")",
+            "    put(首(b))",
+            "}",
+        ],
+    );
+}
+
+// ============================================================
+// 40. 错误处理（v0.0.1d）
+// ============================================================
+
+#[test]
+fn result_with_str_payload_early_return_matches() {
+    // 回归：fn 无标注返回类型，两个 return 的 Result 载荷需逐字段合并
+    // （Ok 载荷 i64 + Err 载荷 str），否则 match 崩
+    assert_consistent_src(
+        "result_str_payload",
+        &[
+            "fn f(b: int) {",
+            "    if b == 0 { return Err(\"x\") }",
+            "    return Ok(1)",
+            "}",
+            "fn main() {",
+            "    r := f(10)",
+            "    match r { Ok(v) => { put(v) }  Err(e) => { put(0) } }",
+            "    r2 := f(0)",
+            "    match r2 { Ok(v) => { put(v) }  Err(e) => { put(-1) } }",
+            "}",
+        ],
+    );
+}
+
+#[test]
+fn closure_with_result_matches() {
+    // 注意：Err 载荷用整数（字符串载荷的 Result match 目前会崩，见 known issue）
+    assert_consistent_src(
+        "closure_result",
+        &[
+            "fn 安全除(a: int, b: int) {",
+            "    if b == 0 { return Err(\"div0\") }",
+            "    return Ok(a / b)",
+            "}",
+            "fn main() {",
+            "    除 := |d: int| 安全除(100, d)",
+            "    r1 := 除(10)",
+            "    match r1 { Ok(v) => { put(v) }  Err(e) => { put(-1) } }",
+            "    r2 := 除(0)",
+            "    match r2 { Ok(v) => { put(v) }  Err(e) => { put(-2) } }",
+            "}",
+        ],
+    );
+}
+
+// ============================================================
+// 41. 字符串 / 数值边界（v0.0.1d）
+// ============================================================
+
+#[test]
+fn string_and_num_edge_matches() {
+    assert_consistent_src(
+        "str_num_edge",
+        &[
+            "fn main() {",
+            "    put(len(str(123)))",
+            "    put(str(1.5))",
+            "    put(int(\"-9223372036854775808\"))",
+            "    put(1.0 / 0.0)",
+            "    put(0.0 / 0.0)",
+            "    s := \"\"",
+            "    i := 0",
+            "    while i < 100 { s = s + \"x\"  i = i + 1 }",
+            "    put(len(s))",
+            "}",
+        ],
+    );
+}

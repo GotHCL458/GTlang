@@ -528,8 +528,12 @@ fn infer_block_ret(ctx: &mut Ctx, b: &mut Block) -> Result<Ty, String> {
             }
             _ => None,
         };
-        if found.is_none() && t.is_some() && t != Some(Ty::Void) {
-            found = t;
+        if let Some(t) = t.filter(|t| *t != Ty::Void) {
+            found = Some(match found.take() {
+                None => t,
+                // 多个 return：逐字段合并（Result/Option 的 Ok/Err 载荷分别 join）
+                Some(prev) => join_ret_types(&prev, &t),
+            });
         }
     }
     // 块尾表达式即返回值
@@ -540,6 +544,20 @@ fn infer_block_ret(ctx: &mut Ctx, b: &mut Block) -> Result<Ty, String> {
     }
     ctx.scopes.pop();
     Ok(found.unwrap_or(Ty::Void))
+}
+
+/// 合并多个 `return` 的类型：`Result`/`Option` 逐字段 join，其余退回 `type_join`。
+fn join_ret_types(a: &Ty, b: &Ty) -> Ty {
+    match (a, b) {
+        (Ty::Result(at, ae), Ty::Result(bt, be)) => {
+            Ty::Result(Box::new(join_ret_types(at, bt)), Box::new(join_ret_types(ae, be)))
+        }
+        (Ty::Option(at), Ty::Option(bt)) => Ty::Option(Box::new(join_ret_types(at, bt))),
+        (Ty::Tuple(ats), Ty::Tuple(bts)) if ats.len() == bts.len() => {
+            Ty::Tuple(ats.iter().zip(bts.iter()).map(|(x, y)| join_ret_types(x, y)).collect())
+        }
+        _ => type_join(a, b),
+    }
 }
 
 // ============================================================

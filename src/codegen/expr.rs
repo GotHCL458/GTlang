@@ -515,7 +515,7 @@ impl<'a> Codegen<'a> {
                 let t = e.ty.clone();
                 self.if_value(cond, then, els.as_ref(), &t, e.line)
             }
-            ExprKind::Ok(inner) => { eprintln!("[ok] e.ty={:?}", e.ty); self.result_new(inner, false, e) },
+            ExprKind::Ok(inner) => self.result_new(inner, false, e),
             ExprKind::Err(inner) => self.result_new(inner, true, e),
             ExprKind::Some(inner) => self.result_new(inner, false, e),
             ExprKind::None => self.result_new_none(e),
