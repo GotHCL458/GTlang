@@ -79,7 +79,7 @@ GTLang is a **statically-typed**, **compiled**, **expression-oriented** programm
 | 🪄 | **First-class functions** — pass a `fn` name as a value; closures capture containers/params |
 | 💬 | **Smart diagnostics** — stable codes, bilingual, "did you mean X?" |
 | 📦 | **Modules** — `import math` (builtin), `import a.b` (user), `import "x.gt"` |
-| 🛠️ | **Toolchain** — `gtc` (compiler/interpreter), `gtfmt` (formatter) |
+| 🛠️ | **Toolchain** — `gtc` (compiler / interpreter) |
 
 ---
 
@@ -88,7 +88,7 @@ GTLang is a **statically-typed**, **compiled**, **expression-oriented** programm
 ### Build
 
 > **Prebuilt bundle** (no Rust/LLVM needed): download [`dist/gtlang-res-win-x64.zip`](dist/gtlang-res-win-x64.zip) (10 MB),
-extract it anywhere, and run `gtc.exe`. It bundles `gtc`, `gtfmt`, the standard
+extract it anywhere, and run `gtc.exe`. It bundles `gtc`, the standard
 library, the runtime, and TCC. It does **not** bundle `clang`/`lld-link`
 (≈176 MB) — GTLang locates them on your system `PATH` (or via `GTC_CLANG`).
 
@@ -101,7 +101,7 @@ REM TCC is optional (for inline C blocks); see GTC_TCC below.
 build.bat
 ```
 
-`build.bat` checks the toolchain versions, then builds `gtc`, `gtfmt`, the
+`build.bat` checks the toolchain versions, then builds `gtc`, the
 standard library, and assembles a portable `res/` directory.
 It takes **no arguments**.
 
@@ -117,7 +117,7 @@ If none is found, the build still succeeds — only inline C becomes unavailable
 
 This produces:
 - `target\release\gtc.exe` — compiler & interpreter
-- `target\release\gtfmt.exe` — formatter
+- `target\release\gtc.exe` — compiler / interpreter
 - `res\lib\*.dll` — standard library
 
 ### Run your first program
@@ -403,7 +403,6 @@ gtc --watch/-w <file.gt> ...                            watch and rebuild
 gtc --version / --verbose                               version / verbose
 gtc ... zh                                              Chinese diagnostics
 
-gtfmt [--check] <file.gt>                               format (after full check)
 ```
 
 ---
@@ -414,7 +413,7 @@ gtfmt [--check] <file.gt>                               format (after full check
 src/
 lib.rs            module declarations + public API
 main.rs           CLI (arg parsing / diagnostic rendering)
-bin/gtfmt.rs      formatter
+
 lint.rs           static checks (for gtc --lint)
 ast.rs            unified AST
 lexer.rs          lexer (Chinese identifiers, string interpolation, raw strings)

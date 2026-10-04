@@ -80,7 +80,6 @@ container ops, string ops, mem_*, chan/sleep
 | Tool | Function |
 |---|---|
 | gtc | compiler/interpreter (--c/--run/--check/--lint/--emit-llvm/--test/--watch) |
-| gtfmt | formatter (after full check) |
 | gtc --lint | static check (unused fn/var/param, unreachable, empty if, const cond, self-compare) |
 
 ## 3. Not Implemented / Not Planned

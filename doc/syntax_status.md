@@ -83,7 +83,6 @@ mem_*（裸内存）、chan/sleep
 | 工具 | 功能 |
 |---|---|
 | `gtc` | 编译器/解释器（--c/--run/--check/--lint/--emit-llvm/--test/--watch） |
-| `gtfmt` | 格式化（先经 gtc 检查，有错拒绝） |
 | `gtc --lint` | 静态检查（未用函数/变量/参数、不可达、空 if、常量条件、自比较） |
 
 **统一**：`-h`/`--help` + 末尾 `zh`（双语帮助）

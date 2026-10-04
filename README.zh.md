@@ -79,7 +79,7 @@ GTLang 是一门**静态类型**、**编译型**、**表达式导向**的编程�
 | 🪄 | **函数作一等值** —— 顶层 `fn` 名可当值传递；闭包可捕获容器/参数 |
 | 💬 | **智能诊断** —— 稳定错误码、中英双语、"是否想用 X？" |
 | 📦 | **模块** —— `import math`（内置）、`import a.b`（用户）、`import "x.gt"` |
-| 🛠️ | **工具链** —— `gtc`（编译器/解释器）、`gtfmt`（格式化器） |
+| 🛠️ | **工具链** —— `gtc`（编译器 / 解释器） |
 
 ---
 
@@ -88,7 +88,7 @@ GTLang 是一门**静态类型**、**编译型**、**表达式导向**的编程�
 ### 构建
 
 > **预编译包**（无需 Rust/LLVM）：下载 [`dist/gtlang-res-win-x64.zip`](dist/gtlang-res-win-x64.zip)（10 MB），
-解压后直接运行 `gtc.exe`。包内已含 `gtc`、`gtfmt`、标准库、运行时与 TCC。
+解压后直接运行 `gtc.exe`。包内已含 `gtc`、标准库、运行时与 TCC。
 **不含** `clang`/`lld-link`（约 176 MB）—— GTLang 会从系统 `PATH`（或 `GTC_CLANG`）定位它们。
 
 或从源码构建：
@@ -100,7 +100,7 @@ REM TCC 可选（用于内联 C 块），见下方 GTC_TCC 说明
 build.bat
 ```
 
-`build.bat` 会先检查工具链版本，然后构建 `gtc`、`gtfmt`、标准库，并组装可分发的 `res/` 目录，**无需任何参数**。
+`build.bat` 会先检查工具链版本，然后构建 `gtc`、标准库，并组装可分发的 `res/` 目录，**无需任何参数**。
 
 **可选：TCC（用于内联 C 块）。** GTLang 通过 [TCC](https://bellard.org/tcc/) 执行内联 `C { ... }` 块。`build.bat` 按以下顺序查找：
 
@@ -113,7 +113,7 @@ build.bat
 
 产物：
 - `target\release\gtc.exe` —— 编译器 & 解释器
-- `target\release\gtfmt.exe` —— 格式化器
+- `target\release\gtc.exe` —— 编译器 / 解释器
 - `res\lib\*.dll` —— 标准库
 
 ### 运行第一个程序
@@ -399,7 +399,6 @@ gtc --watch/-w <文件.gt> ...                          监控变更自动重跑
 gtc --version / --verbose                             版本 / 详细日志
 gtc ... zh                                            中文诊断
 
-gtfmt [--check] <文件.gt>                             格式化（先经完整检查）
 ```
 
 ---
@@ -410,7 +409,7 @@ gtfmt [--check] <文件.gt>                             格式化（先经完整
 src/
 lib.rs            模块声明 + 对外 API
 main.rs           CLI（参数解析 / 诊断渲染）
-bin/gtfmt.rs      格式化器
+
 lint.rs           静态检查（供 gtc --lint）
 ast.rs            统一 AST
 lexer.rs          词法（中文标识符、字符串插值、原始串）
