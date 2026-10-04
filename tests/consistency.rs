@@ -2993,6 +2993,21 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn borrow_param_method_call_matches() {
+    // 借用参数上的方法调用：fn f(p: &P) { p.方法() }
+    assert_consistent_src(
+        "borrow_param_method",
+        &[
+            "struct P { x: int }",
+            "impl P { fn 取(self) -> int { return self.x } }",
+            "fn 调用(p: &P) -> int { return p.取() }",
+            "fn 中(p: &P) -> int { return 调用(p) }",
+            "fn main() { p := P { x: 8 }  put(中(&p)) }",
+        ],
+    );
+}
+
+#[test]
 fn ref_method_call_autoderef_matches() {
     // 借用上的方法调用：a := &p; a.方法() 视作 p.方法()
     assert_consistent_src(

@@ -635,10 +635,23 @@ pub fn lower_method_calls(prog: &mut Program, methods: &HashMap<String, Vec<Stri
         .iter()
         .filter_map(|it| if let Item::Struct(s) = it { Some((s.name.clone(), ())) } else { None })
         .collect();
-    // 变量�?�?结构体类型（作用域内�?
+    // 变量名 → 结构体类型（作用域内）
     for item in &mut prog.items {
         if let Item::Fn(f) = item {
-            lower_block(&mut f.body, methods, &struct_types, &mut HashMap::new());
+            // 先把函数参数（含 self）放进变量表，供 obj.方法 降级。
+            let mut vars: HashMap<String, String> = HashMap::new();
+            for p in &f.params {
+                if let Some(t) = &p.ty {
+                    let t2 = match t {
+                        Ty::Ref(inner) | Ty::RefMut(inner) => (**inner).clone(),
+                        other => other.clone(),
+                    };
+                    if let Ty::Struct(n) = t2 {
+                        vars.insert(p.name.clone(), n);
+                    }
+                }
+            }
+            lower_block(&mut f.body, methods, &struct_types, &mut vars);
         }
     }
 }
