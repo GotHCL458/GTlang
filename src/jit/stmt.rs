@@ -146,7 +146,7 @@ impl FnState {
                                 let ie = self.gen_expr(jit, b, idx)?;
                                 let i = self.convert(b, &ie, &Ty::I64);
                                 let rhs = self.gen_expr(jit, b, value)?;
-                                let rv = self.convert(b, &rhs, el);
+                                let rv = self.to_slot(b, &rhs, el);
                                 let f = self.rt_ref(jit, b, "list_set")?;
                                 b.ins().call(f, &[base, i, rv]);
                             }
@@ -154,7 +154,10 @@ impl FnState {
                                 let ke = self.gen_expr(jit, b, idx)?;
                                 let k = self.convert(b, &ke, &Ty::I64);
                                 let rhs = self.gen_expr(jit, b, value)?;
-                                let rv = self.convert(b, &rhs, v);
+                                // map 的值类型可能仍是 Unknown（未细化）；此时按 rhs 的实际类型决定
+                                // 是否需按位保真（f64 -> i64 槽）。
+                                let vt = if **v == Ty::Unknown { rhs.1.clone() } else { (**v).clone() };
+                                let rv = self.to_slot(b, &rhs, &vt);
                                 let f = self.rt_ref(jit, b, "map_insert")?;
                                 b.ins().call(f, &[base, k, rv]);
                             }
@@ -505,20 +508,14 @@ impl FnState {
                                 self.bind_pat_deep(b, &bty, lv, carg);
                             }
                             match &arm.guard { None => eq, Some(g) => { let gv = self.gen_cond(jit, b, g)?; b.ins().band(eq, gv) } }
-                        } else if let ExprKind::EnumLit(en, var, binds) = &p.kind {
+                        } else if let ExprKind::EnumLit(en, var, _binds) = &p.kind {
                             // 枚举解构：tag 比较并绑定载荷
                             let vidx = jit.enum_variants.get(en).and_then(|vs| vs.iter().position(|(n, _)| n == var)).unwrap_or(0);
                             let tag = b.ins().load(types::I64, MemFlags::new(), subj.0, 0);
                             let eq = b.ins().icmp_imm(IntCC::Equal, tag, vidx as i64);
-                            // guard 里可能引用载荷绑定（如 E::A(n) if n > 5）：
-                            // 在求值 guard 之前先做一次"预绑定"（arm 块内会再绑定一次，无害）。
-                            let ptys: Vec<Ty> = jit.enum_variants.get(en).and_then(|vs| vs.iter().find(|(n, _)| n == var).map(|(_, ts)| ts.clone())).unwrap_or_default();
-                            for (i, bd) in binds.iter().enumerate() {
-                                let bty = ptys.get(i).cloned().unwrap_or(Ty::I64);
-                                let lv = b.ins().load(cl_ty(&bty), MemFlags::new(), subj.0, ((i + 1) * 8) as i32);
-                                self.bind_pat_deep(b, &bty, lv, bd);
-                            }
-                            match &arm.guard { None => eq, Some(g) => { let gv = self.gen_cond(jit, b, g)?; b.ins().band(eq, gv) } }
+                            // 载荷绑定与 guard 求值都推迟到 arm 块内（外层 tag 已匹配），
+                            // 否则会对无载荷/其它变体的槽越界读（曾崩溃）。
+                            eq
                         } else if let ExprKind::Ident(bn) = &p.kind {
                             // 裸标识符模式：绑定主体值（如 `match v { n if n > 0 => ... }`）。
                             // 若该名字已在作用域中，退回"比较"语义（外层变量当模式）。
@@ -548,6 +545,7 @@ impl FnState {
             b.switch_to_block(arm_blk); self.terminated = false;
             // enum 载荷解构：进入 arm 块（外层 tag 已匹配，载荷一定存在）后再判定内层 tag 并绑定。
             let mut load_ok: Option<Value> = None;
+            let mut guard_ok: Option<Value> = None;
             if let Some(p) = &arm.pat {
                 if let ExprKind::EnumLit(en, var, binds) = &p.kind {
                     let ptys: Vec<Ty> = jit.enum_variants.get(en).and_then(|vs| vs.iter().find(|(n, _)| n == var).map(|(_, ts)| ts.clone())).unwrap_or_default();
@@ -566,17 +564,27 @@ impl FnState {
                     }
                 }
             }
-            let body_blk = match load_ok {
+            // enum arm 的 guard（可能引用载荷绑定）在这里求值：此时绑定已生效。
+            if matches!(&arm.pat.as_ref().map(|p| &p.kind), Some(ExprKind::EnumLit(..))) {
+                if let Some(g) = &arm.guard {
+                    let gv = self.gen_cond(jit, b, g)?;
+                    guard_ok = Some(gv);
+                }
+            }
+            // 内层 tag 判定与 guard 都在 arm 块内做：任一不满足 → 走 next_blk。
+            let mut gate: Option<Value> = load_ok;
+            if let Some(gv) = guard_ok {
+                gate = Some(match gate { None => gv, Some(p) => b.ins().band(p, gv) });
+            }
+            let _body_blk = match gate {
                 None => arm_blk,
-                Some(teq) => {
-                    // 内层 tag 不匹配 → 走 next_blk（不执行 body）
+                Some(ok) => {
                     let bodyb = self.new_block(b);
-                    b.ins().brif(teq, bodyb, &[], next_blk, &[]);
+                    b.ins().brif(ok, bodyb, &[], next_blk, &[]);
                     b.switch_to_block(bodyb); self.terminated = false;
                     bodyb
                 }
             };
-            let _ = body_blk;
             let v = self.gen_block_value(jit, b, &arm.body, want)?;
             if !self.terminated {
                 if let Some(v) = v { let a = b.ins().stack_addr(types::I64, slot, 0); b.ins().store(MemFlags::new(), v, a, 0); }

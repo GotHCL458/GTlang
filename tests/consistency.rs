@@ -2993,6 +2993,22 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn f64_container_and_bool_match_regressions() {
+    // 回归：list/map 的 f64 元素曾以"值"而非"位模式"存入 i64 槽 -> JIT/LLVM 输出垃圾。
+    assert_consistent_src(
+        "f64_containers",
+        &[
+            "fn main() {",
+            "    l := list()  push(l, 3.5)  put(l[0])",
+            "    m := map()  m[\"k\"] = 2.5  put(m[\"k\"])",
+            "    put(match 2.5 { 1.0 => { 1 } 2.5 => { 25 } _ => { 0 } })",
+            "    put(match true { true => { 1 } false => { 0 } })",
+            "}",
+        ],
+    );
+}
+
+#[test]
 fn set_iteration_matches() {
     // 回归：set() 的元素类型未从 insert 细化 -> for k in set 拿到指针值。
     assert_consistent_src(

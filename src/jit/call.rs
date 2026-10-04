@@ -199,7 +199,14 @@ impl FnState {
                 let (key, ret) = match &args[0].ty { Ty::List(e) => ("list_at", (**e).clone()), Ty::Map(_, v) => ("map_get", (**v).clone()), _ => ("list_at", Ty::I64) };
                 let f = self.rt_ref(jit, b, key)?;
                 let call = b.ins().call(f, &[c.0, ii]);
-                Ok((b.inst_results(call)[0], ret))
+                let raw = b.inst_results(call)[0];
+                // map/list 以 i64 槽存储；f64 元素需按位转回 double。
+                let v = if ret == Ty::F64 {
+                    b.ins().bitcast(types::F64, MemFlags::new(), raw)
+                } else {
+                    raw
+                };
+                Ok((v, ret))
             }
             "insert" => {
                 let c = self.gen_expr(jit, b, &args[0])?;
@@ -426,9 +433,12 @@ impl FnState {
     }
 
     pub(crate) fn convert(&mut self, b: &mut FunctionBuilder, v: &(Value, Ty), to: &Ty) -> Value {
-        if v.1 == *to || to == &Ty::Unknown || v.1 == Ty::Unknown { return v.0; }
         match (to, &v.1) {
+            (Ty::F64, Ty::F64) => v.0,
             (Ty::F64, t) if !t.is_float() => b.ins().fcvt_from_sint(types::F64, v.0),
+            // 存入 i64 槽时按位保真（f64 的位模式），而非截断为整数——
+            // 否则 map/list 的 f64 元素会丢小数（取回时 bitcast 得到垃圾）。
+            (Ty::I64, Ty::F64) => b.ins().bitcast(types::I64, MemFlags::new(), v.0),
             (t, Ty::F64) if !t.is_float() => b.ins().fcvt_to_sint(types::I64, v.0),
             _ => v.0,
         }
@@ -571,6 +581,19 @@ impl FnState {
         self.emit_fault(jit, b, 2, line, "div_zero", 2)?;
         b.switch_to_block(cont); self.terminated = false;
         Ok(())
+    }
+
+    /// 把值存入"i64 槽"（list/set/map 元素）：f64 需 bitcast 保位模式。
+    pub(crate) fn to_slot(&mut self, b: &mut FunctionBuilder, v: &(Value, Ty), elem: &Ty) -> Value {
+        let x = self.convert(b, v, elem);
+        if *elem == Ty::F64 { self.bcast_i64(b, x) } else { x }
+    }
+    /// 从"i64 槽"取出值：f64 需 bitcast 还原。
+    pub(crate) fn from_slot_jit(&mut self, b: &mut FunctionBuilder, raw: Value, elem: &Ty) -> Value {
+        if *elem == Ty::F64 { b.ins().bitcast(types::F64, MemFlags::new(), raw) } else { raw }
+    }
+    fn bcast_i64(&mut self, b: &mut FunctionBuilder, x: Value) -> Value {
+        b.ins().bitcast(types::I64, MemFlags::new(), x)
     }
 
     pub(crate) fn gen_print(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, e: &Expr) -> Result<(), String> {

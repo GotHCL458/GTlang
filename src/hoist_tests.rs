@@ -218,7 +218,7 @@ fn stmt_has_sent_call(b: &Block) -> bool {
 fn convert_closure_calls_covers_stmt_variants() {
     // 构造 `__SENT__(...)`（闭包变量调用），放进各语句变体。
     let cc = || Expr::new(ExprKind::Call("__SENT__".into(), vec![]), 0);
-    let mut cv = vec!["__SENT__".to_string()];
+    let cv = vec!["__SENT__".to_string()];
     let rcf: Vec<String> = Vec::new();
     let blk = |x: Expr| vec![Stmt::Expr(x)];
     let mut cases: Vec<(&str, Stmt)> = Vec::new();

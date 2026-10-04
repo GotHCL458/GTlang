@@ -107,12 +107,26 @@ pub(crate) fn check_stmt(ctx: &mut Ctx, s: &mut Stmt, errors: &mut Vec<String>) 
                                 ((**el).clone(), format!("'{}[]'", name))
                             }
                             Ty::Map(k, v) => {
+                                let kt = (**k).clone();
+                                let vt0 = (**v).clone();
                                 if let Err(e) = ctx.infer(idx) {
                                     errors.push(e);
-                                } else if idx.ty != Ty::Unknown && !is_assignable(&k, &idx.ty) {
-                                    errors.push(crate::lb!(line, "map key must be {}, found {}", "map 键应为 {}，实际是 {}", k, idx.ty));
+                                } else if kt != Ty::Unknown && idx.ty != Ty::Unknown && !is_assignable(&kt, &idx.ty) {
+                                    errors.push(crate::lb!(line, "map key must be {}, found {}", "map 键应为 {}，实际是 {}", kt, idx.ty));
                                 }
-                                ((**v).clone(), format!("'{}[]'", name))
+                                let it = ctx.infer(value).unwrap_or(Ty::Unknown);
+                                // map 的键/值类型为 Unknown 时按首次赋值细化（供 codegen/jit 判断 f64 等）。
+                                if let Some(vi) = ctx.lookup_var_mut(name) {
+                                    if let Ty::Map(bk, bv) = &vi.ty {
+                                        let mut nk = (**bk).clone();
+                                        let mut nv = (**bv).clone();
+                                        if nk == Ty::Unknown && idx.ty != Ty::Unknown { nk = idx.ty.clone(); }
+                                        if nv == Ty::Unknown && it != Ty::Unknown { nv = it.clone(); }
+                                        vi.ty = Ty::Map(Box::new(nk), Box::new(nv));
+                                    }
+                                }
+                                let vt = if vt0 == Ty::Unknown && it != Ty::Unknown { it } else { vt0 };
+                                (vt, format!("'{}[]'", name))
                             }
                             other => {
                                 errors.push(crate::lb!(line, "{} does not support indexed assignment", "{} 不支持下标赋值", other));

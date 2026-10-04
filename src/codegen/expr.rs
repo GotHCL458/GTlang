@@ -217,11 +217,16 @@ impl<'a> Codegen<'a> {
                         self.declare("declare i64 @gt_list_at(ptr, i64)");
                         let v = self.new_reg();
                         self.body.push_str(&format!("  {} = call i64 @gt_list_at(ptr {}, i64 {})\n", v, bp, i));
-                        // 元素在运行时是 i64 slot；若是 ptr 类元素，取出后立即转回 ptr 形态。
+                        // 元素在运行时是 i64 slot；ptr/f64 类元素取出后转回原形态。
                         if el.llvm() == "ptr" {
                             let p = self.new_reg();
                             self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, v));
                             Ok(Val::new(&el, p))
+                        } else if matches!(el.as_ref(), Ty::F64) {
+                            // list 以 i64 槽存储；f64 元素需按位转回 double。
+                            let d = self.new_reg();
+                            self.body.push_str(&format!("  {} = bitcast i64 {} to double\n", d, v));
+                            Ok(Val::new(&el, d))
                         } else {
                             Ok(Val::new_slot(&el, v))
                         }
@@ -235,6 +240,11 @@ impl<'a> Codegen<'a> {
                             let p = self.new_reg();
                             self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, r));
                             Ok(Val::new(&v, p))
+                        } else if matches!(v.as_ref(), Ty::F64) {
+                            // map 值以 i64 槽存储；f64 需按位转回 double。
+                            let d = self.new_reg();
+                            self.body.push_str(&format!("  {} = bitcast i64 {} to double\n", d, r));
+                            Ok(Val::new(&v, d))
                         } else {
                             Ok(Val::new_slot(&v, r))
                         }
@@ -921,3 +931,4 @@ impl<'a> Codegen<'a> {
     }
 
 }
+

@@ -153,14 +153,19 @@ impl FnState {
                         self.gen_bounds(jit, b, i, len, e.line)?;
                         let f = self.rt_ref(jit, b, "list_at")?;
                         let call = b.ins().call(f, &[bs.0, i]);
-                        Ok((b.inst_results(call)[0], (**el).clone()))
+                        let raw = b.inst_results(call)[0];
+                        let val = self.from_slot_jit(b, raw, el);
+                        Ok((val, (**el).clone()))
                     }
                     Ty::Map(_, v) => {
                         let is = self.gen_expr(jit, b, idx)?;
                         let k = self.convert(b, &is, &Ty::I64);
                         let f = self.rt_ref(jit, b, "map_get")?;
                         let call = b.ins().call(f, &[bs.0, k]);
-                        Ok((b.inst_results(call)[0], (**v).clone()))
+                        let raw = b.inst_results(call)[0];
+                        // map 以 i64 槽存储；f64 值需按位转回 double。
+                        let val = self.from_slot_jit(b, raw, v);
+                        Ok((val, (**v).clone()))
                     }
                     other => Err(crate::lb!(e.line, "{} does not support indexing", "{} 不支持下标访问", other)),
                 }
