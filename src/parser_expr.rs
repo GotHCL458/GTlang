@@ -16,7 +16,10 @@ impl Parser {
         let mut lhs = self.unary()?;
         loop {
             // 三元：`a if cond else b`（Python 风格，最低优先级）
+            // 注意：只有当 `if ... else ...` 确实构成三元时才消费；否则
+            // （如 `a := 1  if cond { ... }` —— if 是下一条语句）回退，交给语句层。
             if self.at_ident("if") && min_prec == 0 && !self.cur().nl_before {
+                let save_pos = self.pos;
                 let line = self.line();
                 self.bump();
                 let saved = self.no_struct_lit;
@@ -25,7 +28,9 @@ impl Parser {
                 self.no_struct_lit = saved;
                 let cond = cond?;
                 if !self.eat_ident("else") {
-                    return Err(crate::lb!(self.line(), "ternary expects 'else'", "三元表达式缺少 'else'"));
+                    // 不是三元（缺 else）：回退到 if 之前，让语句层把 if 当语句处理。
+                    self.pos = save_pos;
+                    break;
                 }
                 let els = self.expr(0)?;
                 // `a if c else b` → if c { a } else { b }

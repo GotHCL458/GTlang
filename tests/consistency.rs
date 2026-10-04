@@ -2993,6 +2993,30 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn if_stmt_same_line_as_prev_stmt() {
+    // 回归：`a := 1  if a > 0 { ... }`（if 与前一语句同行）曾被误判为三元，报"缺 else"。
+    assert_consistent_src(
+        "if_same_line",
+        &["fn main() { a := 1  if a > 0 { put(1) } }"],
+    );
+}
+
+#[test]
+fn elif_chain_matches() {
+    // 回归：elif 条件曾被当成结构体字面量/三元，整条 if/elif/else 不可用。
+    assert_consistent_src(
+        "elif_chain",
+        &[
+            "fn main() {",
+            "    a := 1  b := 2",
+            "    if a > b { put(1) } elif a < b { put(-1) } else { put(0) }",
+            "    if a < b { put(2) } elif a > b { put(3) } else { put(4) }",
+            "}",
+        ],
+    );
+}
+
+#[test]
 fn single_expr_interpolation_is_string() {
     // 回归："${x}"（整串只有一个插值）曾被优化成 x 本身，导致类型/值错误。
     assert_consistent_src(

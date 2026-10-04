@@ -511,7 +511,13 @@ impl Parser {
 
     /// `elif cond { } ...`：已在 elif 之后，解析条件与块及后续分支。
     pub(crate) fn if_parts_after_elif(&mut self) -> Result<(Expr, Block, Option<Block>), String> {
-        let cond = self.expr(0)?;
+        // 与 if_parts 一致：条件解析期间禁止结构体字面量/三元，
+        // 否则 `elif a < b { ... }` 的 `{ ... }` 会被当成结构体字面量。
+        let saved = self.no_struct_lit;
+        self.no_struct_lit = true;
+        let cond = self.expr(0);
+        self.no_struct_lit = saved;
+        let cond = cond?;
         let then = self.block()?;
         let els = if self.eat_ident("elif") {
             let line = self.line();
