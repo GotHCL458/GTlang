@@ -2993,6 +2993,19 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn match_binding_shadowing_outer() {
+    // 回归：match 绑定名与外层参数同名（Err(e) 而外层也有 e）不应误报 use-after-move。
+    assert_consistent_src(
+        "match_shadow",
+        &[
+            "enum E { A(Result[int, str]) C }",
+            "fn f(e: E) -> int { match e { E::A(Ok(v)) => { return v } E::A(Err(e)) => { return -2 } E::C => { return 0 } } }",
+            "fn main() { put(f(E::A(Ok(7))))  put(f(E::A(Err(\"z\"))))  put(f(E::C)) }",
+        ],
+    );
+}
+
+#[test]
 fn enum_payload_destructuring_matches() {
     // enum 载荷本身是解构模式（E::A(Some(v))）：sema/JIT/LLVM 都需递归绑定。
     assert_consistent_src(

@@ -382,7 +382,13 @@ impl<'a> Ctx<'a> {
                 self.use_expr(subject, st, depth);
                 let pre = self.after_value_use(subject, st);
                 for arm in arms {
-                    if let Some(p) = &arm.pat { self.use_expr(p, &pre, depth); }
+                    // pattern 里的裸标识符是"绑定"（遮蔽外层同名变量），不是对外层的"使用"；
+                    // 只对字面量/范围求值，跳过绑定名，避免误报 use-after-move。
+                    if let Some(p) = &arm.pat {
+                        if !matches!(p.kind, ExprKind::Ident(_) | ExprKind::EnumLit(..) | ExprKind::Ok(_) | ExprKind::Err(_) | ExprKind::Some(_) | ExprKind::None | ExprKind::Call(..)) {
+                            self.use_expr(p, &pre, depth);
+                        }
+                    }
                     if let Some(g) = &arm.guard { self.use_expr(g, &pre, depth); }
                     self.check_block(&arm.body, &pre, depth);
                 }
