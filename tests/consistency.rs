@@ -2993,6 +2993,25 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn go_arg_closure_call_matches() {
+    // 回归：go 的实参里含闭包调用（go 工(ch, f(i))）曾未被 convert_closure_calls 改写，
+    // codegen/JIT 报 undefined function 'f'。
+    assert_consistent_src(
+        "go_closure_arg",
+        &[
+            "fn 工(ch, v: int) { chan_send(ch, v) }",
+            "fn main() {",
+            "    ch := chan()",
+            "    f := |x: int| x * 3",
+            "    i := 0  while i < 6 { go 工(ch, f(i))  i = i + 1 }",
+            "    t := 0  j := 0  while j < 6 { t = t + chan_recv(ch)  j = j + 1 }",
+            "    put(t)",
+            "}",
+        ],
+    );
+}
+
+#[test]
 fn void_return_in_non_void_fn_rejected() {
     // 回归：无值 return + 非 void 返回类型曾通过 --check，JIT 生成不完整 IR 而 panic。
     assert_rejected("void_ret", &["fn f() -> int { return }"], "返回值");

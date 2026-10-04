@@ -894,6 +894,20 @@ fn convert_closure_calls(b: &mut Block, closure_vars: &mut Vec<String>, rcf: &[S
             }
             Stmt::Block(inner) => convert_closure_calls(inner, closure_vars, rcf),
             Stmt::FieldAssign { value, .. } => convert_closure_calls_expr(value, closure_vars, rcf),
+            // go f(args)：实参里可能含闭包调用（如 go 工(ch, f(i))）。
+            Stmt::Go { args, .. } => for a in args.iter_mut() { convert_closure_calls_expr(a, closure_vars, rcf); },
+            Stmt::Throw(e, _) => convert_closure_calls_expr(e, closure_vars, rcf),
+            Stmt::Labeled { inner, .. } => {
+                let mut blk: Block = vec![(**inner).clone()];
+                convert_closure_calls(&mut blk, closure_vars, rcf);
+                if let Some(x) = blk.into_iter().next() { **inner = x; }
+            }
+            Stmt::Try { body, catches, fin, .. } => {
+                convert_closure_calls(body, &mut closure_vars.clone(), rcf);
+                for c in catches.iter_mut() { convert_closure_calls(&mut c.body, &mut closure_vars.clone(), rcf); }
+                if let Some(f) = fin { convert_closure_calls(f, &mut closure_vars.clone(), rcf); }
+            }
+            Stmt::LocalFn(f) => convert_closure_calls(&mut f.body, &mut closure_vars.clone(), rcf),
             _ => {}
         }
     }
