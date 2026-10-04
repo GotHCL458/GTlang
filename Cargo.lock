@@ -208,7 +208,7 @@ dependencies = [
 
 [[package]]
 name = "gtc_rust"
-version = "0.0.1-c"
+version = "0.0.1-d"
 dependencies = [
  "ariadne",
  "cranelift-codegen",

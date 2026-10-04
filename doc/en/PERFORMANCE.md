@@ -22,11 +22,12 @@
 |---|---|---|
 | Array index | O(1) | stack, bounds-checked |
 | List push/pop | amortized O(1) | doubling array |
-| Set insert/has | O(n) | linear scan |
-| Map get/insert | O(n) | linear scan |
+| Set insert/has | amortized O(1) | open-addressing hash table (power-of-two) |
+| Map get/insert | amortized O(1) | open-addressing hash (Fibonacci hashing) |
 | String concat | O(n) | StringBuilder (rt_sb_*) |
 | String find | O(n*m) | |
 | Channel send/recv | O(1) | unbounded + mutex |
+| `go` dispatch | ~µs | fixed worker thread pool in both AOT and JIT (not thread-per-task) |
 
 ## 3. Backend Comparison
 

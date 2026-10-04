@@ -96,6 +96,39 @@
     竖线x竖线 x * 2                                 // 闭包
     竖线x: int竖线 -> int { x * x }                 // 闭包标注
 
+### 闭包与一等函数 / Closures & first-class functions
+
+    // 闭包捕获外层变量
+    n := 10
+    f := |x: int| x + n
+    f(5)                       // 15
+
+    // 函数作一等值：顶层函数名可直接当值用
+    fn 加一(x: int) -> int { x + 1 }
+    g := 加一                  // 存变量
+    g(10)                      // 11
+    应用(加一, 5)              // 作实参（高阶函数）
+    选 := if true { 加一 } else { 乘二 }   // if/match 分支
+    fs := list()               // 放进容器
+    push(fs, 加一)
+    fs[0](5)                   // 任意表达式作 callee
+
+    // 函数返回闭包
+    fn 造乘(n: int) { return |x: int| x * n }
+    m3 := 造乘(3)
+    m3(10)                     // 30
+
+    // 高阶函数：无标注的闭包参数会被推断为闭包
+    fn 折叠(f, init: int, xs: list) -> int {
+        acc := init
+        i := 0
+        while i < len(xs) { acc = f(acc, xs[i])  i = i + 1 }
+        return acc
+    }
+    折叠(|a: int, b: int| a + b, 0, xs)
+
+> 注：闭包体里对"被捕获的闭包参数"的调用会降级为间接调用。
+
 ---
 
 ## 6. 结构体 / 枚举 / trait

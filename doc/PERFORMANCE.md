@@ -26,11 +26,12 @@
 |---|---|---|
 | 数组下标 | O(1) | 栈分配，边界检查 |
 | 列表 push/pop | 均摊 O(1) | 增长数组（容量翻倍） |
-| 集合 insert/has | O(n) | 线性扫描（小规模够用） |
-| 映射 get/insert | O(n) | 线性扫描 |
+| 集合 insert/has | 均摊 O(1) | 开放寻址哈希表（容量 2 的幂） |
+| 映射 get/insert | 均摊 O(1) | 开放寻址哈希表（Fibonacci hashing） |
 | 字符串拼接 | O(n) | StringBuilder（rt_sb_*） |
 | 字符串查找 | O(n*m) | — |
 | 通道 send/recv | O(1) | 无界队列 + 互斥锁 |
+| `go` 任务派发 | ~µs | AOT/JIT 均用固定 worker 线程池（非每任务起线程） |
 
 ---
 

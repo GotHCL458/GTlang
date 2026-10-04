@@ -59,6 +59,23 @@ s = s + i), the overflow check is elided while keeping semantics safe.
 - Range analysis: key optimization; safe checks elided only when provable
 - --no-overflow-check: further speedup (silent wraparound)
 
-## 6. Reproduce
+## 6. Concurrency & compile speed
+
+**`go` dispatch**: both AOT and JIT use a **fixed worker thread pool** (not
+thread-per-task). In the JIT, 2000 `go` tasks total ~7 ms of dispatch overhead.
+
+**Compile speed** (`gtc --check`, Windows x64): near-linear.
+
+| Size | `--check` time |
+|---|---|
+| 300 fns | ~11 ms |
+| 2000 fns | ~43 ms |
+| 5000 fns | ~82 ms |
+
+**Set / Map**: open-addressing hash, amortized O(1) (previously linear scan).
+
+---
+
+## 7. Reproduce
 
 See bench/ (bench.c / bench.rs / bench.lua / bench.py).

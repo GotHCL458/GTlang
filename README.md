@@ -6,7 +6,7 @@
 
 **GTLang is a statically-typed, compiled, expression-oriented language that runs on a dual backend (LLVM + Cranelift) and speaks Chinese identifiers natively — and its safe defaults match C on tight loops.**
 
-[![Tests](https://img.shields.io/badge/tests-613%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-626%20passed-brightgreen)]()
 [![Backends](https://img.shields.io/badge/backends-LLVM%20%2B%20Cranelift-blue)]()
 [![Warnings](https://img.shields.io/badge/warnings-0-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)]()
@@ -29,7 +29,7 @@
 - **One AST, two backends.** The same source compiles to a native executable (LLVM) or runs in memory (Cranelift JIT) with **byte-for-byte identical output**.
 - **Safe, not sloppy.** Static types, ownership/borrow checking (flow-sensitive NLL), bounds/overflow/divide-by-zero checks, exhaustive `match`.
 - **Bilingual from the ground up.** Chinese identifiers (`计数器`, `累加`, `点`) are first-class, and diagnostics are localized.
-- **Genuinely productive.** Generics, traits, `dyn Trait`, enums with payloads, closures, macros, `@derive`, real threads, channels, and C interop.
+- **Genuinely productive.** Generics, traits, `dyn Trait`, enums with payloads, closures, **first-class functions** (pass a `fn` name as a value), macros, `@derive`, real threads, channels, and C interop.
 
 ---
 
@@ -76,6 +76,7 @@ GTLang is a **statically-typed**, **compiled**, **expression-oriented** programm
 | 🚀 | **Concurrency** — `go` (real threads) + `chan` (unbounded channels) |
 | 🔌 | **C interop** — inline C blocks, `extern "C"`, `import c "header.h"` |
 | 🧩 | **Macros** — declarative `macro` + `@derive(Eq, Clone, Debug, ...)` |
+| 🪄 | **First-class functions** — pass a `fn` name as a value; closures capture containers/params |
 | 💬 | **Smart diagnostics** — stable codes, bilingual, "did you mean X?" |
 | 📦 | **Modules** — `import math` (builtin), `import a.b` (user), `import "x.gt"` |
 | 🛠️ | **Toolchain** — `gtc` (compiler/interpreter), `gtfmt` (formatter) |
@@ -251,6 +252,11 @@ fn max[T](a: T, b: T) -> T where T: Ord { ... }  // where clause
 
 |x| x * 2                                 // closure
 |x: int| -> int { x * x }                 // annotated closure
+
+fn inc(x: int) -> int { x + 1 }
+g := inc                                  // first-class function (store in a variable)
+apply(inc, 5)                             // higher-order (pass as an argument)
+fs[0](5)                                  // any expression as callee
 ```
 
 ### Structs / Enums / Traits
@@ -475,9 +481,9 @@ Unit ──┬── jit::run      (Cranelift)
 cargo test --release
 ```
 
-**613 tests**:
-- **17 unit tests** (`--lib`) — type system, cblock, tmp
-- **96 dual-backend consistency tests** (`tests/consistency.rs`) — same source, both backends, identical stdout
+**626 tests**:
+- **25 unit tests** (`--lib`) — type system, unify, cblock, tmp, AST-traversal completeness
+- **101 dual-backend consistency tests** (`tests/consistency.rs`) — same source, both backends, identical stdout (incl. examples/ recursively)
 - **500 frontend bulk tests** (`tests/bulk.rs`) — parse + type-check coverage
 
 ---

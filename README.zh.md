@@ -6,7 +6,7 @@
 
 **GTLang 是一门静态类型、编译型、表达式导向的编程语言，采用双后端（LLVM + Cranelift），原生支持中文标识符 —— 且默认（带安全检查）在紧循环上追平 C。**
 
-[![Tests](https://img.shields.io/badge/tests-613%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-626%20passed-brightgreen)]()
 [![Backends](https://img.shields.io/badge/backends-LLVM%20%2B%20Cranelift-blue)]()
 [![Warnings](https://img.shields.io/badge/warnings-0-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)]()
@@ -29,7 +29,7 @@
 - **同一 AST，两个后端。** 同一份源码既可编译为原生可执行文件（LLVM），也可内存执行（Cranelift JIT），**输出逐字节一致**。
 - **安全而不将就。** 静态类型、所有权/借用检查（流敏感 NLL）、边界/溢出/除零检查、穷尽 `match`。
 - **原生双语。** 中文标识符（`计数器`、`累加`、`点`）是一等公民，诊断信息本地化。
-- **生产力不缺。** 泛型、trait、`dyn Trait`、带载荷枚举、闭包、宏、`@derive`、真线程、通道、C 交互。
+- **生产力不缺。** 泛型、trait、`dyn Trait`、带载荷枚举、闭包、**函数作一等值**（顶层 `fn` 名可直接当值传递）、宏、`@derive`、真线程、通道、C 交互。
 
 ---
 
@@ -76,6 +76,7 @@ GTLang 是一门**静态类型**、**编译型**、**表达式导向**的编程�
 | 🚀 | **并发** —— `go`（真线程）+ `chan`（无界通道） |
 | 🔌 | **C 交互** —— 内联 C、`extern "C"`、`import c "头.h"` |
 | 🧩 | **宏** —— 声明式 `macro` + `@derive(Eq, Clone, Debug, ...)` |
+| 🪄 | **函数作一等值** —— 顶层 `fn` 名可当值传递；闭包可捕获容器/参数 |
 | 💬 | **智能诊断** —— 稳定错误码、中英双语、"是否想用 X？" |
 | 📦 | **模块** —— `import math`（内置）、`import a.b`（用户）、`import "x.gt"` |
 | 🛠️ | **工具链** —— `gtc`（编译器/解释器）、`gtfmt`（格式化器） |
@@ -247,6 +248,11 @@ fn max[T](a: T, b: T) -> T where T: Ord { ... }  // where 约束
 
 |x| x * 2                                 // 闭包
 |x: int| -> int { x * x }                 // 标注闭包
+
+fn 加一(x: int) -> int { x + 1 }
+g := 加一                                 // 函数作一等值（存变量）
+应用(加一, 5)                             // 高阶函数（作实参）
+fs[0](5)                                  // 任意表达式作 callee
 ```
 
 ### 结构体 / 枚举 / trait
@@ -471,9 +477,9 @@ Unit ──┬── jit::run（Cranelift）
 cargo test --release
 ```
 
-**613 个测试**：
-- **17 个单元测试**（`--lib`）—— 类型系统、cblock、tmp
-- **96 个双后端一致性测试**（`tests/consistency.rs`）—— 同一源码、两个后端、stdout 相同
+**626 个测试**：
+- **25 个单元测试**（`--lib`）—— 类型系统、unify、cblock、tmp、AST 遍历完备性
+- **101 个双后端一致性测试**（`tests/consistency.rs`）—— 同一源码、两个后端、stdout 相同（含递归扫描 examples/）
 - **500 个前端批量测试**（`tests/bulk.rs`）—— parse + type-check 覆盖
 
 ---

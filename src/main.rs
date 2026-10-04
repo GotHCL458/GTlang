@@ -149,7 +149,7 @@ fn main() -> ExitCode {
                 return ExitCode::SUCCESS;
             }
             "-v" | "-V" | "--version" => {
-                println!("gtc 0.0.1c");
+                println!("gtc 0.0.1d");
                 return ExitCode::SUCCESS;
             }
             "--verbose" => gtc_rust::set_verbose(true),

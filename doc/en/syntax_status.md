@@ -21,7 +21,10 @@ if/elif/else, while, do-while, for i in a..b, for v in container, for-else,
 ### 1.4 Functions
 optional param/return types, Chinese names, recursion, **nested functions**,
 generics (monomorphization + **where**), closures, **default args**, **named args**,
-**trait default methods**, **closure annotations** |x: int| -> int
+**trait default methods**, **closure annotations** |x: int| -> int,
+**first-class functions** (a top-level `fn` name works as a value: arg / let / `if` / `match` / `return` / container),
+**any expression as callee** (`fs[0](5)`, `(f)(10)`), **higher-order functions** (unannotated closure param),
+**function returning a closure** (`return |x| x * n`)
 
 ### 1.5 Types
 basic, fixed array, list/set/map, struct, generic struct, trait+impl (blanket),

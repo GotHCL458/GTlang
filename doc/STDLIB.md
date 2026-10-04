@@ -88,6 +88,8 @@ password_verify("bad", h)   // false
 | `random_hex(n)` | 十六进制随机（**伪随机**，安全性请用 `entropy`）|
 
 > ⚠️ `password_hash` 为**单次 SHA-256**（演示用）；生产环境请自行迭代加盐。
+> 💡 `random` 模块的 RNG 状态是**线程局部**的，且初值按"时间 + 地址"扰动，
+> 因此并发 `go` 的多个线程不会拿到相同序列（需确定性复现时请显式 `seed(n)`）。
 
 ---
 

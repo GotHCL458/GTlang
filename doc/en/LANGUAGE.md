@@ -96,6 +96,37 @@ Exhaustiveness: enum must list all variants / bool needs true+false / Option nee
     |x| x * 2                                 // closure
     |x: int| -> int { x * x }                 // annotated closure
 
+### Closures & first-class functions
+
+    // closure captures an outer variable
+    n := 10
+    f := |x: int| x + n
+    f(5)                       // 15
+
+    // functions are first-class: a top-level fn name is a value
+    fn inc(x: int) -> int { x + 1 }
+    g := inc                   // store in a variable
+    g(10)                      // 11
+    apply(inc, 5)              // pass as an argument (higher-order)
+    pick := if true { inc } else { dbl }    // if/match branch
+    fs := list()               // put in a container
+    push(fs, inc)
+    fs[0](5)                   // any expression as callee
+
+    // a function returning a closure
+    fn mul(n: int) { return |x: int| x * n }
+    m3 := mul(3)
+    m3(10)                     // 30
+
+    // higher-order: an unannotated closure param infers as a closure
+    fn fold(f, init: int, xs: list) -> int {
+        acc := init
+        i := 0
+        while i < len(xs) { acc = f(acc, xs[i])  i = i + 1 }
+        return acc
+    }
+    fold(|a: int, b: int| a + b, 0, xs)
+
 ---
 
 ## 6. Struct / Enum / trait
