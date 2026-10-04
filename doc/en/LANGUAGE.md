@@ -2,7 +2,7 @@
 
 > [中文](../LANGUAGE.md)
 
-> Version 0.0.1b | Compiler: gtc (dual backend) | Encoding: UTF-8 (auto-detected)
+> Version 0.0.1d | Compiler: gtc (dual backend) | Encoding: UTF-8 (auto-detected)
 
 ---
 

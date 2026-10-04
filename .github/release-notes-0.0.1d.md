@@ -63,7 +63,7 @@ Closure bodies now see the types of captured containers/strings, and
 
 ## 🧪 Tests
 
-**626 tests**: 25 unit + 101 dual-backend consistency + 500 frontend bulk.
+**814 tests**: 142 unit + 149 dual-backend consistency + 522 frontend bulk.
 0 warnings. Includes new **AST traversal completeness** tests.
 
 ---

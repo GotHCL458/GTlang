@@ -104,6 +104,6 @@ mem_*（裸内存）、chan/sleep
 
 ## 4. 测试
 
-**803 测试**（140 单元 + 141 双后端一致性 + 522 前端批量），`cargo test --release` 全绿，**0 warning**。
+**814 测试**（142 单元 + 149 双后端一致性 + 522 前端批量），`cargo test --release` 全绿，**0 warning**。
 
 

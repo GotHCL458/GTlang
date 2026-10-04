@@ -95,6 +95,6 @@ container ops, string ops, mem_*, chan/sleep
 
 ## 4. Tests
 
-**803 tests** (140 unit + 141 dual-backend consistency + 522 frontend bulk),
+**814 tests** (142 unit + 149 dual-backend consistency + 522 frontend bulk),
 cargo test --release all green, 0 warnings.
 
