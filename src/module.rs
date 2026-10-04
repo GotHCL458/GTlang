@@ -818,22 +818,26 @@ fn sanitize(s: &str) -> String {
 
 fn prefix_struct_ty(t: &mut Ty, prefix: &str) {
     match t {
-        Ty::Struct(n) => *n = format!("{}{}", prefix, n),
-        Ty::List(e) => prefix_struct_ty(e, prefix),
-        Ty::Set(e) => prefix_struct_ty(e, prefix),
+        Ty::Struct(n) | Ty::Enum(n) | Ty::Dyn(n) => *n = format!("{}{}", prefix, n),
+        Ty::List(e) | Ty::Set(e) | Ty::Option(e) | Ty::Ref(e) | Ty::RefMut(e) => prefix_struct_ty(e, prefix),
         Ty::Map(k, v) => { prefix_struct_ty(k, prefix); prefix_struct_ty(v, prefix); }
         Ty::Array(e, _) => prefix_struct_ty(e, prefix),
+        Ty::Result(a, b) => { prefix_struct_ty(a, prefix); prefix_struct_ty(b, prefix); }
+        Ty::Tuple(ts) => for x in ts { prefix_struct_ty(x, prefix); },
+        Ty::Closure(ps, r) => { for p in ps { prefix_struct_ty(p, prefix); } prefix_struct_ty(r, prefix); }
         _ => {}
     }
 }
 
 fn rewrite_struct_ty(t: &mut Ty, old: &str, new: &str) {
     match t {
-        Ty::Struct(n) => { if n == old { *n = new.to_string(); } }
-        Ty::List(e) => rewrite_struct_ty(e, old, new),
-        Ty::Set(e) => rewrite_struct_ty(e, old, new),
+        Ty::Struct(n) | Ty::Enum(n) | Ty::Dyn(n) => { if n == old { *n = new.to_string(); } }
+        Ty::List(e) | Ty::Set(e) | Ty::Option(e) | Ty::Ref(e) | Ty::RefMut(e) => rewrite_struct_ty(e, old, new),
         Ty::Map(k, v) => { rewrite_struct_ty(k, old, new); rewrite_struct_ty(v, old, new); }
         Ty::Array(e, _) => rewrite_struct_ty(e, old, new),
+        Ty::Result(a, b) => { rewrite_struct_ty(a, old, new); rewrite_struct_ty(b, old, new); }
+        Ty::Tuple(ts) => for x in ts { rewrite_struct_ty(x, old, new); },
+        Ty::Closure(ps, r) => { for p in ps { rewrite_struct_ty(p, old, new); } rewrite_struct_ty(r, old, new); }
         _ => {}
     }
 }

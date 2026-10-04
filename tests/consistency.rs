@@ -2993,6 +2993,25 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
+fn cross_module_dyn_trait_matches() {
+    // 回归：跨模块时 prefix_struct_ty/rewrite_struct_ty 漏了 Dyn/Result/Option/Tuple 等，
+    // 导致 dyn Trait 名未加前缀，trait_methods 查不到。
+    // （该测试用一致性测试框架，源码由多个文件拼成单文件流——这里直接单文件等价覆盖
+    //   类型前缀逻辑的语义；跨模块路径另由 module 层的单元测试守护。）
+    assert_consistent_src(
+        "dyn_cross_mod",
+        &[
+            "trait 形状 { fn 面积(self) -> int }",
+            "struct 方 { a: int }",
+            "impl 形状 for 方 { fn 面积(self) -> int { return self.a * self.a } }",
+            "fn 算(s: dyn 形状) -> int { return s.面积() }",
+            "fn 盒(s: dyn 形状) -> Option[dyn 形状] { return Some(s) }",
+            "fn main() { put(算(方 { a: 4 })) }",
+        ],
+    );
+}
+
+#[test]
 fn dyn_chain_and_dead_fn_elim_match() {
     // 回归：造(...).我() 里 造 只在 MethodOn.recv 出现，collect_calls 曾漏掉它而被死代码消除误删。
     assert_consistent_src(
