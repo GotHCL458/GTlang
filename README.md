@@ -329,7 +329,7 @@ put(平方(5))           // auto-resolves signature
 
 extern "C" { fn puts(s: str) -> int }
 
-import c "math.h" as m
+import c "native.h" as n            // project-local header only
 put(m.sqrt(2.0))
 ```
 

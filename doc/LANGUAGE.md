@@ -221,10 +221,18 @@
     }
     put(平方(5))                            // 自动解析签名
 
-    extern "C" { fn puts(s: str) -> int }
+    extern "C" { fn puts(s: str) -> int }  // 直接声明 C 函数
 
-    import c "math.h" as m                  // C 头
-    put(m.sqrt(2.0))
+    // C 头：只适用于"项目内可读的 .h"（会解析其函数签名，可用 别名.函数 调用）
+    import c "native.h" as n
+    put(n.原生函数(2.0))
+
+    // 系统头（如 math.h）：改用内联 C 块（由 C 编译器 #include）
+    C {
+        #include <math.h>
+        static double 平方根(double x) { return sqrt(x); }
+    }
+    put(平方根(2.0))
 
 ---
 

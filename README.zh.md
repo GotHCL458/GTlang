@@ -325,7 +325,7 @@ put(平方(5))           // 自动解析签名
 
 extern "C" { fn puts(s: str) -> int }
 
-import c "math.h" as m
+import c "native.h" as n            // 仅支持项目内可读的 .h
 put(m.sqrt(2.0))
 ```
 

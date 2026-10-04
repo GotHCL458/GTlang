@@ -216,8 +216,16 @@ Overloadable: add sub mul div rem eq ne lt le gt ge neg
 
     extern "C" { fn puts(s: str) -> int }
 
-    import c "math.h" as m
-    put(m.sqrt(2.0))
+    // C header import only works for project-local .h files (their signatures are parsed).
+    import c "native.h" as n
+    put(n.native_fn(2.0))
+
+    // System headers (e.g. math.h): use an inline C block instead.
+    C {
+        #include <math.h>
+        static double my_sqrt(double x) { return sqrt(x); }
+    }
+    put(my_sqrt(2.0))
 
 ---
 
