@@ -1,0 +1,26 @@
+fn main() {
+    o := Some(5)
+    if let Some(v) = o {
+        put(v)
+        put(10)
+    }
+    arr := [1, 2, 3]
+    i := 0
+    while let Some(x) = if i < 3 { Some(arr[i]) } else { None } {
+        put(x)
+        i = i + 1
+    }
+    put(10)
+    f := y => y + 100
+    put(f(1))
+    put(10)
+    z := do { 40 + 2 }
+    put(z)
+    put(10)
+    n := comptime { 3 * 3 }
+    put(n)
+    put(10)
+    a := None
+    put(a ?? 7)
+    put(10)
+}

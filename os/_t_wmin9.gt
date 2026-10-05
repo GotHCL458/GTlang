@@ -1,0 +1,12 @@
+fn main() {
+    arr := [1, 2, 3]
+    i := 0
+    a := None
+    put(a ?? 7)
+    put(10)
+    while let Some(x) = if i < 3 { Some(arr[i]) } else { None } {
+        put(x)
+        put(10)
+        i = i + 1
+    }
+}

@@ -311,6 +311,44 @@ pub enum Stmt {
     Asm { lines: Vec<String>, line: usize },
 }
 
+/// 遍历表达式中**直接**包含的所有块（Match arm body、if 表达式分支、try 块）。
+pub fn each_expr_block_inner<'a>(e: &'a Expr, f: &mut impl FnMut(&'a Block)) {
+    match &e.kind {
+        ExprKind::Match { arms, .. } => for a in arms { f(&a.body); },
+        ExprKind::If { then, els, .. } => { f(then); if let Some(x) = els { f(x); } }
+        ExprKind::TryBlock { body, catches, fin } => {
+            f(body);
+            for ca in catches { f(&ca.body); }
+            if let Some(x) = fin { f(x); }
+        }
+        _ => {}
+    }
+    // 递归子表达式
+    each_child_expr(e, &mut |c| each_expr_block_inner(c, f));
+}
+
+/// 遍历一个表达式的直接子表达式（不递归）。
+pub fn each_child_expr<'a>(e: &'a Expr, f: &mut impl FnMut(&'a Expr)) {
+    match &e.kind {
+        ExprKind::Unary(_, a) | ExprKind::Field(a, _) | ExprKind::Ok(a) | ExprKind::Err(a) | ExprKind::Try(a) | ExprKind::Some(a) | ExprKind::Borrow { inner: a, .. } => f(a),
+        ExprKind::Binary(_, a, b) | ExprKind::Index(a, b) => { f(a); f(b); }
+        ExprKind::Call(_, args) | ExprKind::ArrayLit(args) | ExprKind::TupleLit(args) => for a in args { f(a); },
+        ExprKind::CallValue { callee, args } => { f(callee); for a in args { f(a); } }
+        ExprKind::MethodOn { recv, args, .. } => { f(recv); for a in args { f(a); } }
+        ExprKind::StructLit(_, fs) => for (_, v) in fs { f(v); },
+        ExprKind::EnumLit(_, _, args) => for a in args { f(a); },
+        ExprKind::Slice(a, b, c) => { f(a); f(b); f(c); }
+        ExprKind::If { cond, .. } => f(cond),
+        ExprKind::Match { subject, .. } => f(subject),
+        ExprKind::Closure { body, .. } => f(body),
+        ExprKind::ClosureNew { captures, .. } => for c in captures { f(c); },
+        ExprKind::DynBox { value, .. } => f(value),
+        ExprKind::Interp(parts) => for p in parts { if let StrPart::Expr(i) = p { f(i); } },
+        ExprKind::ListComp { expr, iter, cond, .. } => { f(expr); f(iter); if let Some(c) = cond { f(c); } }
+        _ => {}
+    }
+}
+
 impl Stmt {
     /// 遍历本语句**直接**包含的所有子块（不递归）。
     /// 用于"需要看全部语句"的分析（如 scan_mutation），
@@ -331,9 +369,11 @@ impl Stmt {
                 if let Some(fin) = fin { f(fin); }
             }
             Stmt::LocalFn(fd) => f(&fd.body),
-            Stmt::Let { .. } | Stmt::Assign { .. } | Stmt::FieldAssign { .. } | Stmt::Expr(_)
-            | Stmt::Return(..) | Stmt::Break(..) | Stmt::Continue(..) | Stmt::Const { .. }
-            | Stmt::Go { .. } | Stmt::Throw(..) | Stmt::Asm { .. } => {}
+            Stmt::Let { value, .. } | Stmt::Const { value, .. } | Stmt::Throw(value, _) | Stmt::Defer(value, _) => each_expr_block_inner(value, f),
+            Stmt::Assign { value, .. } | Stmt::FieldAssign { value, .. } => each_expr_block_inner(value, f),
+            Stmt::Expr(e) | Stmt::Return(Some(e), _) => each_expr_block_inner(e, f),
+            Stmt::Go { args, .. } => for a in args { each_expr_block_inner(a, f); },
+            Stmt::Return(None, _) | Stmt::Break(..) | Stmt::Continue(..) | Stmt::Asm { .. } => {}
         }
     }
 }
