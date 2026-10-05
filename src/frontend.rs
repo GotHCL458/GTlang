@@ -92,6 +92,8 @@ fn lower(prog: &mut Program) -> Vec<String> {
     crate::opt::expand_list_comp(prog);
     // 宏展开（在 sema 前）
     crate::opt::expand_macros(prog);
+    // 编译期求值：comptime { ... } -> 字面量（在 sema 前）
+    crate::opt::expand_comptime(prog);
     // 第一遍 sema：填充调用点实参类型（单态化 / 方法降级需要）
     let _ = sema::analyze(prog);
     mono::lower_method_calls(prog, &methods);

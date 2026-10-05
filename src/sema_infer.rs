@@ -9,6 +9,7 @@ impl Ctx {
             ExprKind::Int(_) => Ty::I64,
             ExprKind::Float(_) => Ty::F64,
             ExprKind::Bool(_) => Ty::Bool,
+            ExprKind::Comptime(_) => Ty::I64,
             ExprKind::TupleLit(items) => { let mut ts = Vec::new(); for it in items.iter_mut() { ts.push(self.infer(it)?); } Ty::Tuple(ts) },
 
             ExprKind::DynBox { trait_name, value } => { self.infer(value)?; Ty::Dyn(trait_name.clone()) },

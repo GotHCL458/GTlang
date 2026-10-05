@@ -26,6 +26,11 @@ use sema_stmt::*;
 use sema_util::*;
 pub use sema_util::closest_name_pub;
 
+/// 对外的常量求值入口（供 opt 的 comptime 用）。
+pub(crate) fn eval_const_pub(e: &Expr, consts: &HashMap<String, ConstVal>) -> Result<(Ty, Value), String> {
+    eval_const(e, consts)
+}
+
 #[derive(Debug, Clone)]
 pub enum Value {
     Int(i64),

@@ -492,6 +492,11 @@ impl Parser {
                 if name == "match" {
                     return self.match_expr(line);
                 }
+                if name == "comptime" && matches!(&self.peek_at(1).tok, Tok::Punct(p) if p == "{") {
+                    self.bump(); // comptime
+                    let body = self.block()?;
+                    return Ok(Expr::new(ExprKind::Comptime(body), line));
+                }
                 if name == "do" && matches!(&self.peek_at(1).tok, Tok::Punct(p) if p == "{") {
                     self.bump(); // do
                     let body = self.block()?;

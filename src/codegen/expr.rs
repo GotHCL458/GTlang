@@ -385,6 +385,7 @@ impl<'a> Codegen<'a> {
                 let t = e.ty.clone();
                 self.match_value(subject, arms, &t, e.line)
             }
+            ExprKind::Comptime(_) => Err("internal: Comptime not lowered".to_string()),   // 已在 opt 降级
             ExprKind::TryBlock { body, catches, fin } => {
                 // try 块作为表达式：body 末表达式是 Result，返回 Ok 值 / handler 值
                 let want = Ty::Result(Box::new(Ty::I64), Box::new(Ty::I64));

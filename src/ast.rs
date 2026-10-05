@@ -128,6 +128,8 @@ pub enum ExprKind {
     None,
     /// `try { ... } expt ... fily ...` 作为**表达式**（块值）
     TryBlock { body: Block, catches: Vec<CatchArm>, fin: Option<Block> },
+    /// `comptime { ... }`：编译期求值（常量折叠），结果作为字面量
+    Comptime(Block),
 }
 
 /// match 的一条分支

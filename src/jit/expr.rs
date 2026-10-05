@@ -8,6 +8,7 @@ impl FnState {
             ExprKind::Int(v) => Ok((b.ins().iconst(types::I64, *v), Ty::I64)),
             ExprKind::Float(v) => Ok((b.ins().f64const(*v), Ty::F64)),
             ExprKind::Bool(v) => Ok((b.ins().iconst(types::I64, *v as i64), Ty::Bool)),
+            ExprKind::Comptime(_) => Err("internal: Comptime not lowered".to_string()),
             ExprKind::CallNamed(_, _) => Err("internal: CallNamed not resolved".to_string()),
             ExprKind::MethodOn { recv, method, args } => {
                 let rv = self.gen_expr(jit, b, recv)?;

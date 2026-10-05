@@ -313,6 +313,7 @@ impl<'a> Ctx<'a> {
     /// 遍历表达式，报告已移动值的使用、借用冲突、以及表达式内的「按值使用」移动。
     fn use_expr(&mut self, e: &Expr, st: &State, depth: usize) {
         match &e.kind {
+            ExprKind::Comptime(_) => {}
             ExprKind::CallNamed(_, named) => { for (_, v) in named.iter() { self.use_expr(v, st, depth); } }
             ExprKind::TupleLit(items) => for v in items.iter() { self.use_expr(v, st, depth); },
             ExprKind::Slice(b, lo, hi) => { self.use_expr(b, st, depth); self.use_expr(lo, st, depth); self.use_expr(hi, st, depth); },

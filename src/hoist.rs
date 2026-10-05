@@ -550,6 +550,7 @@ fn rewrite_calls_block(b: &mut Block, scope: &HashMap<String, String>) {
 
 fn rewrite_calls_expr(e: &mut Expr, scope: &HashMap<String, String>) {
     match &mut e.kind {
+        ExprKind::Comptime(_) => {}
         ExprKind::CallNamed(_, named) => { for (_, v) in named.iter_mut() { rewrite_calls_expr(v, scope); } }
         ExprKind::TupleLit(items) => for v in items.iter_mut() { rewrite_calls_expr(v, scope); },
         ExprKind::Slice(b, lo, hi) => { rewrite_calls_expr(b, scope); rewrite_calls_expr(lo, scope); rewrite_calls_expr(hi, scope); },

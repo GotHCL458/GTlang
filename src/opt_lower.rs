@@ -335,4 +335,82 @@ pub(crate) fn macro_subst_stmt(s: &mut Stmt, subst: &std::collections::HashMap<S
     }
 }
 
+// ============================================================
+// comptime：编译期求值（块的最后表达式 -> 字面量）
+// ============================================================
+
+pub fn expand_comptime(prog: &mut Program) {
+    let consts = prog_consts(prog);
+    for item in prog.items.iter_mut() {
+        if let Item::Fn(f) = item {
+            comptime_block(&mut f.body, &consts);
+        }
+    }
+}
+
+fn prog_consts(prog: &Program) -> std::collections::HashMap<String, crate::sema::ConstVal> {
+    let mut m: std::collections::HashMap<String, crate::sema::ConstVal> = std::collections::HashMap::new();
+    for item in &prog.items {
+        if let Item::Const { name, value, .. } = item {
+            if let Ok((ty, v)) = crate::sema::eval_const_pub(value, &m) {
+                m.insert(name.clone(), crate::sema::ConstVal { ty, val: v });
+            }
+        }
+    }
+    m
+}
+
+fn comptime_block(b: &mut Block, consts: &std::collections::HashMap<String, crate::sema::ConstVal>) {
+    for s in b.iter_mut() {
+        comptime_stmt(s, consts);
+    }
+}
+
+fn comptime_stmt(s: &mut Stmt, consts: &std::collections::HashMap<String, crate::sema::ConstVal>) {
+    // 递归子块
+    match s {
+        Stmt::If { then, els, .. } => { comptime_block(then, consts); if let Some(e) = els { comptime_block(e, consts); } }
+        Stmt::While { body, .. } | Stmt::DoWhile { body, .. } | Stmt::Block(body) => comptime_block(body, consts),
+        Stmt::ForRange { body, els, .. } | Stmt::ForEach { body, els, .. } => { comptime_block(body, consts); if let Some(e) = els { comptime_block(e, consts); } }
+        Stmt::Try { body, catches, fin, .. } => {
+            comptime_block(body, consts);
+            for ca in catches { comptime_block(&mut ca.body, consts); }
+            if let Some(f) = fin { comptime_block(f, consts); }
+        }
+        _ => {}
+    }
+    // 本语句表达式
+    match s {
+        Stmt::Let { value, .. } | Stmt::Const { value, .. } | Stmt::FieldAssign { value, .. }
+        | Stmt::Expr(value) | Stmt::Return(Some(value), _) | Stmt::Throw(value, _) | Stmt::Defer(value, _) => comptime_expr(value, consts),
+        Stmt::Assign { value, .. } => comptime_expr(value, consts),
+        Stmt::If { cond, .. } | Stmt::While { cond, .. } | Stmt::DoWhile { cond, .. } => comptime_expr(cond, consts),
+        _ => {}
+    }
+}
+
+fn comptime_expr(e: &mut Expr, consts: &std::collections::HashMap<String, crate::sema::ConstVal>) {
+    if let ExprKind::Comptime(body) = &e.kind {
+        let last = body.last().and_then(|s| if let Stmt::Expr(x) = s { Some(x.clone()) } else { None });
+        if let Some(x) = last {
+            if let Ok((ty, v)) = crate::sema::eval_const_pub(&x, consts) {
+                e.kind = const_to_expr(&v);
+                e.ty = ty;
+                return;
+            }
+        }
+    }
+}
+
+fn const_to_expr(v: &crate::sema::Value) -> ExprKind {
+    use crate::sema::Value;
+    match v {
+        Value::Int(n) => ExprKind::Int(*n),
+        Value::Float(f) => ExprKind::Float(*f),
+        Value::Bool(b) => ExprKind::Bool(*b),
+        Value::Str(s) => ExprKind::Str(s.clone()),
+        _ => ExprKind::Int(0),
+    }
+}
+
 
