@@ -1,0 +1,11 @@
+import boot
+
+fn main() {
+    i := 0
+    while i < 100000 {
+        boot.fs_ram.write("a", "hello world", 11)
+        i = i + 1
+    }
+    put(1)
+    put(10)
+}

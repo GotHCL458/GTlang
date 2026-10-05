@@ -1315,6 +1315,7 @@ long long boot_fs_ram_write(const char *name, const char *data, long long n) {
     int i = boot_fs_find(name);
     if (i < 0) { long long r = boot_fs_ram_create(name); if (r < 0) return -1; i = (int)r; }
     if (n < 0) n = 0;
+    if (boot_fs_data[i]) { gt_free(boot_fs_data[i]); }   /* 释放旧缓冲，避免泄漏 */
     boot_fs_data[i] = (unsigned char *)gt_alloc((size_t)n + 1);
     if (data && n > 0) memcpy(boot_fs_data[i], data, (size_t)n);
     boot_fs_data[i][n] = 0;
@@ -1333,7 +1334,8 @@ long long boot_fs_ram_size(const char *name) { int i = boot_fs_find(name); retur
 long long boot_fs_ram_delete(const char *name) {
     int i = boot_fs_find(name);
     if (i < 0) return -1;
-    free(boot_fs_names[i]); boot_fs_names[i] = NULL;
+    gt_free(boot_fs_names[i]); boot_fs_names[i] = NULL;
+    if (boot_fs_data[i]) { gt_free(boot_fs_data[i]); }
     boot_fs_data[i] = NULL; boot_fs_size_[i] = 0;
     return 0;
 }

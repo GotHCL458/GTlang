@@ -71,6 +71,7 @@ pub(crate) extern "C" fn boot_mem_alloc(n: i64) -> i64 {
     if g.is_none() { *g = Some(vec![0u8; 16 * 1024 * 1024]); }
     let base = g.as_ref().unwrap().as_ptr() as i64;
     let off = BOOT_MEM.fetch_add(n as usize, Ordering::SeqCst);
+    if off + (n as usize) > 16 * 1024 * 1024 { return 0; }   // 越界保护
     base + off as i64
 }
 pub(crate) extern "C" fn boot_mem_free(_p: i64) {}
