@@ -814,6 +814,8 @@ static void gt_sb_reserve(GtSb *s, long long extra) {
     s->buf = (char *)gt_realloc(s->buf, (size_t)s->cap);
 }
 
+void gt_sb_push_str(long long h, const char *p);   /* 前置声明 */
+
 /* gt_sb_push_char：按字符追加（c 是 ASCII 码） */
 void gt_sb_push_char(long long h, long long c) {
     char tmp[2]; tmp[0] = (char)(c & 0xFF); tmp[1] = 0;
