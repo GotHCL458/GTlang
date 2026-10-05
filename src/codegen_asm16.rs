@@ -455,16 +455,51 @@ fn gen_expr(a: &mut Asm16, sc: &mut Scope, e: &Expr) -> Result<(), String> {
             for arm in arms {
                 let lnext = a.new_label("Lmn");
                 if let Some(pat) = &arm.pat {
-                    load_ax(a, subj_off);
-                    push_ax(a);
-                    gen_expr(a, sc, pat)?;
-                    a.b(0x89); a.b(0xC3);
-                    pop_ax(a);
-                    a.b(0x39); a.b(0xD8);
-                    a.b(0x75);
-                    let at = a.out.len(); a.b(0);
-                    let f = a.pc();
-                    a.fixups.push((at, lnext.clone(), FixKind::Rel8From(f)));
+                    // enum pattern：`E::V(x)` 或 `E::V` —— 比较 tag（变体名哈希），并绑定载荷
+                    if let ExprKind::EnumLit(_, variant, bind) = &pat.kind {
+                        // 计算 tag
+                        let mut h: u32 = 2166136261;
+                        for b in variant.bytes() { h = (h ^ b as u32).wrapping_mul(16777619); }
+                        let tag = (h % 256) as i64;
+                        // 载入 subject tag：subject 的 tag 在 "基址 - n*2" 处（与 EnumLit 布局一致）
+                        // EnumLit 布局：tag 在基址处，载荷在基址 - (i+1)*2
+                        load_ax(a, subj_off);   // AX = 枚举基址（tag 槽）
+                        a.b(0x89); a.b(0xC3);   // mov bx, ax
+                        a.b(0x8B); a.b(0x07);   // mov ax, [bx]（tag）
+                        a.b(0x3D); a.w(tag);    // cmp ax, tag
+                        a.b(0x75);              // jne lnext
+                        let at = a.out.len(); a.b(0);
+                        let f = a.pc();
+                        a.fixups.push((at, lnext.clone(), FixKind::Rel8From(f)));
+                        // 绑定载荷：bind[i] 是变量名，载荷槽在 "基址 - i*2"
+                        load_ax(a, subj_off);
+                        let base_off = alloc(sc);
+                        store_ax(a, base_off);
+                        for (i, bexpr) in bind.iter().enumerate() {
+                            if let ExprKind::Ident(vname) = &bexpr.kind {
+                                let voff = alloc(sc);
+                                sc.vars.insert(vname.clone(), voff);
+                                // 载荷槽地址 = 基址 - (i+1)*2
+                                load_ax(a, base_off);
+                                a.b(0x89); a.b(0xC3);
+                                let d = ((i + 1) * 2) as u8;
+                                a.b(0x83); a.b(0xC3); a.b(d);  // add bx, (i+1)*2
+                                a.b(0x8B); a.b(0x07);          // mov ax, [bx]
+                                store_ax(a, voff);
+                            }
+                        }
+                    } else {
+                        load_ax(a, subj_off);
+                        push_ax(a);
+                        gen_expr(a, sc, pat)?;
+                        a.b(0x89); a.b(0xC3);
+                        pop_ax(a);
+                        a.b(0x39); a.b(0xD8);
+                        a.b(0x75);
+                        let at = a.out.len(); a.b(0);
+                        let f = a.pc();
+                        a.fixups.push((at, lnext.clone(), FixKind::Rel8From(f)));
+                    }
                 }
                 if let Some((lo, hi)) = &arm.range {
                     load_ax(a, subj_off);
