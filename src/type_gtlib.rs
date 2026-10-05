@@ -213,14 +213,30 @@ pub fn gtlib_fn(name: &str) -> Option<StdFn> {
         "boot_irq_disable" => f("boot_irq_disable", Ty::Void, &[]),
         "boot_pic_init" => f("boot_pic_init", Ty::Void, &[]),
         "boot_keyboard_handler" => f("boot_keyboard_handler", Ty::I64, &[]),
-        "boot_fs_create" => f("boot_fs_create", Ty::I64, &[Ty::Str]),
-        "boot_fs_write" => f("boot_fs_write", Ty::I64, &[Ty::Str, Ty::Str, Ty::I64]),
-        "boot_fs_read" => f("boot_fs_read", Ty::I64, &[Ty::Str, Ty::I64, Ty::I64]),
-        "boot_fs_size" => f("boot_fs_size", Ty::I64, &[Ty::Str]),
-        "boot_fs_delete" => f("boot_fs_delete", Ty::I64, &[Ty::Str]),
-        "boot_fs_count" => f("boot_fs_count", Ty::I64, &[]),
+        // fs_ram（内存文件系统，完整 CRUD）
+        "boot_fs_ram_create" => f("boot_fs_ram_create", Ty::I64, &[Ty::Str]),
+        "boot_fs_ram_write" => f("boot_fs_ram_write", Ty::I64, &[Ty::Str, Ty::Str, Ty::I64]),
+        "boot_fs_ram_read" => f("boot_fs_ram_read", Ty::I64, &[Ty::Str, Ty::I64, Ty::I64]),
+        "boot_fs_ram_size" => f("boot_fs_ram_size", Ty::I64, &[Ty::Str]),
+        "boot_fs_ram_delete" => f("boot_fs_ram_delete", Ty::I64, &[Ty::Str]),
+        "boot_fs_ram_count" => f("boot_fs_ram_count", Ty::I64, &[]),
+        "boot_fs_ram_list" => f("boot_fs_ram_list", Ty::I64, &[Ty::I64, Ty::I64]),
+        // fs_fat8（只读）
+        "boot_fat8_find" => f("boot_fat8_find", Ty::I64, &[Ty::Str]),
+        "boot_fat8_read" => f("boot_fat8_read", Ty::I64, &[Ty::Str, Ty::I64, Ty::I64]),
+        "boot_fat8_list" => f("boot_fat8_list", Ty::I64, &[Ty::I64, Ty::I64]),
+        // fs_fat16（完整读写）
         "boot_fat16_find" => f("boot_fat16_find", Ty::I64, &[Ty::Str]),
         "boot_fat16_read" => f("boot_fat16_read", Ty::I64, &[Ty::Str, Ty::I64, Ty::I64]),
+        "boot_fat16_write" => f("boot_fat16_write", Ty::I64, &[Ty::Str, Ty::I64, Ty::I64]),
+        "boot_fat16_delete" => f("boot_fat16_delete", Ty::I64, &[Ty::Str]),
+        "boot_fat16_list" => f("boot_fat16_list", Ty::I64, &[Ty::I64, Ty::I64]),
+        // fs_fat32（完整读写）
+        "boot_fat32_find" => f("boot_fat32_find", Ty::I64, &[Ty::Str]),
+        "boot_fat32_read" => f("boot_fat32_read", Ty::I64, &[Ty::Str, Ty::I64, Ty::I64]),
+        "boot_fat32_write" => f("boot_fat32_write", Ty::I64, &[Ty::Str, Ty::I64, Ty::I64]),
+        "boot_fat32_delete" => f("boot_fat32_delete", Ty::I64, &[Ty::Str]),
+        "boot_fat32_list" => f("boot_fat32_list", Ty::I64, &[Ty::I64, Ty::I64]),
         "boot_task_create" => f("boot_task_create", Ty::I64, &[Ty::I64]),
         "boot_task_yield" => f("boot_task_yield", Ty::Void, &[]),
         "boot_task_start" => f("boot_task_start", Ty::Void, &[]),
@@ -375,8 +391,10 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "boot_inb" | "boot_outb" | "boot_inw" | "boot_outw"
         | "boot_version" | "boot_arch"
         | "boot_idt_init" | "boot_irq_enable" | "boot_irq_disable" | "boot_pic_init" | "boot_keyboard_handler"
-        | "boot_fs_create" | "boot_fs_write" | "boot_fs_read" | "boot_fs_size" | "boot_fs_delete" | "boot_fs_count"
-        | "boot_fat16_find" | "boot_fat16_read"
+        | "boot_fs_ram_create" | "boot_fs_ram_write" | "boot_fs_ram_read" | "boot_fs_ram_size" | "boot_fs_ram_delete" | "boot_fs_ram_count" | "boot_fs_ram_list"
+        | "boot_fat8_find" | "boot_fat8_read" | "boot_fat8_list"
+        | "boot_fat16_find" | "boot_fat16_read" | "boot_fat16_write" | "boot_fat16_delete" | "boot_fat16_list"
+        | "boot_fat32_find" | "boot_fat32_read" | "boot_fat32_write" | "boot_fat32_delete" | "boot_fat32_list"
         | "boot_task_create" | "boot_task_yield" | "boot_task_start"
         | "sha256" | "hmac_sha256" | "sha256_hexlen" | "sha512" | "sha1" | "md5" | "sha512_hexlen" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
         | "entropy_random_hex" | "entropy_random_int" | "entropy_random_bytes" | "entropy_uuid"

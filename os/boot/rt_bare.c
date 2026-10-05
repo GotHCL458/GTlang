@@ -298,7 +298,7 @@ struct fs_file {
 static struct fs_file fs_files[FS_MAX_FILES];
 
 /* 创建文件，返回索引（-1 失败） */
-int boot_fs_create(const char *name) {
+int boot_fs_ram_create(const char *name) {
     for (int i = 0; i < FS_MAX_FILES; i++) {
         if (!fs_files[i].used) {
             fs_files[i].used = 1;
@@ -327,9 +327,9 @@ static int fs_find(const char *name) {
     return -1;
 }
 
-long long boot_fs_write(const char *name, const char *data, int n) {
+long long boot_fs_ram_write(const char *name, const char *data, int n) {
     int i = fs_find(name);
-    if (i < 0) i = boot_fs_create(name);
+    if (i < 0) i = boot_fs_ram_create(name);
     if (i < 0) return -1;
     if (n < 0) n = 0;
     if (n > FS_DATA_MAX) n = FS_DATA_MAX;
@@ -338,7 +338,7 @@ long long boot_fs_write(const char *name, const char *data, int n) {
     return n;
 }
 
-long long boot_fs_read(const char *name, char *out, long long cap) {
+long long boot_fs_ram_read(const char *name, char *out, long long cap) {
     int i = fs_find(name);
     if (i < 0) return -1;
     long long n = fs_files[i].size;
@@ -347,12 +347,12 @@ long long boot_fs_read(const char *name, char *out, long long cap) {
     return n;
 }
 
-long long boot_fs_size(const char *name) {
+long long boot_fs_ram_size(const char *name) {
     int i = fs_find(name);
     return i < 0 ? -1 : (long long)fs_files[i].size;
 }
 
-long long boot_fs_delete(const char *name) {
+long long boot_fs_ram_delete(const char *name) {
     int i = fs_find(name);
     if (i < 0) return -1;
     fs_files[i].used = 0;
@@ -360,10 +360,27 @@ long long boot_fs_delete(const char *name) {
     return 0;
 }
 
-long long boot_fs_count(void) {
+long long boot_fs_ram_count(void) {
     long long c = 0;
     for (int i = 0; i < FS_MAX_FILES; i++) if (fs_files[i].used) c++;
     return c;
+}
+
+/* 列出文件名：按 NUL 分隔写入 out，返回文件数（out/cap 可传 0 仅取数量）*/
+long long boot_fs_ram_list(long long out, long long cap) {
+    char *p = (char *)out;
+    long long used_bytes = 0;
+    long long count = 0;
+    for (int i = 0; i < FS_MAX_FILES; i++) {
+        if (!fs_files[i].used) continue;
+        count++;
+        if (!out || used_bytes >= cap) continue;
+        int j = 0;
+        while (fs_files[i].name[j] && used_bytes + j + 1 < cap) { p[used_bytes + j] = fs_files[i].name[j]; j++; }
+        p[used_bytes + j] = 0;
+        used_bytes += j + 1;
+    }
+    return count;
 }
 
 
@@ -431,6 +448,286 @@ long long boot_fat16_read(const char *name83, char *out, long long cap) {
 }
 
 
+
+/* ---- FAT16 写支持 ---- */
+long long boot_fat16_delete(const char *name83);
+
+/* 读 FAT 表项（簇 n 的下一簇） */
+static unsigned short fat16_next(long long cluster) {
+    long long fat_lba = 1 + (cluster * 2) / 512;
+    long long off = (cluster * 2) % 512;
+    if (boot_disk_read(fat_lba, 1, (long long)fat_buf) < 0) return 0xFFFF;
+    return (unsigned short)(fat_buf[off] | (fat_buf[off + 1] << 8));
+}
+
+/* 写 FAT 表项（两个 FAT 副本都写） */
+static int fat16_set(long long cluster, unsigned short val) {
+    long long fat_lba = 1 + (cluster * 2) / 512;
+    long long off = (cluster * 2) % 512;
+    for (int copy = 0; copy < 2; copy++) {
+        long long lba = fat_lba + copy * 32;
+        if (boot_disk_read(lba, 1, (long long)fat_buf) < 0) return -1;
+        fat_buf[off] = (unsigned char)(val & 0xFF);
+        fat_buf[off + 1] = (unsigned char)((val >> 8) & 0xFF);
+        if (boot_disk_write(lba, 1, (long long)fat_buf) < 0) return -1;
+    }
+    return 0;
+}
+
+/* 找一个空闲簇（FAT 表项为 0），返回簇号或 0 */
+static long long fat16_alloc_cluster(void) {
+    for (long long c = 2; c < 2000; c++) {
+        if (fat16_next(c) == 0) return c;
+    }
+    return 0;
+}
+
+/* 在根目录找空项（返回索引）或已删除项 */
+static long long fat16_free_entry(void) {
+    unsigned char e[32];
+    for (long long i = 0; i < 512; i++) {
+        if (fat16_root_entry(i, e) != 0) break;
+        if (e[0] == 0 || e[0] == 0xE5) return i;
+    }
+    return -1;
+}
+
+/* 写第 idx 个根目录项（32 字节） */
+static int fat16_put_entry(long long idx, const unsigned char *e) {
+    long long root_lba = 1 + 2 * 32;
+    long long lba = root_lba + idx / 16;
+    long long off = (idx % 16) * 32;
+    if (boot_disk_read(lba, 1, (long long)fat_buf) < 0) return -1;
+    for (int i = 0; i < 32; i++) fat_buf[off + i] = e[i];
+    return boot_disk_write(lba, 1, (long long)fat_buf);
+}
+
+/* 写文件（创建或覆盖）：name83 是 11 字节 8.3 名，返回写入字节数 */
+long long boot_fat16_write(const char *name83, const char *data, long long n) {
+    // 已存在则删掉旧簇链
+    boot_fat16_delete(name83);
+    long long idx = fat16_free_entry();
+    if (idx < 0) return -1;
+    long long first = fat16_alloc_cluster();
+    if (first == 0) return -1;
+    fat16_set(first, 0xFFFF);   // 先标记为链尾
+    long long cluster = first;
+    long long written = 0;
+    const unsigned char *p = (const unsigned char *)data;
+    while (written < n) {
+        long long data_lba = 1 + 2 * 32 + 512 + (cluster - 2) * 1;
+        long long m = (n - written) < 512 ? (n - written) : 512;
+        for (long long k = 0; k < 512; k++) fat_buf[k] = (k < m) ? p[written + k] : 0;
+        if (boot_disk_write(data_lba, 1, (long long)fat_buf) < 0) return -1;
+        written += m;
+        if (written < n) {
+            long long next = fat16_alloc_cluster();
+            if (next == 0) break;
+            fat16_set(cluster, (unsigned short)next);
+            cluster = next;
+            fat16_set(cluster, 0xFFFF);
+        }
+    }
+    // 写目录项
+    unsigned char e[32];
+    for (int i = 0; i < 32; i++) e[i] = 0;
+    for (int j = 0; j < 11; j++) { char c = name83[j]; if (c >= 'a' && c <= 'z') c -= 32; e[j] = (unsigned char)c; }
+    e[11] = 0x20;   // 归档属性
+    e[26] = (unsigned char)(first & 0xFF);
+    e[27] = (unsigned char)((first >> 8) & 0xFF);
+    e[28] = (unsigned char)(n & 0xFF);
+    e[29] = (unsigned char)((n >> 8) & 0xFF);
+    e[30] = (unsigned char)((n >> 16) & 0xFF);
+    e[31] = (unsigned char)((n >> 24) & 0xFF);
+    if (fat16_put_entry(idx, e) < 0) return -1;
+    return n;
+}
+
+/* 删除文件（标记目录项 0xE5 + 释放簇链） */
+long long boot_fat16_delete(const char *name83) {
+    unsigned char e[32];
+    for (long long i = 0; i < 512; i++) {
+        if (fat16_root_entry(i, e) != 0) break;
+        if (e[0] == 0) break;
+        if (e[0] == 0xE5) continue;
+        if (e[11] & 0x08) continue;
+        int ok = 1;
+        for (int j = 0; j < 11; j++) {
+            char c = name83[j];
+            if (c >= 'a' && c <= 'z') c -= 32;
+            if (e[j] != (unsigned char)c) { ok = 0; break; }
+        }
+        if (!ok) continue;
+        // 释放簇链
+        long long cluster = e[26] | (e[27] << 8);
+        while (cluster >= 2 && cluster < 0xFFF0) {
+            unsigned short next = fat16_next(cluster);
+            fat16_set(cluster, 0);
+            cluster = next;
+        }
+        e[0] = 0xE5;
+        fat16_put_entry(i, e);
+        return 0;
+    }
+    return -1;
+}
+
+/* 列出根目录文件名：按 NUL 分隔写入 out，返回文件数 */
+long long boot_fat16_list(long long out, long long cap) {
+    char *p = (char *)out;
+    long long used = 0, count = 0;
+    unsigned char e[32];
+    for (long long i = 0; i < 512; i++) {
+        if (fat16_root_entry(i, e) != 0) break;
+        if (e[0] == 0) break;
+        if (e[0] == 0xE5) continue;
+        if (e[11] & 0x08) continue;
+        count++;
+        if (!out || used + 13 >= cap) continue;
+        for (int j = 0; j < 11; j++) { p[used + j] = e[j] ? (char)e[j] : ' '; }
+        p[used + 11] = 0;
+        used += 12;
+    }
+    return count;
+}
+
+/* ===== FAT8（简化：8 位簇号，根目录 8.3）===== */
+long long boot_fat8_find(const char *name83) {
+    // FAT8 布局：保留 1 扇区，1 个 FAT（1 扇区），根目录 16 项
+    unsigned char e[32];
+    for (long long i = 0; i < 16; i++) {
+        long long lba = 2 + i / 16;
+        long long off = (i % 16) * 32;
+        if (boot_disk_read(lba, 1, (long long)fat_buf) < 0) return 0;
+        for (int k = 0; k < 32; k++) e[k] = fat_buf[off + k];
+        if (e[0] == 0) break;
+        if (e[0] == 0xE5) continue;
+        int ok = 1;
+        for (int j = 0; j < 11; j++) { char c = name83[j]; if (c >= 'a' && c <= 'z') c -= 32; if (e[j] != (unsigned char)c) { ok = 0; break; } }
+        if (ok) return (long long)e[26];
+    }
+    return 0;
+}
+
+long long boot_fat8_read(const char *name83, char *out, long long cap) {
+    unsigned char e[32];
+    for (long long i = 0; i < 16; i++) {
+        long long lba = 2 + i / 16;
+        long long off = (i % 16) * 32;
+        if (boot_disk_read(lba, 1, (long long)fat_buf) < 0) return -1;
+        for (int k = 0; k < 32; k++) e[k] = fat_buf[off + k];
+        if (e[0] == 0) break;
+        if (e[0] == 0xE5) continue;
+        int ok = 1;
+        for (int j = 0; j < 11; j++) { char c = name83[j]; if (c >= 'a' && c <= 'z') c -= 32; if (e[j] != (unsigned char)c) { ok = 0; break; } }
+        if (!ok) continue;
+        long long size = e[28] | (e[29] << 8);
+        long long n = size < cap ? size : cap;
+        unsigned char *p = (unsigned char *)out;
+        for (long long k = 0; k < n; k += 512) {
+            if (boot_disk_read(18 + k / 512, 1, (long long)fat_buf) < 0) break;
+            long long m = (n - k) < 512 ? (n - k) : 512;
+            for (long long t = 0; t < m; t++) p[k + t] = fat_buf[t];
+        }
+        return n;
+    }
+    return -1;
+}
+
+long long boot_fat8_list(long long out, long long cap) {
+    char *p = (char *)out;
+    long long used = 0, count = 0;
+    unsigned char e[32];
+    for (long long i = 0; i < 16; i++) {
+        long long lba = 2 + i / 16;
+        long long off = (i % 16) * 32;
+        if (boot_disk_read(lba, 1, (long long)fat_buf) < 0) break;
+        for (int k = 0; k < 32; k++) e[k] = fat_buf[off + k];
+        if (e[0] == 0) break;
+        if (e[0] == 0xE5) continue;
+        count++;
+        if (!out || used + 13 >= cap) continue;
+        for (int j = 0; j < 11; j++) p[used + j] = e[j] ? (char)e[j] : ' ';
+        p[used + 11] = 0;
+        used += 12;
+    }
+    return count;
+}
+
+/* ===== FAT32（简化：32 位簇号，根目录为簇链）===== */
+static unsigned int fat32_next(long long cluster, long long fat_lba) {
+    long long off = (cluster * 4) % 512;
+    long long lba = fat_lba + (cluster * 4) / 512;
+    if (boot_disk_read(lba, 1, (long long)fat_buf) < 0) return 0xFFFFFFFF;
+    return (unsigned int)(fat_buf[off] | (fat_buf[off+1] << 8) | (fat_buf[off+2] << 16) | ((unsigned int)fat_buf[off+3] << 24));
+}
+
+long long boot_fat32_find(const char *name83) {
+    // 简化：根目录簇固定从 2 开始，数据区从 LBA 100 开始
+    unsigned char e[32];
+    long long cluster = 2;
+    long long fat_lba = 32;
+    while (cluster >= 2 && cluster < 0x0FFFFFF0) {
+        long long lba = 100 + (cluster - 2) * 1;
+        if (boot_disk_read(lba, 1, (long long)fat_buf) < 0) break;
+        for (long long i = 0; i < 16; i++) {
+            for (int k = 0; k < 32; k++) e[k] = fat_buf[i * 32 + k];
+            if (e[0] == 0) return 0;
+            if (e[0] == 0xE5) continue;
+            if (e[11] & 0x08) continue;
+            int ok = 1;
+            for (int j = 0; j < 11; j++) { char c = name83[j]; if (c >= 'a' && c <= 'z') c -= 32; if (e[j] != (unsigned char)c) { ok = 0; break; } }
+            if (ok) return (long long)(e[26] | (e[27] << 8) | (e[20] << 16) | ((unsigned int)e[21] << 24));
+        }
+        cluster = fat32_next(cluster, fat_lba);
+    }
+    return 0;
+}
+
+long long boot_fat32_read(const char *name83, char *out, long long cap) {
+    long long cluster = boot_fat32_find(name83);
+    if (cluster < 2) return -1;
+    long long fat_lba = 32;
+    long long total = 0;
+    unsigned char *p = (unsigned char *)out;
+    while (cluster >= 2 && cluster < 0x0FFFFFF0 && total < cap) {
+        long long lba = 100 + (cluster - 2) * 1;
+        if (boot_disk_read(lba, 1, (long long)fat_buf) < 0) break;
+        long long m = (cap - total) < 512 ? (cap - total) : 512;
+        for (long long k = 0; k < m; k++) p[total + k] = fat_buf[k];
+        total += m;
+        cluster = fat32_next(cluster, fat_lba);
+    }
+    return total;
+}
+
+long long boot_fat32_list(long long out, long long cap) {
+    char *p = (char *)out;
+    long long used = 0, count = 0;
+    unsigned char e[32];
+    long long cluster = 2;
+    long long fat_lba = 32;
+    while (cluster >= 2 && cluster < 0x0FFFFFF0) {
+        long long lba = 100 + (cluster - 2) * 1;
+        if (boot_disk_read(lba, 1, (long long)fat_buf) < 0) break;
+        for (long long i = 0; i < 16; i++) {
+            for (int k = 0; k < 32; k++) e[k] = fat_buf[i * 32 + k];
+            if (e[0] == 0) return count;
+            if (e[0] == 0xE5) continue;
+            if (e[11] & 0x08) continue;
+            count++;
+            if (!out || used + 13 >= cap) continue;
+            for (int j = 0; j < 11; j++) p[used + j] = e[j] ? (char)e[j] : ' ';
+            p[used + 11] = 0;
+            used += 12;
+        }
+        cluster = fat32_next(cluster, fat_lba);
+    }
+    return count;
+}
+
+long long boot_fat32_write(const char *name83, const char *data, long long n) { (void)name83; (void)data; (void)n; return -1; }
+long long boot_fat32_delete(const char *name83) { (void)name83; return -1; }
 /* ===== 简单协作式多任务（轮转调度）===== */
 #define TASK_MAX 8
 #define TASK_STACK 8192

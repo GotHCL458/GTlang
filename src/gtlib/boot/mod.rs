@@ -5,7 +5,10 @@
 
 mod boot_mod;
 pub mod disk;
-pub mod fs;
+pub mod fs_fat16;
+pub mod fs_fat32;
+pub mod fs_fat8;
+pub mod fs_ram;
 pub mod info;
 pub mod interrupt;
 pub mod keyboard;
@@ -54,14 +57,30 @@ pub const BOOT_FUNCS: &[BootFn] = &[
     BootFn { name: "boot_irq_disable", symbol: "boot_irq_disable", group: "interrupt" },
     BootFn { name: "boot_pic_init", symbol: "boot_pic_init", group: "interrupt" },
     BootFn { name: "boot_keyboard_handler", symbol: "boot_keyboard_handler", group: "interrupt" },
-    BootFn { name: "boot_fs_create", symbol: "boot_fs_create", group: "fs" },
-    BootFn { name: "boot_fs_write", symbol: "boot_fs_write", group: "fs" },
-    BootFn { name: "boot_fs_read", symbol: "boot_fs_read", group: "fs" },
-    BootFn { name: "boot_fs_size", symbol: "boot_fs_size", group: "fs" },
-    BootFn { name: "boot_fs_delete", symbol: "boot_fs_delete", group: "fs" },
-    BootFn { name: "boot_fs_count", symbol: "boot_fs_count", group: "fs" },
-    BootFn { name: "boot_fat16_find", symbol: "boot_fat16_find", group: "fs" },
-    BootFn { name: "boot_fat16_read", symbol: "boot_fat16_read", group: "fs" },
+    // fs_ram（内存文件系统）
+    BootFn { name: "boot_fs_ram_create", symbol: "boot_fs_ram_create", group: "fs_ram" },
+    BootFn { name: "boot_fs_ram_write", symbol: "boot_fs_ram_write", group: "fs_ram" },
+    BootFn { name: "boot_fs_ram_read", symbol: "boot_fs_ram_read", group: "fs_ram" },
+    BootFn { name: "boot_fs_ram_size", symbol: "boot_fs_ram_size", group: "fs_ram" },
+    BootFn { name: "boot_fs_ram_delete", symbol: "boot_fs_ram_delete", group: "fs_ram" },
+    BootFn { name: "boot_fs_ram_count", symbol: "boot_fs_ram_count", group: "fs_ram" },
+    BootFn { name: "boot_fs_ram_list", symbol: "boot_fs_ram_list", group: "fs_ram" },
+    // fs_fat8（只读）
+    BootFn { name: "boot_fat8_find", symbol: "boot_fat8_find", group: "fs_fat8" },
+    BootFn { name: "boot_fat8_read", symbol: "boot_fat8_read", group: "fs_fat8" },
+    BootFn { name: "boot_fat8_list", symbol: "boot_fat8_list", group: "fs_fat8" },
+    // fs_fat16（完整读写）
+    BootFn { name: "boot_fat16_find", symbol: "boot_fat16_find", group: "fs_fat16" },
+    BootFn { name: "boot_fat16_read", symbol: "boot_fat16_read", group: "fs_fat16" },
+    BootFn { name: "boot_fat16_write", symbol: "boot_fat16_write", group: "fs_fat16" },
+    BootFn { name: "boot_fat16_delete", symbol: "boot_fat16_delete", group: "fs_fat16" },
+    BootFn { name: "boot_fat16_list", symbol: "boot_fat16_list", group: "fs_fat16" },
+    // fs_fat32（完整读写）
+    BootFn { name: "boot_fat32_find", symbol: "boot_fat32_find", group: "fs_fat32" },
+    BootFn { name: "boot_fat32_read", symbol: "boot_fat32_read", group: "fs_fat32" },
+    BootFn { name: "boot_fat32_write", symbol: "boot_fat32_write", group: "fs_fat32" },
+    BootFn { name: "boot_fat32_delete", symbol: "boot_fat32_delete", group: "fs_fat32" },
+    BootFn { name: "boot_fat32_list", symbol: "boot_fat32_list", group: "fs_fat32" },
     BootFn { name: "boot_task_create", symbol: "boot_task_create", group: "task" },
     BootFn { name: "boot_task_yield", symbol: "boot_task_yield", group: "task" },
     BootFn { name: "boot_task_start", symbol: "boot_task_start", group: "task" },

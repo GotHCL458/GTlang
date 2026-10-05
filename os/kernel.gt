@@ -2,10 +2,18 @@ import boot
 
 fn main() {
     boot.serial_init()
-    boot.serial_puts("[gtlang] os demo\n")
-    boot.serial_puts("arch=")
-    put(boot.arch())
+    boot.serial_puts("[gtlang] fs namespaces\n")
+    boot.fs_ram.write("a.txt", "hello", 5)
+    boot.fs_ram.write("b.txt", "world", 5)
+    boot.serial_puts("count=")
+    put(boot.fs_ram.count())
     put(10)
-    boot.serial_puts("bye\n")
+    boot.serial_puts("size(a)=")
+    put(boot.fs_ram.size("a.txt"))
+    put(10)
+    boot.fs_ram.delete("b.txt")
+    boot.serial_puts("after delete=")
+    put(boot.fs_ram.count())
+    put(10)
     boot.hlt()
 }
