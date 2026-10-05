@@ -356,8 +356,26 @@ impl Lexer {
                         'n' => '\n',
                         't' => '\t',
                         'r' => '\r',
+                        'b' => '\u{8}',   // 退格
+                        'f' => '\u{c}',   // 换页
+                        'v' => '\u{b}',   // 垂直制表
+                        'a' => '\u{7}',   // 响铃
                         '0' => '\0',
                         'e' => '\u{1b}', // ESC：便于手写 ANSI 彩色序列
+                        'x' => {
+                            // `\xHH`：1~2 位十六进制 ASCII
+                            let mut hex = String::new();
+                            for _ in 0..2 {
+                                match self.peek() {
+                                    Some(c) if c.is_ascii_hexdigit() => { hex.push(c); self.bump(); }
+                                    _ => break,
+                                }
+                            }
+                            if hex.is_empty() { return Err(crate::lb!(line, "\\x needs hex digits", "\\x 需要十六进制数字")); }
+                            let cp = u32::from_str_radix(&hex, 16).map_err(|_| crate::lb!(line, "bad \\x escape", "非法 \\x 转义"))?;
+                            s.push(char::from_u32(cp).unwrap_or('\u{FFFD}'));
+                            continue;
+                        }
                         // Unicode escape: \uXXXX (BMP) or \u{...}
                         'u' => {
                             let mut hex = String::new();
@@ -411,9 +429,26 @@ impl Lexer {
             Some('\\') => match self.bump() {
                 Some('n') => '\n' as i64,
                 Some('t') => '\t' as i64,
+                Some('r') => '\r' as i64,
+                Some('b') => 8,
+                Some('f') => 12,
+                Some('v') => 11,
+                Some('a') => 7,
+                Some('e') => 27,
                 Some('0') => 0,
                 Some('\\') => '\\' as i64,
                 Some('\'') => '\'' as i64,
+                Some('x') => {
+                    let mut hex = String::new();
+                    for _ in 0..2 {
+                        match self.peek() {
+                            Some(c) if c.is_ascii_hexdigit() => { hex.push(c); self.bump(); }
+                            _ => break,
+                        }
+                    }
+                    if hex.is_empty() { return Err(crate::lb!(line, "\\x needs hex digits", "\\x 需要十六进制数字")); }
+                    i64::from_str_radix(&hex, 16).unwrap_or(0)
+                }
                 Some(other) => other as i64,
                 None => return Err(crate::lb!(line, "unterminated char literal", "字符字面量未闭合")),
             },

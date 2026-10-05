@@ -221,6 +221,73 @@ int memcmp(const void *a, const void *b, unsigned long n) {
     for (unsigned long i = 0; i < n; i++) { if (aa[i] != bb[i]) return (int)aa[i] - (int)bb[i]; }
     return 0;
 }
+
+/* ============================================================
+ * 裸机字符串/构建器运行时（gt_str_* / gt_sb_*）
+ * ============================================================ */
+
+/* gt_str_substr(s, start, len)：按字节；越界钳制 */
+const char *gt_str_substr(const char *s, long long start, long long len) {
+    if (!s) return "";
+    long long n = (long long)strlen(s);
+    if (start < 0) start = 0;
+    if (start > n) start = n;
+    if (len < 0) len = 0;
+    if (start + len > n) len = n - start;
+    char *p = (char *)gt_mem_alloc((unsigned long long)len + 1);
+    for (long long i = 0; i < len; i++) p[i] = s[start + i];
+    p[len] = 0;
+    return p;
+}
+
+/* gt_str_concat(a, b) */
+const char *gt_str_concat(const char *a, const char *b) {
+    if (!a) a = ""; if (!b) b = "";
+    unsigned long long la = strlen(a), lb = strlen(b);
+    char *p = (char *)gt_mem_alloc(la + lb + 1);
+    for (unsigned long long i = 0; i < la; i++) p[i] = a[i];
+    for (unsigned long long i = 0; i < lb; i++) p[la + i] = b[i];
+    p[la + lb] = 0;
+    return p;
+}
+
+/* ---- 字符串构建器（简化：固定缓冲 + 位置）---- */
+#define SB_CAP 4096
+struct GtSb { char buf[SB_CAP]; unsigned long long len; };
+static struct GtSb gt_sb_pool[16];
+static int gt_sb_next = 0;
+
+long long gt_sb_new(void) {
+    if (gt_sb_next >= 16) gt_sb_next = 0;
+    int i = gt_sb_next++;
+    gt_sb_pool[i].len = 0;
+    gt_sb_pool[i].buf[0] = 0;
+    return (long long)&gt_sb_pool[i];
+}
+void gt_sb_push_str(long long h, const char *p) {
+    if (!h || !p) return;
+    struct GtSb *b = (struct GtSb *)h;
+    while (*p && b->len < SB_CAP - 1) b->buf[b->len++] = *p++;
+    b->buf[b->len] = 0;
+}
+void gt_sb_push_char(long long h, long long c) {
+    if (!h) return;
+    struct GtSb *b = (struct GtSb *)h;
+    if (b->len < SB_CAP - 1) { b->buf[b->len++] = (char)(c & 0xFF); b->buf[b->len] = 0; }
+}
+void gt_sb_push_i64(long long h, long long v) {
+    char tmp[32]; int n = 0;
+    if (v == 0) { gt_sb_push_char(h, '0'); return; }
+    if (v < 0) { gt_sb_push_char(h, '-'); v = -v; }
+    while (v > 0) { tmp[n++] = (char)('0' + v % 10); v /= 10; }
+    while (n > 0) gt_sb_push_char(h, tmp[--n]);
+}
+void gt_sb_push_f64(long long h, double v) { (void)h; (void)v; }
+void gt_sb_push_bool(long long h, long long v) { gt_sb_push_str(h, v ? "true" : "false"); }
+const char *gt_sb_finish(long long h) {
+    if (!h) return "";
+    return ((struct GtSb *)h)->buf;
+}
 /* ===== boot 标准库完整实现（gtlib: boot）===== */
 
 

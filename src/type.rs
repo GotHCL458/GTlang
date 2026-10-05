@@ -633,6 +633,7 @@ fn builtin_check(name: &str, args: &[Ty]) -> Result<Ty, String> {
         "str_builder" => { arity(0)?; Ok(Ty::I64) }
         "sb_append" => { arity(2)?; Ok(Ty::Void) }
         "sb_append_int" => { arity(2)?; Ok(Ty::Void) }
+        "sb_push_char" => { arity(2)?; Ok(Ty::Void) }
         "sb_finish" => { arity(1)?; Ok(Ty::Str) }
         "mem_alloc" => {
             arity(1)?;

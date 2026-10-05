@@ -1,18 +1,18 @@
-//! 简易 shell（命令解析 + 内置命令 + 彩色输出）
+//! 交互式 shell：读键盘 -> 拼命令行 -> 回车执行 -> 循环
 import "console.gt"
 import "fs.gt"
+import "keyboard.gt"
 import boot.system
 
-pub fn print_prompt() {
-    console.puts_color("gtos> ", console.GREEN, console.BLACK)
-}
+// ---- 命令实现 ----
 
 pub fn cmd_help() {
     console.puts_color("commands:\n", console.CYAN, console.BLACK)
     console.puts("  help  - show this\n")
-    console.puts("  echo  - print args\n")
+    console.puts("  echo  - echo args\n")
     console.puts("  ls    - list files\n")
     console.puts("  ver   - version\n")
+    console.puts("  clear - clear screen\n")
     console.puts("  exit  - halt\n")
 }
 
@@ -25,24 +25,79 @@ pub fn cmd_ver() {
     console.puts_color("GTLang pseudo-Linux 0.1.0\n", console.MAGENTA, console.BLACK)
 }
 
+pub fn cmd_echo(args: str) {
+    console.puts(args)
+    console.newline()
+}
+
 pub fn err(s: str) {
     console.puts_color("error: ", console.RED, console.BLACK)
     console.puts(s)
     console.newline()
 }
 
-pub fn run(cmd: str) {
-    if cmd == "help" {
-        cmd_help()
-    } elif cmd == "ls" {
-        cmd_ls()
-    } elif cmd == "ver" {
-        cmd_ver()
-    } elif cmd == "exit" {
-        console.puts("bye\n")
-        boot.system.hlt()
+// ---- 命令分派（line 只读；args 用一次 substr）----
+
+pub fn exec_line(line: str) {
+    if line == "" { return }
+    // 找第一个空格
+    sp := -1
+    i := 0
+    while i < len(line) {
+        if line[i] == 32 {
+            sp = i
+            break
+        }
+        i = i + 1
+    }
+    if sp < 0 {
+        // 无参数
+        if line == "help" {
+            cmd_help()
+        } elif line == "ls" {
+            cmd_ls()
+        } elif line == "ver" {
+            cmd_ver()
+        } elif line == "clear" {
+            console.init()
+        } elif line == "exit" {
+            console.puts("bye\n")
+            boot.system.hlt()
+        } else {
+            err(line)
+        }
     } else {
-        err(cmd)
+        // 有参数：cmd = line[0..sp]，args = line[sp+1..]
+        cmd := substr(line, 0, sp)
+        rest := substr(line, sp + 1, len(line) - sp - 1)
+        if cmd == "echo" {
+            cmd_echo(rest)
+        } else {
+            err(cmd)
+        }
+    }
+}
+
+// ---- 交互主循环 ----
+
+pub fn repl() {
+    while true {
+        console.puts_color("gtos> ", console.GREEN, console.BLACK)
+        line := sb_new()
+        reading := true
+        while reading {
+            c := keyboard.wait_key()
+            if c == 10 {
+                reading = false
+            } elif c == 8 {
+                console.puts("\b \b")
+            } elif c >= 32 {
+                console.putc(c)
+                sb_push_char(line, c)
+            }
+        }
+        console.newline()
+        exec_line(sb_finish(line))
     }
 }
 

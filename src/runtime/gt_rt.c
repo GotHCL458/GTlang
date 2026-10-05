@@ -814,6 +814,12 @@ static void gt_sb_reserve(GtSb *s, long long extra) {
     s->buf = (char *)gt_realloc(s->buf, (size_t)s->cap);
 }
 
+/* gt_sb_push_char：按字符追加（c 是 ASCII 码） */
+void gt_sb_push_char(long long h, long long c) {
+    char tmp[2]; tmp[0] = (char)(c & 0xFF); tmp[1] = 0;
+    gt_sb_push_str(h, tmp);
+}
+
 void gt_sb_push_str(long long h, const char *p) {
     GtSb *s = gt_sb_get(h);
     if (!s || !p) return;
@@ -1243,6 +1249,12 @@ char *gt_str_concat(const char *a, const char *b) {
     out[la + lb] = '\0';
     return out;
 }
+/* sb_push_char(b, c)：按字符追加（c 是 ASCII 码） */
+void sb_push_char(long long h, long long c) {
+    char tmp[2]; tmp[0] = (char)(c & 0xFF); tmp[1] = 0;
+    sb_append(h, tmp);
+}
+
 /* ============================================================
  * 宿主机 boot 模拟后端（boot_* 符号；裸机由 rt_bare.c 提供）
  * ============================================================ */

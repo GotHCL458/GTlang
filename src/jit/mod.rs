@@ -252,6 +252,7 @@ impl<'a> Jit<'a> {
         jb.symbol("rt_overflow", rt_overflow as *const u8);
         jb.symbol("rt_sb_new", rt_sb_new as *const u8);
         jb.symbol("rt_sb_push_str", rt_sb_push_str as *const u8);
+        jb.symbol("rt_sb_push_char", rt_sb_push_char as *const u8);
         jb.symbol("rt_sb_push_i64", rt_sb_push_i64 as *const u8);
         jb.symbol("rt_sb_push_f64", rt_sb_push_f64 as *const u8);
         jb.symbol("rt_sb_push_bool", rt_sb_push_bool as *const u8);

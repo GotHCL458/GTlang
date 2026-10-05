@@ -123,6 +123,7 @@ impl<'a> Codegen<'a> {
                 self.body.push_str(&format!("  {} = call i64 @gt_sb_new()\n", r));
                 Ok(Val::new(&Ty::I64, r))
             }
+            "sb_push_char" => { let h = self.expr(&args[0])?; let h = self.as_i64(&h); let c = self.expr(&args[1])?; let c = self.as_i64(&c); self.declare("declare void @gt_sb_push_char(i64, i64)"); self.body.push_str(&format!("  call void @gt_sb_push_char(i64 {}, i64 {})\n", h, c)); Ok(Val::new(&Ty::Void, "0")) }
             "sb_push" | "sb_push_str" | "sb_push_int" | "sb_push_f64" | "sb_push_bool" => {
                 if args.len() != 2 { return Err(crate::lb!(line, "sb_push() requires 2 arguments", "sb_push() 需要 2 个参数")); }
                 let h = self.expr(&args[0])?;
