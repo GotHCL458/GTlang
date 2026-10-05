@@ -1,0 +1,9 @@
+fn main() {
+    s := ""
+    i := 0
+    while i < 10 {
+        s = s + "x"
+        i = i + 1
+    }
+    put(s)
+}

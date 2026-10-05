@@ -64,10 +64,11 @@ fn check_block(b: &Block, out: &mut Vec<(usize, String)>) {
                     out.push((cond.line, "while false 恒不执行".into()));
                 }
                 check_block(body, out);
+                check_loop_body(body, out);
             }
-            Stmt::DoWhile { body, .. } => check_block(body, out),
-            Stmt::ForRange { body, els, .. } => { check_block(body, out); if let Some(e) = els { check_block(e, out); } }
-            Stmt::ForEach { body, els, .. } => { check_block(body, out); if let Some(e) = els { check_block(e, out); } }
+            Stmt::DoWhile { body, .. } => { check_block(body, out); check_loop_body(body, out); }
+            Stmt::ForRange { body, els, .. } => { check_block(body, out); check_loop_body(body, out); if let Some(e) = els { check_block(e, out); } }
+            Stmt::ForEach { body, els, .. } => { check_block(body, out); check_loop_body(body, out); if let Some(e) = els { check_block(e, out); } }
             Stmt::Try { body, catches, fin, .. } => {
                 check_block(body, out);
                 for c in catches { check_block(&c.body, out); }
@@ -80,6 +81,40 @@ fn check_block(b: &Block, out: &mut Vec<(usize, String)>) {
     }
 }
 
+/// 检查循环体：`s = s + x` / `s += x`（字符串累积）在循环里会 O(n²) 复制 + 泄漏。
+fn check_loop_body(b: &Block, out: &mut Vec<(usize, String)>) {
+    // 收集本块内的字符串变量（初值为字符串字面量/拼接）
+    let mut str_vars: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for s in b {
+        if let Stmt::Let { name, value, .. } | Stmt::Const { name, value, .. } = s {
+            if is_string_expr(value) { str_vars.insert(name.clone()); }
+        }
+    }
+    for s in b {
+        if let Stmt::Assign { name, op, value, .. } = s {
+            let is_self_append = match op {
+                Some(BinOp::Add) => true,
+                None => matches!(&value.kind, ExprKind::Binary(BinOp::Add, l, _) if matches!(&l.kind, ExprKind::Ident(n) if n == name)),
+                _ => false,
+            };
+            if is_self_append && (str_vars.contains(name) || is_string_expr(value)) {
+                out.push((stmt_line(s), format!("循环里 '{} = {} + x' 会反复复制字符串（O(n²) + 内存增长）；建议用 sb_new/sb_push_str/sb_finish", name, name)));
+            }
+        }
+        let mut visit = |blk: &Block| check_loop_body(blk, out);
+        s.each_block(&mut visit);
+    }
+}
+
+/// 启发式：表达式是否为字符串（字面量 / 字符串拼接 / str() 调用）
+fn is_string_expr(e: &Expr) -> bool {
+    match &e.kind {
+        ExprKind::Str(_) | ExprKind::Interp(_) => true,
+        ExprKind::Binary(BinOp::Add, a, b) => is_string_expr(a) || is_string_expr(b),
+        ExprKind::Call(n, _) => n == "str" || n == "string" || n == "format" || n == "join",
+        _ => false,
+    }
+}
 fn check_expr(e: &Expr, out: &mut Vec<(usize, String)>) {
     match &e.kind {
         ExprKind::Binary(op, a, b) => {
