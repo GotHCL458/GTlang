@@ -1,0 +1,5 @@
+fn main() {
+    put(65)
+    put(66)
+    put(67)
+}

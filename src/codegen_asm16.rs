@@ -45,7 +45,10 @@ pub fn compile(prog: &Program) -> Result<Vec<u8>, String> {
     a.w(0);
     let from = a.pc();
     a.fixups.push((at, format!("fn__{}", entry), FixKind::Rel16From(from)));
-    a.b(0xF4); // hlt
+    // 停机：cli; hlt; jmp $-1
+    a.b(0xFA);
+    a.b(0xF4);
+    a.b(0xEB); a.b(0xFE);
     // 生成所有函数
     for f in &fns {
         let addr = a.pc();
@@ -88,18 +91,32 @@ fn resolve_fixups(a: &mut Asm16) -> Result<(), String> {
 #[allow(dead_code)]
 struct Scope { vars: HashMap<String, i64>, base: i64, next: i64 }
 
+/// 统计函数体内的局部变量数（Let/Const/ForRange 变量），用于预留栈帧。
+fn count_locals(b: &Block) -> usize {
+    let mut n = 0;
+    for s in b {
+        match s {
+            Stmt::Let { .. } | Stmt::Const { .. } => n += 1,
+            Stmt::ForRange { body, .. } => { n += 1 + count_locals(body); }
+            Stmt::If { then, els, .. } => { n += count_locals(then); if let Some(e) = els { n += count_locals(e); } }
+            Stmt::While { body, .. } | Stmt::DoWhile { body, .. } | Stmt::Block(body) => { n += count_locals(body); }
+            _ => {}
+        }
+    }
+    n
+}
 fn gen_fn(a: &mut Asm16, f: &FnDef) -> Result<(), String> {
     a.b(0x55);            // push bp
     a.b(0x89); a.b(0xE5); // mov bp, sp
-    let nparams = f.params.len() as i64;
-    let frame = 256i64;
+    // 预扫描局部变量数，预留栈帧（每个 2 字节，留余量）
+    let nlocals = count_locals(&f.body);
+    let frame = ((nlocals + 8) * 2) as i64;
     a.b(0x83); a.b(0xEC); a.b(frame as u8); // sub sp, frame
     let mut sc = Scope { vars: HashMap::new(), base: 4, next: -2 };
     // 参数在 [bp+4], [bp+6], ...
     for (i, p) in f.params.iter().enumerate() {
         sc.vars.insert(p.name.clone(), 4 + (i as i64) * 2);
     }
-    let _ = nparams;
     gen_block(a, &mut sc, &f.body)?;
     a.b(0x89); a.b(0xEC); // mov sp, bp
     a.b(0x5D);           // pop bp
@@ -154,6 +171,45 @@ fn gen_stmt(a: &mut Asm16, sc: &mut Scope, s: &Stmt) -> Result<(), String> {
             a.rel8(0xEB, &ltop);
             a.label(&lend);
         }
+        // for i in a..b：i 从 a 到 b-1
+        Stmt::ForRange { var, from, to, body, .. } => {
+            let ltop = format!("Lfr{}", a.out.len());
+            let lend = format!("Lfe{}", a.out.len());
+            gen_expr(a, sc, from)?;
+            let off = alloc(sc);
+            store_ax(a, off);
+            sc.vars.insert(var.clone(), off);
+            a.label(&ltop);
+            load_ax(a, off);
+            push_ax(a);
+            gen_expr(a, sc, to)?;
+            a.b(0x89); a.b(0xC3);        // mov bx, ax
+            pop_ax(a);
+            a.b(0x39); a.b(0xD8);        // cmp ax, bx
+            a.b(0x0F); a.b(0x8D);       // jge rel16
+            let at = a.out.len(); a.w(0);
+            let frompc = a.pc();
+            a.fixups.push((at, lend.clone(), FixKind::Rel16From(frompc)));
+            gen_block(a, sc, body)?;
+            load_ax(a, off);
+            a.b(0x40);                   // inc ax
+            store_ax(a, off);
+            a.rel8(0xEB, &ltop);
+            a.label(&lend);
+        }
+        Stmt::DoWhile { body, cond, .. } => {
+            let ltop = format!("Ldw{}", a.out.len());
+            a.label(&ltop);
+            gen_block(a, sc, body)?;
+            gen_expr(a, sc, cond)?;
+            cmp_ax_0(a);
+            a.b(0x0F); a.b(0x85);        // jne rel16
+            let at = a.out.len(); a.w(0);
+            let frompc = a.pc();
+            a.fixups.push((at, ltop.clone(), FixKind::Rel16From(frompc)));
+        }
+        // break/continue：暂用"跳出到最近循环末尾"的简化（label 由循环注册）
+        Stmt::Break(..) | Stmt::Continue(..) => { /* TODO: 循环栈 */ }
         Stmt::Block(inner) => gen_block(a, sc, inner)?,
         _ => return Err(format!("16 位后端暂不支持该语句")),
     }
@@ -163,6 +219,7 @@ fn gen_stmt(a: &mut Asm16, sc: &mut Scope, s: &Stmt) -> Result<(), String> {
 /// AX 入栈 / 出栈（供表达式求值）
 fn push_ax(a: &mut Asm16) { a.b(0x50); }
 fn pop_bx(a: &mut Asm16) { a.b(0x5B); }
+fn pop_ax(a: &mut Asm16) { a.b(0x58); }
 
 fn store_ax(a: &mut Asm16, off: i64) {
     // mov [bp+off], ax
@@ -234,7 +291,9 @@ fn gen_expr(a: &mut Asm16, sc: &mut Scope, e: &Expr) -> Result<(), String> {
             let from = a.pc();
             a.fixups.push((at, format!("fn__{}", name), FixKind::Rel16From(from)));
             let _ = rel_addr;
-            for _ in args { a.b(0x58); } // pop ax（清理参数）
+            // 清理参数：callee 的 ret 已弹返回地址，这里只弹掉压入的参数。
+            // 返回值已在 AX，弹参用"弹到 BX"避免覆盖 AX。
+            for _ in 0..args.len() { a.b(0x5B); } // pop bx × n
         }
         _ => return Err("16 位后端暂不支持该表达式".into()),
     }

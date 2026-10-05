@@ -1,0 +1,7 @@
+fn main() {
+    for i in 0..5 {
+        put(i + 65)
+        put(46)
+    }
+    put(10)
+}
