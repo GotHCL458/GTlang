@@ -21,11 +21,13 @@ def build():
 def run(timeout=8):
     cmd = [QEMU, '-drive', 'format=raw,file=' + IMG,
            '-serial', 'stdio', '-display', 'none', '-no-reboot', '-m', '32']
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
-        p = subprocess.run(cmd, capture_output=True, timeout=timeout)
-        out = (p.stdout + p.stderr).decode('utf-8', 'replace')
-    except subprocess.TimeoutExpired as e:
-        out = ((e.stdout or b'') + (e.stderr or b'')).decode('utf-8', 'replace')
+        stdout, stderr = p.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        p.kill()
+        stdout, stderr = p.communicate()
+    out = (stdout + stderr).decode('utf-8', 'replace')
     for line in out.splitlines():
         if 'WARNING' in line or 'Automatically' in line or 'Specify' in line:
             continue
