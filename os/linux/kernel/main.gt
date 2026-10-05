@@ -8,12 +8,14 @@ import "task.gt"
 
 fn main() {
     console.init()
-    console.puts("[kernel] GTLang pseudo-Linux booting\n")
+    console.puts_color("[kernel] GTLang pseudo-Linux booting\n", console.CYAN, console.BLACK)
     fs.init()
     fs.write("motd", "welcome to GTLang linux")
     keyboard.init()
+    console.puts_color("welcome! type 'help'\n", console.GREEN, console.BLACK)
     shell.run("help")
     shell.run("ls")
+    shell.run("ver")
     console.puts("[kernel] done\n")
     boot.system.hlt()
 }

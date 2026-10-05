@@ -1,15 +1,34 @@
-//! 简易 shell（命令解析 + 内置命令）
+//! 简易 shell（命令解析 + 内置命令 + 彩色输出）
 import "console.gt"
 import "fs.gt"
 import boot.system
 
+pub fn print_prompt() {
+    console.puts_color("gtos> ", console.GREEN, console.BLACK)
+}
+
 pub fn cmd_help() {
-    console.puts("commands: help, echo, ls, exit\n")
+    console.puts_color("commands:\n", console.CYAN, console.BLACK)
+    console.puts("  help  - show this\n")
+    console.puts("  echo  - print args\n")
+    console.puts("  ls    - list files\n")
+    console.puts("  ver   - version\n")
+    console.puts("  exit  - halt\n")
 }
 
 pub fn cmd_ls() {
-    console.puts("files: ")
+    console.puts_color("files: ", console.CYAN, console.BLACK)
     console.print_int(fs.count())
+}
+
+pub fn cmd_ver() {
+    console.puts_color("GTLang pseudo-Linux 0.1.0\n", console.MAGENTA, console.BLACK)
+}
+
+pub fn err(s: str) {
+    console.puts_color("error: ", console.RED, console.BLACK)
+    console.puts(s)
+    console.newline()
 }
 
 pub fn run(cmd: str) {
@@ -17,13 +36,13 @@ pub fn run(cmd: str) {
         cmd_help()
     } elif cmd == "ls" {
         cmd_ls()
+    } elif cmd == "ver" {
+        cmd_ver()
     } elif cmd == "exit" {
         console.puts("bye\n")
         boot.system.hlt()
     } else {
-        console.puts("unknown: ")
-        console.puts(cmd)
-        console.newline()
+        err(cmd)
     }
 }
 

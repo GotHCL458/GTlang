@@ -1,6 +1,15 @@
-//! 控制台：VGA 文本 + 串口双输出
+//! 控制台：VGA 文本 + 串口双输出 + 彩色（VGA 属性 + 串口 ANSI）
 import boot.serial
 import boot.screen
+
+pub const BLACK = 0
+pub const BLUE = 1
+pub const GREEN = 2
+pub const CYAN = 3
+pub const RED = 4
+pub const MAGENTA = 5
+pub const BROWN = 6
+pub const WHITE = 15
 
 pub fn init() {
     boot.serial.init()
@@ -26,5 +35,29 @@ pub fn newline() {
 pub fn print_int(n: int) {
     put(n)
     newline()
+}
+
+pub fn set_color(fg: int, bg: int) {
+    boot.screen.vga_set_color(fg, bg)
+    boot.serial.putc(27)
+    boot.serial.puts("[3")
+    boot.serial.putc(48 + fg)
+    boot.serial.puts("m")
+    boot.serial.putc(27)
+    boot.serial.puts("[4")
+    boot.serial.putc(48 + bg)
+    boot.serial.puts("m")
+}
+
+pub fn reset_color() {
+    boot.screen.vga_set_color(0x07, 0x00)
+    boot.serial.putc(27)
+    boot.serial.puts("[0m")
+}
+
+pub fn puts_color(s: str, fg: int, bg: int) {
+    set_color(fg, bg)
+    puts(s)
+    reset_color()
 }
 
