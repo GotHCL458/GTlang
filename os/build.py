@@ -22,8 +22,10 @@ def build():
     sh(GTC, '--bare', '--target', 'x86_64', os.path.join(ROOT, 'kernel.gt'), '-o', os.path.join(B, 'kernel.o'))
     sh(CLANG, '-target', 'x86_64-unknown-none-elf', '-ffreestanding', '-nostdlib',
        '-fno-stack-protector', '-c', os.path.join(ROOT, 'boot', 'rt_bare.c'), '-o', os.path.join(B, 'rt_bare.o'))
+    sh(CLANG, '-target', 'x86_64-unknown-none-elf', '-ffreestanding', '-nostdlib',
+       '-c', os.path.join(ROOT, 'boot', 'irq.S'), '-o', os.path.join(B, 'irq.o'))
     sh(LLD, '-T', os.path.join(ROOT, 'boot', 'kernel.ld'), '-o', os.path.join(B, 'kernel.elf'),
-       os.path.join(B, 'kernel.o'), os.path.join(B, 'rt_bare.o'))
+       os.path.join(B, 'kernel.o'), os.path.join(B, 'rt_bare.o'), os.path.join(B, 'irq.o'))
     sh(OBJCOPY, '-O', 'binary', os.path.join(B, 'kernel.elf'), os.path.join(B, 'kernel.bin'))
     sh(NASM, '-f', 'bin', os.path.join(ROOT, 'boot', 'stage1.asm'), '-o', os.path.join(B, 'stage1.bin'))
     sh(NASM, '-f', 'bin', os.path.join(ROOT, 'boot', 'stage2.asm'), '-o', os.path.join(B, 'stage2.bin'))

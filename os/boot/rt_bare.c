@@ -105,8 +105,15 @@ static const char kbd_map[128] = {
     0,'\\','z','x','c','v','b','n','m',',','.','/', 0, '*', 0, ' ',
 };
 
+extern void irq0_stub(void);
+extern void irq1_stub(void);
+
+static volatile unsigned long long pit_ticks = 0;
+
 /* 通用 IRQ 处理（由 stub 调用） */
+
 void irq_handler(unsigned long irq) {
+    if (irq == 0) { pit_ticks++; }
     if (irq == 1) {
         unsigned char sc = inb(0x60);
         if (!(sc & 0x80) && sc < 128) {
@@ -131,7 +138,7 @@ void boot_pic_init(void) {
 /* 设置一个中断门（0x20+irq -> handler） */
 static void set_gate(int n, unsigned long handler) {
     idt[n].off_lo = handler & 0xFFFF;
-    idt[n].sel = 0x08;
+    idt[n].sel = 0x18;   /* 长模式 64 位代码段 */
     idt[n].ist = 0;
     idt[n].flags = 0x8E;
     idt[n].off_mid = (handler >> 16) & 0xFFFF;
@@ -139,9 +146,23 @@ static void set_gate(int n, unsigned long handler) {
     idt[n].zero = 0;
 }
 
+void boot_pit_init(long long hz);
+
 void boot_idt_init(void) {
     /* 先清零 */
     for (int i = 0; i < 256; i++) set_gate(i, 0);
+    set_gate(0x20, (unsigned long)irq0_stub);
+    set_gate(0x21, (unsigned long)irq1_stub);
+    boot_pit_init(1000);
+    set_gate(0x20, (unsigned long)irq0_stub);
+    set_gate(0x21, (unsigned long)irq1_stub);
+    boot_pit_init(1000);
+    set_gate(0x20, (unsigned long)irq0_stub);
+    set_gate(0x21, (unsigned long)irq1_stub);
+    boot_pit_init(1000);
+    set_gate(0x20, (unsigned long)irq0_stub);
+    set_gate(0x21, (unsigned long)irq1_stub);
+    boot_pit_init(1000);
     idtp.limit = sizeof(idt) - 1;
     idtp.base = (unsigned long)&idt;
     __asm__ volatile("lidt %0" :: "m"(idtp));
@@ -188,9 +209,18 @@ long long boot_mem_alloc(long long n) { return (long long)gt_mem_alloc((u64)n); 
 void boot_mem_free(long long p) { (void)p; }
 long long boot_mem_size(void) { return 1 << 20; }
 
-/* ---- time ---- */
-long long boot_time_ms(void) { return 0; }
-void boot_sleep_ms(long long ms) { (void)ms; }
+/* ---- time（PIT IRQ0 驱动）---- */
+void boot_pit_init(long long hz) {
+    unsigned long long div = 1193182ULL / (unsigned long long)(hz > 0 ? hz : 1000);
+    outb(0x43, 0x36);
+    outb(0x40, (unsigned char)(div & 0xFF));
+    outb(0x40, (unsigned char)((div >> 8) & 0xFF));
+}
+long long boot_time_ms(void) { return (long long)pit_ticks; }
+void boot_sleep_ms(long long ms) {
+    unsigned long long t = pit_ticks + (unsigned long long)ms;
+    while (pit_ticks < t) { __asm__ volatile("hlt"); }
+}
 
 /* ---- disk（LBA 暂未实现，返回 -1）---- */
 long long boot_disk_read(long long lba, long long n, long long buf) { (void)lba; (void)n; (void)buf; return -1; }
