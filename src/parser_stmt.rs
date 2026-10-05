@@ -217,6 +217,22 @@ impl Parser {
             return Ok(Stmt::Throw(e, line));
         }
 
+        // `with expr as name { body }`：把 expr 绑定到 name（语法糖）
+        if self.at_ident("with") {
+            self.bump();
+            let value = self.expr(0)?;
+            let name = if self.eat_ident("as") {
+                self.ident("with 绑定名")?
+            } else {
+                "__with".to_string()
+            };
+            let body = self.block()?;
+            // 降级为 `let name = value; { body }`
+            let mut stmts = vec![Stmt::Let { name, ty: None, value, mutable: false, line }];
+            stmts.push(Stmt::Block(body));
+            return Ok(Stmt::Block(stmts));
+        }
+
         // `defer expr`：当前函数返回时执行（LIFO）
         if self.at_ident("defer") {
             self.bump();

@@ -1,0 +1,9 @@
+struct P { x: int, y: int }
+
+fn main() {
+    p := P { x: 3, y: 4 }
+    with p as o {
+        put(o.x + o.y)
+        put(10)
+    }
+}
