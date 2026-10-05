@@ -298,13 +298,13 @@ struct fs_file {
 static struct fs_file fs_files[FS_MAX_FILES];
 
 /* 创建文件，返回索引（-1 失败） */
-long long boot_fs_create(const char *name) {
+int boot_fs_create(const char *name) {
     for (int i = 0; i < FS_MAX_FILES; i++) {
         if (!fs_files[i].used) {
             fs_files[i].used = 1;
             fs_files[i].size = 0;
             int j = 0;
-            while (name[j] && j < FS_NAME_MAX - 1) { fs_files[i].name[j] = name[j]; j++; if (j > 64) break; }
+            while (name[j] && j < FS_NAME_MAX - 1) { fs_files[i].name[j] = name[j]; j++; }
             fs_files[i].name[j] = 0;
             return i;
         }
@@ -313,7 +313,7 @@ long long boot_fs_create(const char *name) {
 }
 
 /* 按名查找，返回索引（-1 不存在） */
-static long long fs_find(const char *name) {
+static int fs_find(const char *name) {
     for (int i = 0; i < FS_MAX_FILES; i++) {
         if (!fs_files[i].used) continue;
         int j = 0; int ok = 1;
@@ -327,8 +327,8 @@ static long long fs_find(const char *name) {
     return -1;
 }
 
-long long boot_fs_write(const char *name, const char *data, long long n) {
-    long long i = fs_find(name);
+long long boot_fs_write(const char *name, const char *data, int n) {
+    int i = fs_find(name);
     if (i < 0) i = boot_fs_create(name);
     if (i < 0) return -1;
     if (n < 0) n = 0;
@@ -339,7 +339,7 @@ long long boot_fs_write(const char *name, const char *data, long long n) {
 }
 
 long long boot_fs_read(const char *name, char *out, long long cap) {
-    long long i = fs_find(name);
+    int i = fs_find(name);
     if (i < 0) return -1;
     long long n = fs_files[i].size;
     if (n > cap) n = cap;
@@ -348,12 +348,12 @@ long long boot_fs_read(const char *name, char *out, long long cap) {
 }
 
 long long boot_fs_size(const char *name) {
-    long long i = fs_find(name);
+    int i = fs_find(name);
     return i < 0 ? -1 : (long long)fs_files[i].size;
 }
 
 long long boot_fs_delete(const char *name) {
-    long long i = fs_find(name);
+    int i = fs_find(name);
     if (i < 0) return -1;
     fs_files[i].used = 0;
     fs_files[i].size = 0;

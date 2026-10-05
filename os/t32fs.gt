@@ -1,0 +1,18 @@
+extern "C" {
+    fn boot_serial_init()
+    fn boot_serial_puts(s: str)
+    fn boot_serial_putc(c: int)
+    fn boot_fs_write(name: str, data: str, n: int) -> int
+    fn boot_fs_count() -> int
+    fn boot_hlt()
+}
+
+fn main() {
+    boot_serial_init()
+    boot_serial_puts("A\n")
+    n := boot_fs_write("x.txt", "hi", 2)
+    boot_serial_puts("B\n")
+    boot_serial_putc(48 + n)
+    boot_serial_puts("\nC\n")
+    boot_hlt()
+}
