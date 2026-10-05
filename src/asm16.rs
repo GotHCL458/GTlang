@@ -34,6 +34,8 @@ enum Item {
     Org(i64),
     Bits(u8),
     Equ(String, i64),
+    /// `times <expr> <data>`：expr 在第二遍按当前 pc/org 求值（支持 $ / $$ / A-B）
+    TimesExpr(String, Box<DataItem>, usize),
 }
 
 #[derive(Debug, Clone)]
@@ -87,6 +89,7 @@ fn emit(items: &[Item]) -> Result<Vec<u8>, String> {
             Item::Bits(_) | Item::Equ(..) => {}
             Item::Label(n) => { labels.insert(n.clone(), pc); }
             Item::Data(d, _) => { for x in d { pc += data_len(x); } }
+            Item::TimesExpr(..) => { /* 第一遍跳过：其长度依赖 pc，第二遍求值 */ }
             Item::Instr(m, ops, ln) => { pc += instr_len(m, ops, &labels, &equs, *ln)? as i64; }
         }
     }
@@ -98,6 +101,12 @@ fn emit(items: &[Item]) -> Result<Vec<u8>, String> {
             Item::Org(v) => { pc = *v; }
             Item::Bits(_) | Item::Equ(..) | Item::Label(_) => {}
             Item::Data(d, ln) => { for x in d { emit_data(x, &mut out, *ln)?; pc += data_len(x); } }
+            Item::TimesExpr(expr, inner, ln) => {
+                // 求值：支持 N、$、$$、A-B
+                let n = eval_times(expr, pc, _org, *ln)?;
+                for _ in 0..n { emit_data(inner, &mut out, *ln)?; }
+                pc += n * data_len(inner);
+            }
             Item::Instr(m, ops, ln) => {
                 let before = out.len();
                 emit_instr(m, ops, pc, &labels, &equs, *ln, &mut out)?;
@@ -109,10 +118,13 @@ fn emit(items: &[Item]) -> Result<Vec<u8>, String> {
                             let next = pc + len;
                             let rel = (*tgt - next) as i64;
                             let n = out.len();
-                            if rel >= -128 && rel <= 127 {
+                            if m == "call" {
+                                // rel16（2 字节，小端）
+                                let r16 = rel as u16;
+                                out[n - 2] = (r16 & 0xFF) as u8;
+                                out[n - 1] = ((r16 >> 8) & 0xFF) as u8;
+                            } else if rel >= -128 && rel <= 127 {
                                 out[n - 1] = (rel as i8) as u8;
-                            } else {
-                                // 超短跳范围：保持占位（暂不支持自动加长）
                             }
                         }
                     }
@@ -124,6 +136,31 @@ fn emit(items: &[Item]) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
+/// 求值 `times` 的计数表达式：`N` / `$` / `$$` / `A-B`。`$` = 当前位置（pc），`$$` = 0（ORG 基址）。
+fn eval_times(expr: &str, pc: i64, org: i64, ln: usize) -> Result<i64, String> {
+    let e = expr.trim();
+    if let Some(i) = e.find('-') {
+        let a = eval_atom(e[..i].trim(), pc, org, ln)?;
+        let b = eval_atom(e[i + 1..].trim(), pc, org, ln)?;
+        return Ok(a - b);
+    }
+    eval_atom(e, pc, org, ln)
+}
+
+fn eval_atom(s: &str, pc: i64, org: i64, ln: usize) -> Result<i64, String> {
+    let s = s.trim();
+    // 去括号
+    if s.starts_with('(') && s.ends_with(')') { return eval_atom(&s[1..s.len()-1], pc, org, ln); }
+    if s == "$" { return Ok(pc); }
+    if s == "$$" { return Ok(org); }
+    // 形如 $-$$
+    if let Some(i) = s.find("-") {
+        let a = eval_atom(&s[..i], pc, org, ln)?;
+        let b = eval_atom(&s[i+1..], pc, org, ln)?;
+        return Ok(a - b);
+    }
+    parse_int(s).map_err(|e| format!("第 {} 行：times 计数 {}", ln, e))
+}
 fn data_len(d: &DataItem) -> i64 {
     match d {
         DataItem::Bytes(v) => v.len() as i64,
@@ -403,9 +440,15 @@ fn emit_jmp(op: &Op, _labels: &HashMap<String, i64>, _equs: &HashMap<String, i64
         Op::Imm(v) => { out.push(if short_op == 0xFF { near_op } else { short_op }); out.extend_from_slice(&(*v as u16).to_le_bytes()); }
         Op::Reg16(r) => { out.push(0xFF); out.push(modrm(3, 4, reg16_code(r))); }
         Op::Sym(_name) => {
-            // 短跳：0xEB + 1 字节相对位移（占位）
-            out.push(if near_op == 0xE9 { 0xEB } else { near_op });
-            out.push(0);
+            // jmp 用短跳 0xEB+1 字节；call 用 0xE8+2 字节（rel16）
+            if near_op == 0xE9 {
+                out.push(0xEB);
+                out.push(0);
+            } else {
+                out.push(near_op);
+                out.push(0);
+                out.push(0);
+            }
         }
         _ => return Err(format!("第 {} 行：jmp/call 目标非法", ln)),
     }
@@ -456,13 +499,13 @@ fn parse(text: &str) -> Result<Vec<Item>, String> {
             items.push(Item::Label(line[..line.len() - 1].trim().to_string()));
             continue;
         }
-        // times
+        // times（支持 `N`、`$`、`$$`、`A-B` 形式的计数）
         if up.starts_with("TIMES ") {
             let rest = line[6..].trim();
             let sp = rest.find(char::is_whitespace).ok_or_else(|| format!("第 {} 行：times 语法错误", line_no))?;
-            let n = parse_int(&rest[..sp])?;
+            let cnt_expr = rest[..sp].trim().to_string();
             let inner = parse_data(rest[sp..].trim(), line_no)?;
-            items.push(Item::Data(vec![DataItem::Times(n, Box::new(inner))], line_no));
+            items.push(Item::TimesExpr(cnt_expr, Box::new(inner), line_no));
             continue;
         }
         // 数据指示（允许前置标签：`msg db ...`）

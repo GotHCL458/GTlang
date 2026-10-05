@@ -340,6 +340,7 @@ fn gen_expr(a: &mut Asm16, sc: &mut Scope, e: &Expr) -> Result<(), String> {
             a.w(0);
             let from = a.pc();
             a.fixups.push((at, format!("fn__{}", name), FixKind::Rel16From(from)));
+            if std::env::var("GTC_DBG").is_ok() { eprintln!("[asm16] call {} at={} from={:#x}", name, at, from); }
             let _ = rel_addr;
             // 清理参数：callee 的 ret 已弹返回地址，这里只弹掉压入的参数。
             // 返回值已在 AX，弹参用"弹到 BX"避免覆盖 AX。
