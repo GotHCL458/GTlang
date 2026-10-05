@@ -2,7 +2,13 @@ import boot
 
 fn main() {
     boot_serial_init()
-    put("hello from GTLang OS!")
-    put(42)
+    boot_serial_puts("[gtlang] kernel up\n")
+    boot_puts("arch=")
+    put(boot_arch())
+    put(10)
+    boot_puts(boot_version())
+    put(10)
+    put(boot_mem_size())
+    put(10)
     boot_hlt()
 }

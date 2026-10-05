@@ -62,13 +62,73 @@ void gt_overflow(i64 line) { (void)line; serial_putc('#'); }
 void gt_panic(const char *m) { while (*m) serial_putc(*m++); while (1) {} }
 
 /* ---- boot 标准库（gtlib: boot）---- */
+/* ===== boot 标准库完整实现（gtlib: boot）===== */
+
+static inline unsigned char inb(unsigned short port) {
+    unsigned char v;
+    __asm__ volatile("inb %1, %0" : "=a"(v) : "Nd"(port));
+    return v;
+}
+static inline void outw(unsigned short port, unsigned short v) {
+    __asm__ volatile("outw %0, %1" :: "a"(v), "Nd"(port));
+}
+static inline unsigned short inw(unsigned short port) {
+    unsigned short v;
+    __asm__ volatile("inw %1, %0" : "=a"(v) : "Nd"(port));
+    return v;
+}
+
+/* ---- serial ---- */
 void boot_serial_init(void) { serial_init(); }
 void boot_serial_putc(long long c) { serial_putc((char)c); }
-void boot_hlt(void) { for (;;) { __asm__ volatile("hlt"); } }
+void boot_serial_puts(const char *s) { while (*s) serial_putc(*s++); }
+long long boot_serial_getc(void) {
+    while (!(inb(0x3FD) & 0x01)) {}
+    return (long long)inb(0x3F8);
+}
+
+/* ---- port ---- */
+long long boot_inb(long long port) { return (long long)inb((unsigned short)port); }
+void boot_outb(long long port, long long v) { outb((unsigned short)port, (unsigned char)v); }
+long long boot_inw(long long port) { return (long long)inw((unsigned short)port); }
+void boot_outw(long long port, long long v) { outw((unsigned short)port, (unsigned short)v); }
+
+/* ---- system ---- */
+void boot_hlt(void) { for (;;) { __asm__ volatile("cli; hlt"); } }
 void boot_exit(void) { boot_hlt(); }
+void boot_reboot(void) { outb(0x64, 0xFE); for (;;) {} }
+void boot_shutdown(void) { outw(0x604, 0x2000); for (;;) {} }
+
+/* ---- memory ---- */
 long long boot_mem_alloc(long long n) { return (long long)gt_mem_alloc((u64)n); }
+void boot_mem_free(long long p) { (void)p; }
+long long boot_mem_size(void) { return 1 << 20; }
+
+/* ---- time ---- */
 long long boot_time_ms(void) { return 0; }
-void boot_reboot(void) { __asm__ volatile("outb %0, %1" :: "a"((unsigned char)0xFE), "Nd"((unsigned short)0x64)); for (;;) {} }
+void boot_sleep_ms(long long ms) { (void)ms; }
+
+/* ---- disk（LBA 暂未实现，返回 -1）---- */
+long long boot_disk_read(long long lba, long long n, long long buf) { (void)lba; (void)n; (void)buf; return -1; }
+long long boot_disk_write(long long lba, long long n, long long buf) { (void)lba; (void)n; (void)buf; return -1; }
+
+/* ---- screen / keyboard（BIOS 中断，保护模式/长模式下不可用；占位）---- */
+void boot_clear(void) {}
+void boot_putc_at(long long c, long long x, long long y) { (void)c; (void)x; (void)y; }
+void boot_puts(const char *s) { boot_serial_puts(s); }
+long long boot_getkey(void) { return -1; }
+
+/* ---- info ---- */
+const char *boot_version(void) { return "boot 0.0.1d"; }
+long long boot_arch(void) {
+#if defined(__x86_64__)
+    return 64;
+#elif defined(__i386__)
+    return 32;
+#else
+    return 16;
+#endif
+}
 
 
 extern i64 main(void);
