@@ -142,6 +142,7 @@ pub const MODULES: &[StdModule] = &[
             "boot_idt_init", "boot_irq_enable", "boot_irq_disable", "boot_pic_init", "boot_keyboard_handler",
             // 文件系统
             "boot_fs_create", "boot_fs_write", "boot_fs_read", "boot_fs_size", "boot_fs_delete", "boot_fs_count",
+            "boot_fat16_find", "boot_fat16_read",
         ],
     },
     StdModule {

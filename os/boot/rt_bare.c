@@ -357,6 +357,70 @@ long long boot_fs_count(void) {
     return c;
 }
 
+
+/* ===== FAT16 只读（简化：读根目录 + 文件内容）===== */
+static unsigned char fat_buf[512];
+
+/* 读第 n 个根目录项（32 字节），返回 0 成功 */
+static int fat16_root_entry(long long idx, unsigned char *out) {
+    // 根目录区起始：保留区(1) + FAT 表(2 * sectors_per_fat) —— 典型 FAT16 参数
+    // 这里用固定布局（QEMU 生成的 FAT16 镜像）：保留 1 扇区，2 个 FAT，每个 32 扇区
+    long long root_lba = 1 + 2 * 32;
+    long long lba = root_lba + idx / 16;
+    long long off = (idx % 16) * 32;
+    if (boot_disk_read(lba, 1, (long long)fat_buf) < 0) return -1;
+    for (int i = 0; i < 32; i++) out[i] = fat_buf[off + i];
+    return 0;
+}
+
+/* 在根目录找文件（8.3 名），返回起始簇（0 未找到） */
+long long boot_fat16_find(const char *name83) {
+    unsigned char e[32];
+    for (long long i = 0; i < 512; i++) {
+        if (fat16_root_entry(i, e) != 0) break;
+        if (e[0] == 0) break;             // 目录结束
+        if (e[0] == 0xE5) continue;       // 已删除
+        if (e[11] & 0x08) continue;       // 卷标
+        int ok = 1;
+        for (int j = 0; j < 11; j++) {
+            char c = name83[j];
+            if (c >= 'a' && c <= 'z') c -= 32;
+            if (e[j] != (unsigned char)c) { ok = 0; break; }
+        }
+        if (ok) return (long long)(e[26] | (e[27] << 8));
+    }
+    return 0;
+}
+
+long long boot_fat16_read(const char *name83, char *out, long long cap) {
+    unsigned char e[32];
+    for (long long i = 0; i < 512; i++) {
+        if (fat16_root_entry(i, e) != 0) break;
+        if (e[0] == 0) break;
+        if (e[0] == 0xE5) continue;
+        if (e[11] & 0x08) continue;
+        int ok = 1;
+        for (int j = 0; j < 11; j++) {
+            char c = name83[j];
+            if (c >= 'a' && c <= 'z') c -= 32;
+            if (e[j] != (unsigned char)c) { ok = 0; break; }
+        }
+        if (!ok) continue;
+        long long size = e[28] | (e[29] << 8) | (e[30] << 16) | ((long long)e[31] << 24);
+        long long cluster = e[26] | (e[27] << 8);
+        long long data_lba = 1 + 2 * 32 + 512 + (cluster - 2) * 1;
+        long long n = size < cap ? size : cap;
+        unsigned char *p = (unsigned char *)out;
+        for (long long k = 0; k < n; k += 512) {
+            if (boot_disk_read(data_lba + k / 512, 1, (long long)fat_buf) < 0) break;
+            long long m = (n - k) < 512 ? (n - k) : 512;
+            for (long long t = 0; t < m; t++) p[k + t] = fat_buf[t];
+        }
+        return n;
+    }
+    return -1;
+}
+
 /* ---- info ---- */
 const char *boot_version(void) { return "boot 0.0.1d"; }
 long long boot_arch(void) {
