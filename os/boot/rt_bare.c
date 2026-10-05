@@ -275,6 +275,88 @@ void boot_putc_at(long long c, long long x, long long y) { (void)c; (void)x; (vo
 void boot_puts(const char *s) { boot_serial_puts(s); }
 long long boot_getkey(void) { return -1; }
 
+
+/* ===== 简单内存文件系统（ramfs）===== */
+#define FS_MAX_FILES 32
+#define FS_NAME_MAX 32
+#define FS_DATA_MAX 4096
+
+struct fs_file {
+    char name[FS_NAME_MAX];
+    unsigned char data[FS_DATA_MAX];
+    int size;
+    int used;
+};
+static struct fs_file fs_files[FS_MAX_FILES];
+
+/* 创建文件，返回索引（-1 失败） */
+long long boot_fs_create(const char *name) {
+    for (int i = 0; i < FS_MAX_FILES; i++) {
+        if (!fs_files[i].used) {
+            fs_files[i].used = 1;
+            fs_files[i].size = 0;
+            int j = 0;
+            while (name[j] && j < FS_NAME_MAX - 1) { fs_files[i].name[j] = name[j]; j++; }
+            fs_files[i].name[j] = 0;
+            return i;
+        }
+    }
+    return -1;
+}
+
+/* 按名查找，返回索引（-1 不存在） */
+static long long fs_find(const char *name) {
+    for (int i = 0; i < FS_MAX_FILES; i++) {
+        if (!fs_files[i].used) continue;
+        int j = 0; int ok = 1;
+        while (1) {
+            if (fs_files[i].name[j] != name[j]) { ok = 0; break; }
+            if (fs_files[i].name[j] == 0) break;
+            j++;
+        }
+        if (ok) return i;
+    }
+    return -1;
+}
+
+long long boot_fs_write(const char *name, const char *data, long long n) {
+    long long i = fs_find(name);
+    if (i < 0) i = boot_fs_create(name);
+    if (i < 0) return -1;
+    if (n > FS_DATA_MAX) n = FS_DATA_MAX;
+    for (long long k = 0; k < n; k++) fs_files[i].data[k] = (unsigned char)data[k];
+    fs_files[i].size = (int)n;
+    return n;
+}
+
+long long boot_fs_read(const char *name, char *out, long long cap) {
+    long long i = fs_find(name);
+    if (i < 0) return -1;
+    long long n = fs_files[i].size;
+    if (n > cap) n = cap;
+    for (long long k = 0; k < n; k++) out[k] = (char)fs_files[i].data[k];
+    return n;
+}
+
+long long boot_fs_size(const char *name) {
+    long long i = fs_find(name);
+    return i < 0 ? -1 : (long long)fs_files[i].size;
+}
+
+long long boot_fs_delete(const char *name) {
+    long long i = fs_find(name);
+    if (i < 0) return -1;
+    fs_files[i].used = 0;
+    fs_files[i].size = 0;
+    return 0;
+}
+
+long long boot_fs_count(void) {
+    long long c = 0;
+    for (int i = 0; i < FS_MAX_FILES; i++) if (fs_files[i].used) c++;
+    return c;
+}
+
 /* ---- info ---- */
 const char *boot_version(void) { return "boot 0.0.1d"; }
 long long boot_arch(void) {

@@ -202,6 +202,12 @@ pub fn gtlib_fn(name: &str) -> Option<StdFn> {
         "boot_irq_disable" => f("boot_irq_disable", Ty::Void, &[]),
         "boot_pic_init" => f("boot_pic_init", Ty::Void, &[]),
         "boot_keyboard_handler" => f("boot_keyboard_handler", Ty::I64, &[]),
+        "boot_fs_create" => f("boot_fs_create", Ty::I64, &[Ty::Str]),
+        "boot_fs_write" => f("boot_fs_write", Ty::I64, &[Ty::Str, Ty::Str, Ty::I64]),
+        "boot_fs_read" => f("boot_fs_read", Ty::I64, &[Ty::Str, Ty::I64, Ty::I64]),
+        "boot_fs_size" => f("boot_fs_size", Ty::I64, &[Ty::Str]),
+        "boot_fs_delete" => f("boot_fs_delete", Ty::I64, &[Ty::Str]),
+        "boot_fs_count" => f("boot_fs_count", Ty::I64, &[]),
         // ---- core ----
         "core_free" => f("py_free", Ty::Void, &[Ty::Str]),
         "core_version" => f("py_core_version", Ty::Str, &[]),
@@ -347,6 +353,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "boot_inb" | "boot_outb" | "boot_inw" | "boot_outw"
         | "boot_version" | "boot_arch"
         | "boot_idt_init" | "boot_irq_enable" | "boot_irq_disable" | "boot_pic_init" | "boot_keyboard_handler"
+        | "boot_fs_create" | "boot_fs_write" | "boot_fs_read" | "boot_fs_size" | "boot_fs_delete" | "boot_fs_count"
         | "sha256" | "hmac_sha256" | "sha256_hexlen" | "sha512" | "sha1" | "md5" | "sha512_hexlen" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
         | "entropy_random_hex" | "entropy_random_int" | "entropy_random_bytes" | "entropy_uuid"
         | "session_create" | "session_get" | "session_destroy" | "session_gc" | "session_count"

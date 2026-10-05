@@ -102,6 +102,13 @@ pub const BOOT_FUNCS: &[BootFn] = &[
     BootFn { name: "boot_irq_disable", symbol: "boot_irq_disable", group: "interrupt" },
     BootFn { name: "boot_pic_init", symbol: "boot_pic_init", group: "interrupt" },
     BootFn { name: "boot_keyboard_handler", symbol: "boot_keyboard_handler", group: "interrupt" },
+    // fs（内存文件系统）
+    BootFn { name: "boot_fs_create", symbol: "boot_fs_create", group: "fs" },
+    BootFn { name: "boot_fs_write", symbol: "boot_fs_write", group: "fs" },
+    BootFn { name: "boot_fs_read", symbol: "boot_fs_read", group: "fs" },
+    BootFn { name: "boot_fs_size", symbol: "boot_fs_size", group: "fs" },
+    BootFn { name: "boot_fs_delete", symbol: "boot_fs_delete", group: "fs" },
+    BootFn { name: "boot_fs_count", symbol: "boot_fs_count", group: "fs" },
 ];
 
 /// 该模块是否仅用于裸机目标（宿主机链接时不提供这些符号）。
