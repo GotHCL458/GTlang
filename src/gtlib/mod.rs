@@ -128,7 +128,7 @@ pub const MODULES: &[StdModule] = &[
             // 键盘
             "boot_getkey",
             // 内存
-            "boot_mem_alloc", "boot_mem_free", "boot_mem_size",
+            "boot_mem_alloc", "boot_mem_free", "boot_mem_size", "boot_mem_free_bytes", "boot_paging_init",
             // 时间
             "boot_time_ms", "boot_sleep_ms",
             "boot_rtc_read",
@@ -143,7 +143,7 @@ pub const MODULES: &[StdModule] = &[
             // 信息
             "boot_version", "boot_arch",
             // 中断
-            "boot_idt_init", "boot_irq_enable", "boot_irq_disable", "boot_pic_init", "boot_keyboard_handler",
+            "boot_idt_init", "boot_irq_enable", "boot_irq_disable", "boot_pic_init", "boot_keyboard_handler", "boot_irq_register",
             // 文件系统：内存盘
             "boot_fs_ram_create", "boot_fs_ram_write", "boot_fs_ram_read", "boot_fs_ram_size", "boot_fs_ram_delete", "boot_fs_ram_count", "boot_fs_ram_list",
             // FAT8（只读）
@@ -153,7 +153,7 @@ pub const MODULES: &[StdModule] = &[
             // FAT32（完整读写）
             "boot_fat32_find", "boot_fat32_read", "boot_fat32_write", "boot_fat32_delete", "boot_fat32_list",
             // 多任务
-            "boot_task_create", "boot_task_yield", "boot_task_start",
+            "boot_task_create", "boot_task_yield", "boot_task_start", "boot_task_exit",
         ],
     },
     StdModule {

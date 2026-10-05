@@ -926,6 +926,19 @@ long long boot_disk_partitions(long long out) {
     }
     return 0;
 }
+
+/* 查询堆剩余空间 */
+long long boot_mem_free_bytes(void) { return boot_mem_size() - (long long)heap_used; }
+
+/* ===== interrupt：注册自定义 IRQ handler ===== */
+#define MAX_IRQ_HANDLERS 16
+static void (*irq_handlers[MAX_IRQ_HANDLERS])(void) = {0};
+
+long long boot_irq_register(long long irq, long long fn) {
+    if (irq < 0 || irq >= MAX_IRQ_HANDLERS) return -1;
+    irq_handlers[irq] = (void (*)(void))fn;
+    return 0;
+}
 /* ===== 简单协作式多任务（轮转调度）===== */
 #define TASK_MAX 8
 #define TASK_STACK 8192
@@ -1013,5 +1026,26 @@ __attribute__((section(".text.entry"), naked)) void kernel_entry(void) {
     __asm__ volatile("call kernel_entry_c");
     __asm__ volatile("1: jmp 1b");
 }
+/* ===== memory：分页（恒等映射前 2MB 大页）===== */
+long long boot_paging_init(long long pml4_phys) {
+    unsigned long long *pml4 = (unsigned long long *)pml4_phys;
+    unsigned long long *pdpt = (unsigned long long *)(pml4_phys + 0x1000);
+    unsigned long long *pd   = (unsigned long long *)(pml4_phys + 0x2000);
+    for (int i = 0; i < 512; i++) { pml4[i] = 0; pdpt[i] = 0; pd[i] = 0; }
+    pml4[0] = (unsigned long long)(pml4_phys + 0x1000) | 0x03;
+    pdpt[0] = (unsigned long long)(pml4_phys + 0x2000) | 0x03;
+    pd[0]   = 0x0000000000000083ULL;
+    return 0;
+}
+
+/* ===== task：任务退出 ===== */
+void boot_task_exit(void) {
+    if (cur_task >= 0 && cur_task < TASK_MAX) {
+        tasks[cur_task].state = 3;
+    }
+    boot_task_yield();
+    for (;;) { __asm__ volatile("hlt"); }
+}
+
 void kernel_entry_c(void) { clear_bss(); gt_rt_init(); (void)main(); while (1) {} }
 

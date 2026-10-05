@@ -63,6 +63,10 @@ pub const BOOT_FUNCS: &[BootFn] = &[
     BootFn { name: "boot_idt_init", symbol: "boot_idt_init", group: "interrupt" },
     BootFn { name: "boot_irq_enable", symbol: "boot_irq_enable", group: "interrupt" },
     BootFn { name: "boot_irq_disable", symbol: "boot_irq_disable", group: "interrupt" },
+    BootFn { name: "boot_irq_register", symbol: "boot_irq_register", group: "interrupt" },
+    BootFn { name: "boot_paging_init", symbol: "boot_paging_init", group: "memory" },
+    BootFn { name: "boot_mem_free_bytes", symbol: "boot_mem_free_bytes", group: "memory" },
+    BootFn { name: "boot_task_exit", symbol: "boot_task_exit", group: "task" },
     BootFn { name: "boot_pic_init", symbol: "boot_pic_init", group: "interrupt" },
     BootFn { name: "boot_keyboard_handler", symbol: "boot_keyboard_handler", group: "interrupt" },
     // fs_ram（内存文件系统）
