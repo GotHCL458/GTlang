@@ -2,13 +2,21 @@ import boot
 
 fn main() {
     boot_serial_init()
-    boot_serial_puts("[gtlang] kernel up\n")
-    boot_puts("arch=")
-    put(boot_arch())
-    put(10)
-    boot_puts(boot_version())
-    put(10)
-    put(boot_mem_size())
-    put(10)
+    boot_serial_puts("[gtlang] idt + pic init\n")
+    boot_idt_init()
+    boot_irq_enable()
+    boot_serial_puts("press a key (10s)...\n")
+    i := 0
+    while i < 10000000 {
+        c := boot_keyboard_handler()
+        if c >= 0 {
+            boot_serial_puts("key: ")
+            boot_serial_putc(c)
+            boot_serial_putc(10)
+            if c == 113 { break }   // q 退出
+        }
+        i = i + 1
+    }
+    boot_serial_puts("done\n")
     boot_hlt()
 }

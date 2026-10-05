@@ -138,6 +138,8 @@ pub const MODULES: &[StdModule] = &[
             "boot_inb", "boot_outb", "boot_inw", "boot_outw",
             // 信息
             "boot_version", "boot_arch",
+            // 中断
+            "boot_idt_init", "boot_irq_enable", "boot_irq_disable", "boot_pic_init", "boot_keyboard_handler",
         ],
     },
     StdModule {

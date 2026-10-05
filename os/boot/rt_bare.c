@@ -5,6 +5,19 @@ typedef long long i64;
 static inline void outb(unsigned short port, unsigned char v) {
     __asm__ volatile("outb %0, %1" :: "a"(v), "Nd"(port));
 }
+static inline unsigned char inb(unsigned short port) {
+    unsigned char v;
+    __asm__ volatile("inb %1, %0" : "=a"(v) : "Nd"(port));
+    return v;
+}
+static inline void outw(unsigned short port, unsigned short v) {
+    __asm__ volatile("outw %0, %1" :: "a"(v), "Nd"(port));
+}
+static inline unsigned short inw(unsigned short port) {
+    unsigned short v;
+    __asm__ volatile("inw %1, %0" : "=a"(v) : "Nd"(port));
+    return v;
+}
 
 static void serial_init(void) {
     outb(0x3F9, 0); outb(0x3FB, 0x80); outb(0x3F8, 3); outb(0x3F9, 0);
@@ -62,21 +75,92 @@ void gt_overflow(i64 line) { (void)line; serial_putc('#'); }
 void gt_panic(const char *m) { while (*m) serial_putc(*m++); while (1) {} }
 
 /* ---- boot 标准库（gtlib: boot）---- */
+
+/* ===== interrupt（IDT + PIC + 键盘）===== */
+
+struct idt_entry { unsigned short off_lo; unsigned short sel; unsigned char ist; unsigned char flags; unsigned short off_mid; unsigned int off_hi; unsigned int zero; } __attribute__((packed));
+struct idt_ptr { unsigned short limit; unsigned long base; } __attribute__((packed));
+
+static struct idt_entry idt[256];
+static struct idt_ptr idtp;
+
+/* 32 个异常 + 16 个 IRQ 的 stub（汇编写，这里用 GCC 属性生成） */
+extern void isr_stub_table(void);
+
+/* 键盘环形缓冲 */
+#define KBD_BUF 256
+static volatile char kbd_buf[KBD_BUF];
+static volatile int kbd_head = 0, kbd_tail = 0;
+
+static void kbd_push(char c) {
+    int n = (kbd_head + 1) % KBD_BUF;
+    if (n != kbd_tail) { kbd_buf[kbd_head] = c; kbd_head = n; }
+}
+
+/* 键盘扫描码 -> ASCII（简化，仅字母/数字/回车） */
+static const char kbd_map[128] = {
+    0, 27, '1','2','3','4','5','6','7','8','9','0','-','=', '\b',
+    '\t','q','w','e','r','t','y','u','i','o','p','[',']','\n',
+    0,'a','s','d','f','g','h','j','k','l',';','\'', '`',
+    0,'\\','z','x','c','v','b','n','m',',','.','/', 0, '*', 0, ' ',
+};
+
+/* 通用 IRQ 处理（由 stub 调用） */
+void irq_handler(unsigned long irq) {
+    if (irq == 1) {
+        unsigned char sc = inb(0x60);
+        if (!(sc & 0x80) && sc < 128) {
+            char c = kbd_map[sc];
+            if (c) kbd_push(c);
+        }
+    }
+    /* 发 EOI */
+    if (irq >= 8) outb(0xA0, 0x20);
+    outb(0x20, 0x20);
+}
+
+/* 初始化 PIC（重映射到 0x20..0x2F） */
+void boot_pic_init(void) {
+    outb(0x20, 0x11); outb(0xA0, 0x11);
+    outb(0x21, 0x20); outb(0xA1, 0x28);
+    outb(0x21, 0x04); outb(0xA1, 0x02);
+    outb(0x21, 0x01); outb(0xA1, 0x01);
+    outb(0x21, 0xFC); outb(0xA1, 0xFF);  /* 只开 IRQ0(定时)+IRQ1(键盘) */
+}
+
+/* 设置一个中断门（0x20+irq -> handler） */
+static void set_gate(int n, unsigned long handler) {
+    idt[n].off_lo = handler & 0xFFFF;
+    idt[n].sel = 0x08;
+    idt[n].ist = 0;
+    idt[n].flags = 0x8E;
+    idt[n].off_mid = (handler >> 16) & 0xFFFF;
+    idt[n].off_hi = (handler >> 32) & 0xFFFFFFFF;
+    idt[n].zero = 0;
+}
+
+void boot_idt_init(void) {
+    /* 先清零 */
+    for (int i = 0; i < 256; i++) set_gate(i, 0);
+    idtp.limit = sizeof(idt) - 1;
+    idtp.base = (unsigned long)&idt;
+    __asm__ volatile("lidt %0" :: "m"(idtp));
+    boot_pic_init();
+}
+
+void boot_irq_enable(void) { __asm__ volatile("sti"); }
+void boot_irq_disable(void) { __asm__ volatile("cli"); }
+
+/* 取一个键盘字符（无则返回 -1） */
+long long boot_keyboard_handler(void) {
+    if (kbd_tail == kbd_head) return -1;
+    char c = kbd_buf[kbd_tail];
+    kbd_tail = (kbd_tail + 1) % KBD_BUF;
+    return (long long)c;
+}
+
 /* ===== boot 标准库完整实现（gtlib: boot）===== */
 
-static inline unsigned char inb(unsigned short port) {
-    unsigned char v;
-    __asm__ volatile("inb %1, %0" : "=a"(v) : "Nd"(port));
-    return v;
-}
-static inline void outw(unsigned short port, unsigned short v) {
-    __asm__ volatile("outw %0, %1" :: "a"(v), "Nd"(port));
-}
-static inline unsigned short inw(unsigned short port) {
-    unsigned short v;
-    __asm__ volatile("inw %1, %0" : "=a"(v) : "Nd"(port));
-    return v;
-}
 
 /* ---- serial ---- */
 void boot_serial_init(void) { serial_init(); }
@@ -137,3 +221,4 @@ __attribute__((section(".text.entry"), naked)) void kernel_entry(void) {
     __asm__ volatile("1: jmp 1b");
 }
 void kernel_entry_c(void) { gt_rt_init(); (void)main(); while (1) {} }
+

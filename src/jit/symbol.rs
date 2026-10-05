@@ -171,6 +171,7 @@ pub(crate) const GTLIB_NAMES: &[&str] = &[
     "boot_disk_read", "boot_disk_write",
     "boot_inb", "boot_outb", "boot_inw", "boot_outw",
     "boot_version", "boot_arch",
+    "boot_idt_init", "boot_irq_enable", "boot_irq_disable", "boot_pic_init", "boot_keyboard_handler",
     // crypto
     "sha256", "hmac_sha256", "sha256_hexlen", "sha512", "sha1", "md5", "sha512_hexlen", "hex_encode", "hex_decode", "password_hash", "password_verify",
     // entropy

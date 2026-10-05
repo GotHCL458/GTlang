@@ -96,6 +96,12 @@ pub const BOOT_FUNCS: &[BootFn] = &[
     // info
     BootFn { name: "boot_version", symbol: "boot_version", group: "info" },
     BootFn { name: "boot_arch", symbol: "boot_arch", group: "info" },
+    // interrupt（IDT/PIC）
+    BootFn { name: "boot_idt_init", symbol: "boot_idt_init", group: "interrupt" },
+    BootFn { name: "boot_irq_enable", symbol: "boot_irq_enable", group: "interrupt" },
+    BootFn { name: "boot_irq_disable", symbol: "boot_irq_disable", group: "interrupt" },
+    BootFn { name: "boot_pic_init", symbol: "boot_pic_init", group: "interrupt" },
+    BootFn { name: "boot_keyboard_handler", symbol: "boot_keyboard_handler", group: "interrupt" },
 ];
 
 /// 该模块是否仅用于裸机目标（宿主机链接时不提供这些符号）。
