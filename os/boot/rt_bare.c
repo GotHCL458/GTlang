@@ -284,6 +284,12 @@ void gt_sb_push_i64(long long h, long long v) {
 }
 void gt_sb_push_f64(long long h, double v) { (void)h; (void)v; }
 void gt_sb_push_bool(long long h, long long v) { gt_sb_push_str(h, v ? "true" : "false"); }
+void gt_sb_pop(long long h) {
+    if (!h) return;
+    struct GtSb *b = (struct GtSb *)h;
+    if (b->len > 0) { b->len--; b->buf[b->len] = 0; }
+}
+
 const char *gt_sb_finish(long long h) {
     if (!h) return "";
     return ((struct GtSb *)h)->buf;

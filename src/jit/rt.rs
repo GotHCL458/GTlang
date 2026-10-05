@@ -524,6 +524,9 @@ pub(crate) extern "C" fn rt_sb_push_str(h: i64, p: i64) {
     }
 }
 
+pub(crate) extern "C" fn rt_sb_pop(h: i64) {
+    sb_with(h, |buf| { if !buf.is_empty() { buf.pop(); } });
+}
 pub(crate) extern "C" fn rt_sb_push_char(h: i64, c: i64) {
     let ch = (c as u8) as char;
     sb_with(h, |buf| buf.push(ch));

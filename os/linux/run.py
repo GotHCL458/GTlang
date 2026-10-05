@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""构建并运行 GTLang 伪 Linux 镜像（QEMU）。"""
+"""构建并运行 GTLang 伪 Linux 镜像。"""
 import os, subprocess, sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -18,20 +18,15 @@ def build():
         sys.exit(1)
     print('[linux] image:', IMG)
 
-def run(timeout=8):
-    cmd = [QEMU, '-drive', 'format=raw,file=' + IMG,
-           '-serial', 'stdio', '-display', 'none', '-no-reboot', '-m', '32']
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+def run():
+    # 优先 -nographic（纯串口，键盘=终端；彩色走 ANSI）
+    cmd = [QEMU, '-drive', 'format=raw,file=' + IMG, '-serial', 'mon:stdio', '-nographic', '-m', '32']
+    print('[linux] launching QEMU (type in this terminal; exit to quit)...')
+    p = subprocess.Popen(cmd)
     try:
-        stdout, stderr = p.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired:
+        p.wait()
+    except KeyboardInterrupt:
         p.kill()
-        stdout, stderr = p.communicate()
-    out = (stdout + stderr).decode('utf-8', 'replace')
-    for line in out.splitlines():
-        if 'WARNING' in line or 'Automatically' in line or 'Specify' in line:
-            continue
-        print(line)
 
 if __name__ == '__main__':
     build()

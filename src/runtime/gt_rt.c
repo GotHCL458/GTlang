@@ -817,6 +817,11 @@ static void gt_sb_reserve(GtSb *s, long long extra) {
 void gt_sb_push_str(long long h, const char *p);   /* 前置声明 */
 
 /* gt_sb_push_char：按字符追加（c 是 ASCII 码） */
+void gt_sb_pop(long long h) {
+    GtSb *s = gt_sb_get(h);
+    if (s && s->len > 0) { s->len--; s->buf[s->len] = 0; }
+}
+
 void gt_sb_push_char(long long h, long long c) {
     char tmp[2]; tmp[0] = (char)(c & 0xFF); tmp[1] = 0;
     gt_sb_push_str(h, tmp);

@@ -81,6 +81,14 @@ impl FnState {
                 let call = b.ins().call(f, &[]);
                 return Ok((b.inst_results(call)[0], Ty::I64));
             }
+            "sb_pop" => {
+                if args.len() != 1 { return Err(crate::lb!(line, "sb_pop() requires 1 argument", "sb_pop() 需要 1 个参数")); }
+                let h = self.gen_expr(jit, b, &args[0])?;
+                let hs = self.convert(b, &h, &Ty::I64);
+                let f = self.rt_ref(jit, b, "sb_pop")?;
+                b.ins().call(f, &[hs]);
+                return Ok((b.ins().iconst(types::I64, 0), Ty::Void));
+            }
             "sb_push_char" => {
                 if args.len() != 2 { return Err(crate::lb!(line, "sb_push_char() requires 2 arguments", "sb_push_char() 需要 2 个参数")); }
                 let h = self.gen_expr(jit, b, &args[0])?;

@@ -395,7 +395,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         // 裸内存
         | "mem_alloc" | "mem_free" | "mem_store_i64" | "mem_load_i64"
         | "str_builder" | "sb_append" | "sb_append_int" | "sb_finish"
-        | "sb_new" | "sb_push_str" | "sb_push_int" | "sb_push_i64" | "sb_push_f64" | "sb_push_bool" | "sb_push" | "sb_push_char"
+        | "sb_new" | "sb_push_str" | "sb_push_int" | "sb_push_i64" | "sb_push_f64" | "sb_push_bool" | "sb_push" | "sb_push_char" | "sb_pop"
         | "mem_store_u8" | "mem_load_u8" | "mem_copy" | "mem_set"
         // 标准库（os / json / toml）
         | "getcwd" | "getenv" | "setenv" | "path_exists" | "mkdir" | "system"

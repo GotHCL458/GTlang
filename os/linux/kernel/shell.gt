@@ -87,10 +87,14 @@ pub fn repl() {
         reading := true
         while reading {
             c := keyboard.wait_key()
-            if c == 10 {
+            if c == 10 || c == 13 {
                 reading = false
-            } elif c == 8 {
-                console.puts("\b \b")
+            } elif c == 8 || c == 127 {
+                // 只在有字符时退格
+                if len(sb_finish(line)) > 0 {
+                    sb_pop(line)
+                    console.puts("\b \b")
+                }
             } elif c >= 32 {
                 console.putc(c)
                 sb_push_char(line, c)

@@ -634,6 +634,7 @@ fn builtin_check(name: &str, args: &[Ty]) -> Result<Ty, String> {
         "sb_append" => { arity(2)?; Ok(Ty::Void) }
         "sb_append_int" => { arity(2)?; Ok(Ty::Void) }
         "sb_push_char" => { arity(2)?; Ok(Ty::Void) }
+        "sb_pop" => { arity(1)?; Ok(Ty::Void) }
         "sb_finish" => { arity(1)?; Ok(Ty::Str) }
         "mem_alloc" => {
             arity(1)?;

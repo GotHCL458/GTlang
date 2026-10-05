@@ -1,4 +1,4 @@
-//! 控制台：VGA 文本 + 串口双输出 + 彩色（VGA 属性 + 串口 ANSI）
+//! 控制台：VGA 文本 + 串口双输出 + 彩色（仅 VGA，串口不输出 ANSI 以免 cmd 乱码）
 import boot.serial
 import boot.screen
 
@@ -37,22 +37,13 @@ pub fn print_int(n: int) {
     newline()
 }
 
+// 颜色：只改 VGA 属性；串口不输出 ANSI（Windows cmd 会乱码）
 pub fn set_color(fg: int, bg: int) {
     boot.screen.vga_set_color(fg, bg)
-    boot.serial.putc(27)
-    boot.serial.puts("[3")
-    boot.serial.putc(48 + fg)
-    boot.serial.puts("m")
-    boot.serial.putc(27)
-    boot.serial.puts("[4")
-    boot.serial.putc(48 + bg)
-    boot.serial.puts("m")
 }
 
 pub fn reset_color() {
     boot.screen.vga_set_color(0x07, 0x00)
-    boot.serial.putc(27)
-    boot.serial.puts("[0m")
 }
 
 pub fn puts_color(s: str, fg: int, bg: int) {
