@@ -450,12 +450,15 @@ extern void task_switch(unsigned long *old_rsp, unsigned long new_rsp);
 #endif
 
 long long boot_task_create(void (*entry)(void)) {
-    for (int i = 0; i < TASK_MAX; i++) {
+    // slot 0 保留给主任务
+    for (int i = 1; i < TASK_MAX; i++) {
         if (tasks[i].used) continue;
         tasks[i].used = 1;
         tasks[i].state = 1;
-        unsigned long *sp = &tasks[i].stack[TASK_STACK / 8 - 1];
-        *sp = (unsigned long)entry;   /* 返回地址 = 入口 */
+        // 预留"6 个被保存寄存器 + 返回地址"（与 task_switch 的 pop/ret 顺序对应）
+        unsigned long *sp = &tasks[i].stack[TASK_STACK / 8 - 7];
+        for (int k = 0; k < 6; k++) sp[k] = 0;   // r15,r14,r13,r12,rbx,rbp
+        sp[6] = (unsigned long)entry;            // 返回地址 = 入口
         tasks[i].rsp = (unsigned long)sp;
         return i;
     }
@@ -482,7 +485,10 @@ void boot_task_yield(void) {
 }
 
 void boot_task_start(void) {
-    cur_task = -1;
+    // 主任务登记为 tasks[0]（占一个槽），这样它能被轮转切回。
+    cur_task = 0;
+    tasks[0].used = 1;
+    tasks[0].state = 2;   // running
     boot_task_yield();
 }
 

@@ -107,7 +107,12 @@ fn convert_fn_refs_block(b: &mut Block, fn_names: &[String], locals: &std::colle
 fn convert_fn_refs_expr(e: &mut Expr, fn_names: &[String], locals: &std::collections::HashSet<String>) {
     // 先递归（不含 CallValue 的 callee——那是闭包变量调用，不应转成函数引用）
     match &mut e.kind {
-        ExprKind::Call(_, args) => for a in args { convert_fn_refs_expr(a, fn_names, locals); },
+        ExprKind::Call(name, args) => {
+            // fn_addr(f)：参数保持原样（需要裸函数名/地址，不转闭包）
+            if name != "fn_addr" {
+                for a in args { convert_fn_refs_expr(a, fn_names, locals); }
+            }
+        }
         ExprKind::CallValue { args, .. } => for a in args { convert_fn_refs_expr(a, fn_names, locals); },
         ExprKind::Unary(_, a) => convert_fn_refs_expr(a, fn_names, locals),
         ExprKind::Binary(_, a, b) => { convert_fn_refs_expr(a, fn_names, locals); convert_fn_refs_expr(b, fn_names, locals); }
@@ -138,6 +143,16 @@ fn convert_fn_refs_expr(e: &mut Expr, fn_names: &[String], locals: &std::collect
         ExprKind::MethodOn { recv, args, .. } => { convert_fn_refs_expr(recv, fn_names, locals); for a in args { convert_fn_refs_expr(a, fn_names, locals); } }
         ExprKind::ClosureNew { captures, .. } => for c in captures { convert_fn_refs_expr(c, fn_names, locals); },
         _ => {}
+    }
+    // fn_addr(f)：参数是函数名时**不转闭包**（需要的是裸函数地址，不是 [fn_ptr, env] 块）
+    if let ExprKind::Call(name, args) = &mut e.kind {
+        if name == "fn_addr" {
+            for a in args.iter_mut() {
+                // 递归处理子表达式即可，保持 Ident 原样
+                convert_fn_refs_expr(a, fn_names, locals);
+            }
+            return;
+        }
     }
     // 值位置的函数名 → 无捕获闭包
     if let ExprKind::Ident(n) = &e.kind {

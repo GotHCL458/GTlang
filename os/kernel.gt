@@ -1,14 +1,34 @@
-import boot
+extern "C" {
+    fn boot_serial_init()
+    fn boot_serial_puts(s: str)
+    fn boot_task_create(entry: int) -> int
+    fn boot_task_yield()
+    fn boot_task_start()
+    fn boot_hlt()
+}
+
+fn 任务甲() {
+    i := 0
+    while i < 3 {
+        boot_serial_puts("A")
+        boot_task_yield()
+        i = i + 1
+    }
+    boot_serial_puts("[a done]\n")
+    while true { boot_task_yield() }
+}
 
 fn main() {
     boot_serial_init()
-    boot_serial_puts("[gtlang] os demo\n")
-    boot_serial_puts("arch=")
-    put(boot_arch())
-    put(10)
-    boot_serial_puts("idle...\n")
+    boot_serial_puts("tasks:\n")
+    boot_task_create(fn_addr(任务甲))
+    boot_task_start()
     i := 0
-    while i < 100000 { i = i + 1 }
-    boot_serial_puts("bye\n")
+    while i < 5 {
+        boot_serial_puts("M")
+        boot_task_yield()
+        i = i + 1
+    }
+    boot_serial_puts("\ndone\n")
     boot_hlt()
 }

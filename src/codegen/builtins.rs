@@ -10,12 +10,19 @@ impl<'a> Codegen<'a> {
         }
         // fn_addr(f)：取顶层函数 f 的地址（i64），裸机多任务入口用
         if name == "fn_addr" {
-            // 实参可能是：函数名（被 hoist 成 ClosureNew）或 闭包值。
-            // 从闭包对象 [fn_ptr, env] 取 fn_ptr。
-            let v = self.expr(&args[0])?;
-            if v.ty == Ty::I64 {
-                return Ok(v);
+            // fn_addr(函数名)：hoist 已保证参数是裸 Ident（未转闭包）
+            if let Some(Expr { kind: ExprKind::Ident(fname), .. }) = args.first() {
+                let sym = match self.fns.get(fname) {
+                    Some(info) => info.cname.clone(),
+                    None => format!("gt_{}", crate::codegen::mangle(fname)),
+                };
+                let r = self.new_reg();
+                self.body.push_str(&format!("  {} = ptrtoint ptr @{} to i64\n", r, sym));
+                return Ok(Val::new(&Ty::I64, r));
             }
+            // 兜底：当作闭包值，取 [fn_ptr, env] 的 fn_ptr
+            let v = self.expr(&args[0])?;
+            if v.ty == Ty::I64 { return Ok(v); }
             let p = self.as_ptr(&v);
             let r = self.new_reg();
             self.body.push_str(&format!("  {} = load i64, ptr {}\n", r, p));
