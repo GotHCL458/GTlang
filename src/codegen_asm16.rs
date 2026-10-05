@@ -21,6 +21,8 @@ pub struct Asm16 {
     #[allow(dead_code)] entry: Option<String>,
     /// 字符串常量（内容 -> 在数据段的标签名）
     strs: Vec<(String, Vec<u8>)>,
+    /// 标签序号（保证唯一）
+    seq: usize,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -158,19 +160,19 @@ fn gen_stmt(a: &mut Asm16, sc: &mut Scope, s: &Stmt) -> Result<(), String> {
         Stmt::Return(Some(e), _) => { gen_expr(a, sc, e)?; ret(a); }
         Stmt::Return(None, _) => { ret(a); }
         Stmt::If { cond, then, els, .. } => {
-            let lelse = format!("Lelse{}", a.out.len());
-            let lend = format!("Lend{}", a.out.len());
+            let lelse = a.new_label("Lelse");
+            let lend = a.new_label("Lend");
             gen_expr(a, sc, cond)?;
             cmp_ax_0(a);
             a.rel8(0x74, &lelse); // je else
             gen_block(a, sc, then)?;
-            if els.is_some() { a.rel8(0xEB, &lend); }
+            if els.is_some() { a.b(0xE9); let at = a.out.len(); a.w(0); let f = a.pc(); a.fixups.push((at, lend.clone(), FixKind::Rel16From(f))); }
             a.label(&lelse);
             if let Some(e) = els { gen_block(a, sc, e)?; a.label(&lend); }
         }
         Stmt::While { cond, body, .. } => {
-            let ltop = format!("Ltop{}", a.out.len());
-            let lend = format!("Lend{}", a.out.len());
+            let ltop = a.new_label("Ltop");
+            let lend = a.new_label("Lend");
             a.label(&ltop);
             gen_expr(a, sc, cond)?;
             cmp_ax_0(a);
@@ -178,13 +180,13 @@ fn gen_stmt(a: &mut Asm16, sc: &mut Scope, s: &Stmt) -> Result<(), String> {
             sc.breaks.push(lend.clone()); sc.continues.push(ltop.clone());
             gen_block(a, sc, body)?;
             sc.breaks.pop(); sc.continues.pop();
-            a.rel8(0xEB, &ltop);
+            a.b(0xE9); let atw = a.out.len(); a.w(0); let fw = a.pc(); a.fixups.push((atw, ltop.clone(), FixKind::Rel16From(fw)));
             a.label(&lend);
         }
         // for i in a..b：i 从 a 到 b-1
         Stmt::ForRange { var, from, to, body, .. } => {
-            let ltop = format!("Lfr{}", a.out.len());
-            let lend = format!("Lfe{}", a.out.len());
+            let ltop = a.new_label("Lfr");
+            let lend = a.new_label("Lfe");
             gen_expr(a, sc, from)?;
             let off = alloc(sc);
             store_ax(a, off);
@@ -201,7 +203,7 @@ fn gen_stmt(a: &mut Asm16, sc: &mut Scope, s: &Stmt) -> Result<(), String> {
             let frompc = a.pc();
             a.fixups.push((at, lend.clone(), FixKind::Rel16From(frompc)));
             // continue 跳到"自增处"（linc）
-            let linc = format!("Linc{}", a.out.len());
+            let linc = a.new_label("Linc");
             sc.breaks.push(lend.clone()); sc.continues.push(linc.clone());
             gen_block(a, sc, body)?;
             sc.breaks.pop(); sc.continues.pop();
@@ -209,12 +211,16 @@ fn gen_stmt(a: &mut Asm16, sc: &mut Scope, s: &Stmt) -> Result<(), String> {
             load_ax(a, off);
             a.b(0x40);                   // inc ax
             store_ax(a, off);
-            a.rel8(0xEB, &ltop);
+            // 回跳可能超 rel8：用 rel16
+            a.b(0xE9);
+            let atb = a.out.len(); a.w(0);
+            let fb = a.pc();
+            a.fixups.push((atb, ltop.clone(), FixKind::Rel16From(fb)));
             a.label(&lend);
         }
         Stmt::DoWhile { body, cond, .. } => {
-            let ltop = format!("Ldw{}", a.out.len());
-            let lend = format!("Lde{}", a.out.len());
+            let ltop = a.new_label("Ldw");
+            let lend = a.new_label("Lde");
             a.label(&ltop);
             sc.breaks.push(lend.clone()); sc.continues.push(ltop.clone());
             gen_block(a, sc, body)?;
@@ -300,6 +306,63 @@ fn gen_expr(a: &mut Asm16, sc: &mut Scope, e: &Expr) -> Result<(), String> {
             a.b(0x8A); a.b(0x07);        // mov al, [bx]
             a.b(0x0F); a.b(0xB6); a.b(0xC0); // movzx ax, al
         }
+        ExprKind::Match { subject, arms } => {
+            // match 作为表达式：逐 arm 比较，命中则求其 body 值（AX）
+            let lend = a.new_label("Lme");
+            gen_expr(a, sc, subject)?;
+            let subj_off = alloc(sc);
+            store_ax(a, subj_off);
+            for arm in arms {
+                let lnext = a.new_label("Lmn");
+                if let Some(pat) = &arm.pat {
+                    load_ax(a, subj_off);
+                    push_ax(a);
+                    gen_expr(a, sc, pat)?;
+                    a.b(0x89); a.b(0xC3);
+                    pop_ax(a);
+                    a.b(0x39); a.b(0xD8);
+                    a.b(0x75);
+                    let at = a.out.len(); a.b(0);
+                    let f = a.pc();
+                    a.fixups.push((at, lnext.clone(), FixKind::Rel8From(f)));
+                }
+                if let Some((lo, hi)) = &arm.range {
+                    load_ax(a, subj_off);
+                    push_ax(a);
+                    gen_expr(a, sc, lo)?;
+                    a.b(0x89); a.b(0xC3);
+                    pop_ax(a);
+                    a.b(0x39); a.b(0xD8);
+                    a.b(0x7C);
+                    let a1 = a.out.len(); a.b(0);
+                    let f1 = a.pc();
+                    a.fixups.push((a1, lnext.clone(), FixKind::Rel8From(f1)));
+                    load_ax(a, subj_off);
+                    push_ax(a);
+                    gen_expr(a, sc, hi)?;
+                    a.b(0x89); a.b(0xC3);
+                    pop_ax(a);
+                    a.b(0x39); a.b(0xD8);
+                    a.b(0x7D);
+                    let a2 = a.out.len(); a.b(0);
+                    let f2 = a.pc();
+                    a.fixups.push((a2, lnext.clone(), FixKind::Rel8From(f2)));
+                }
+                if let Some(g) = &arm.guard {
+                    gen_expr(a, sc, g)?;
+                    cmp_ax_0(a);
+                    a.b(0x74);
+                    let a3 = a.out.len(); a.b(0);
+                    let f3 = a.pc();
+                    a.fixups.push((a3, lnext.clone(), FixKind::Rel8From(f3)));
+                }
+                // body 的最后表达式即 arm 值（gen_block 里 Stmt::Expr 会留下 AX）
+                gen_block(a, sc, &arm.body)?;
+                a.b(0xE9); let atm = a.out.len(); a.w(0); let fm = a.pc(); a.fixups.push((atm, lend.clone(), FixKind::Rel16From(fm)));
+                a.label(&lnext);
+            }
+            a.label(&lend);
+        }
         ExprKind::ArrayLit(items) => {
             // 数组：在栈上为每个元素分配 2 字节（连续，向下增长）
             let mut offs = Vec::new();
@@ -383,10 +446,11 @@ fn gen_expr(a: &mut Asm16, sc: &mut Scope, e: &Expr) -> Result<(), String> {
 
 impl Asm16 {
     pub fn new() -> Self {
-        Asm16 { out: Vec::new(), labels: HashMap::new(), fixups: Vec::new(), fn_addr: HashMap::new(), entry: None, strs: Vec::new() }
+        Asm16 { out: Vec::new(), labels: HashMap::new(), fixups: Vec::new(), fn_addr: HashMap::new(), entry: None, strs: Vec::new(), seq: 0 }
     }
 
     fn pc(&self) -> i64 { ORG + self.out.len() as i64 }
+    fn new_label(&mut self, prefix: &str) -> String { let s = self.seq; self.seq += 1; format!("{}{}", prefix, s) }
     fn b(&mut self, x: u8) { self.out.push(x); }
     fn w(&mut self, x: i64) { self.out.extend_from_slice(&((x as u16) & 0xFFFF).to_le_bytes()); }
 
@@ -400,3 +464,5 @@ impl Asm16 {
         Ok(())
     }
 }
+
+
