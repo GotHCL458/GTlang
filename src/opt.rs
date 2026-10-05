@@ -208,6 +208,8 @@ fn inline_simple(prog: &mut Program) {
         for item in &prog.items {
             if let Item::Fn(f) = item {
                 if !f.type_params.is_empty() || f.is_pub { continue; }
+                // 带元编程属性的函数不内联（@export/@noinline/@inline/@section 等）
+                if !f.attrs.is_empty() { continue; }
                 if f.body.is_empty() || f.body.len() > 6 { continue; }
                 if !matches!(f.body.last(), Some(Stmt::Expr(_))) { continue; }
                 let names: Vec<String> = f.params.iter().map(|p| p.name.clone()).collect();

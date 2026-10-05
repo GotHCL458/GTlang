@@ -258,7 +258,7 @@ pub fn hoist(prog: &mut Program) {
                         if !scope.is_empty() { rewrite_calls_block(&mut b2, &scope); }
                         // 默认方法体内的 `self.方法`（含父 trait 的方法）降级为 `类型__方法`
                         rewrite_self_calls_in_block(&mut b2, &ty, &std::collections::HashSet::new());
-                        new_items.push(Item::Fn(FnDef { name: uniq, type_params: Vec::new(), params, ret: Some(ret.clone()), ret_ty: ret, body: b2, line, is_pub: false, bounds: Vec::new() }));
+                        new_items.push(Item::Fn(FnDef { name: uniq, type_params: Vec::new(), params, ret: Some(ret.clone()), ret_ty: ret, body: b2, line, is_pub: false, bounds: Vec::new(), attrs: Vec::new() }));
                     }
                 }
                 // 保留 trait 实现关系（供 mono 的 where 约束校验）
@@ -804,6 +804,7 @@ fn lift_closures_in_expr(e: &mut Expr, counter: &mut usize, out: &mut Vec<FnDef>
             line,
             is_pub: false,
             bounds: Vec::new(),
+            attrs: Vec::new(),
         };
         out.push(fn_def);
         // 替换为 ClosureNew

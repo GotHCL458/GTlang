@@ -17,8 +17,9 @@ impl Parser {
             let _r: Result<(), String> = (|| {
             // 允许 `pub` 前缀
             let is_pub = self.eat_ident("pub");
-            // `@derive(Eq, Debug)` 注解
+            // `@derive(...)` 及元编程属性（@inline/@noinline/@packed/@align(N)/@section("..")/@export("..")/@symbol("..")）
             let mut derives: Vec<String> = Vec::new();
+            let mut attrs: Vec<String> = Vec::new();
             while self.at_punct("@") {
                 self.bump();
                 let dname = self.ident("注解名")?;
@@ -32,6 +33,18 @@ impl Parser {
                         if !self.eat_punct(",") { break; }
                     }
                     self.expect_punct(")")?;
+                } else if dname == "align" {
+                    self.expect_punct("(")?;
+                    let n = if let Tok::Int(v) = self.cur().tok { self.bump(); v } else { 0 };
+                    self.expect_punct(")")?;
+                    attrs.push(format!("align({})", n));
+                } else if dname == "section" || dname == "export" || dname == "symbol" {
+                    self.expect_punct("(")?;
+                    let s = if let Tok::Str(s) = self.cur().tok.clone() { self.bump(); s } else { String::new() };
+                    self.expect_punct(")")?;
+                    attrs.push(format!("{}({})", dname, s));
+                } else if dname == "inline" || dname == "noinline" || dname == "packed" || dname == "cold" || dname == "naked" {
+                    attrs.push(dname);
                 } else {
                     return Err(crate::lb!(self.line(), "unknown attribute '@{}'", "未知注解 '@{}'", dname));
                 }
@@ -43,7 +56,7 @@ impl Parser {
                 }
                 imports.push(self.import_decl()?);
             } else if self.eat_ident("fn") {
-                items.push(Item::Fn(self.fn_def(is_pub)?));
+                items.push(Item::Fn(self.fn_def(is_pub, attrs.clone())?));
             } else if self.eat_ident("const") {
                 let line = self.line();
                 let name = self.ident("const 名称")?;
@@ -115,7 +128,7 @@ impl Parser {
             } else if self.eat_ident("enum") {
                 items.push(Item::Enum(self.enum_def(is_pub, derives.clone())?));
             } else if self.eat_ident("struct") {
-                items.push(Item::Struct(self.struct_def(is_pub, derives.clone())?));
+                items.push(Item::Struct(self.struct_def(is_pub, derives.clone(), attrs.clone())?));
             } else if self.eat_ident("trait") {
                 items.push(Item::Trait(self.trait_def(is_pub)?));
             } else if self.eat_ident("impl") {
@@ -165,7 +178,7 @@ impl Parser {
                     if !self.eat_ident("fn") {
                         return Err(crate::lb!(self.line(), "impl block only supports fn/type", "impl 块内只支持 fn/type"));
                     }
-                    methods.push(self.fn_def(mpub)?);
+                    methods.push(self.fn_def(mpub, Vec::new())?);
                 }
                 self.expect_punct("}")?;
                 self.type_params = saved_tp;
@@ -191,7 +204,7 @@ impl Parser {
             } else if self.eat_ident("enum") {
                 items.push(Item::Enum(self.enum_def(is_pub, derives.clone())?));
             } else if self.eat_ident("struct") {
-                items.push(Item::Struct(self.struct_def(is_pub, derives.clone())?));
+                items.push(Item::Struct(self.struct_def(is_pub, derives.clone(), attrs.clone())?));
             } else {
                 return Err(crate::lb!(
                     self.line(),
@@ -377,7 +390,7 @@ impl Parser {
         Ok(EnumDef { name, type_params, variants, derives, line, is_pub })
     }
 
-    pub(crate) fn struct_def(&mut self, is_pub: bool, derives: Vec<String>) -> Result<StructDef, String> {
+    pub(crate) fn struct_def(&mut self, is_pub: bool, derives: Vec<String>, attrs: Vec<String>) -> Result<StructDef, String> {
         let line = self.line();
         let name = self.ident("结构体名")?;
         // 泛型参数：`struct 盒[T, U]`
@@ -410,10 +423,10 @@ impl Parser {
         }
         self.expect_punct("}")?;
         self.type_params = saved_tp;
-        Ok(StructDef { name, type_params, fields, derives, line, is_pub })
+        Ok(StructDef { name, type_params, fields, derives, line, is_pub, attrs })
     }
 
-    pub(crate) fn fn_def(&mut self, is_pub: bool) -> Result<FnDef, String> {
+    pub(crate) fn fn_def(&mut self, is_pub: bool, attrs: Vec<String>) -> Result<FnDef, String> {
         let line = self.line();
         let name = self.ident("函数名")?;
         // 泛型类型参数：`fn f[T, U](...)`
@@ -488,7 +501,7 @@ impl Parser {
         self.depth = 0;
         let body = self.block()?;
         self.type_params = saved_tp;
-        Ok(FnDef { name, type_params, params, ret, ret_ty: Ty::Unknown, body, line, is_pub, bounds })
+        Ok(FnDef { name, type_params, params, ret, ret_ty: Ty::Unknown, body, line, is_pub, bounds, attrs })
     }
 
 }

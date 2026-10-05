@@ -231,7 +231,18 @@ impl<'a> Codegen<'a> {
                 self.fns.insert(
                     f.name.clone(),
                     FnInfo {
-                        cname: if is_main { "main".into() } else { format!("gt_{}", mangle(&f.name)) },
+                        cname: {
+                            // `@export("sym")` / `@symbol("sym")` 覆盖符号名（元编程）
+                            let custom = f.attrs.iter().find_map(|a| {
+                                a.strip_prefix("export(").or_else(|| a.strip_prefix("symbol("))
+                                    .and_then(|s| s.strip_suffix(')'))
+                                    .filter(|s| !s.is_empty())
+                                    .map(|s| s.to_string())
+                            });
+                            if let Some(s) = custom { s }
+                            else if is_main { "main".into() }
+                            else { format!("gt_{}", mangle(&f.name)) }
+                        },
                         params: f
                             .params
                             .iter()

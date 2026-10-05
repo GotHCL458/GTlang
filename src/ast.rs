@@ -377,6 +377,8 @@ pub struct FnDef {
     pub is_pub: bool,
     /// where 泛型约束：(类型参数名, trait 名)
     pub bounds: Vec<(String, String)>,
+    /// 元编程属性（`@inline` / `@noinline` / `@export("sym")` / `@section("...")` 等）
+    pub attrs: Vec<String>,
 }
 
 /// `enum 名 { Variant(payload...) ... }`
@@ -408,6 +410,8 @@ pub struct StructDef {
     pub derives: Vec<String>,
     pub line: usize,
     pub is_pub: bool,
+    /// 元编程属性（`@packed` / `@align(N)` / `@section("...")` 等）
+    pub attrs: Vec<String>,
 }
 
 impl StructDef {

@@ -172,7 +172,7 @@ impl Parser {
         // 嵌套函数：fn 声明在语句位置
         if self.at_ident("fn") {
             self.bump();
-            let f = self.fn_def(false)?;
+            let f = self.fn_def(false, Vec::new())?;
             return Ok(Stmt::LocalFn(f));
         }
 
