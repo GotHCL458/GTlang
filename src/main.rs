@@ -150,6 +150,7 @@ fn main() -> ExitCode {
     let mut kernel_entry: Option<String> = None;
     let mut link_script: Option<PathBuf> = None;
     let mut include_dirs: Vec<PathBuf> = Vec::new();
+    let mut keep_ll = false;
 
     let mut i = 0;
     while i < args.len() {
@@ -212,6 +213,7 @@ fn main() -> ExitCode {
             "--emit-llvm-opt" | "--ir-ugly" => mode = Mode::EmitLlvmOpt,
             "--no-color" => no_color = true,
             "--keep-tmp" => keep_tmp = true,
+            "--keep-ll" => keep_ll = true,
             "--watch" | "-w" => watch = true,
             "--no-overflow-check" | "-fno-overflow" => gtc_rust::disable_overflow_check(),
             "--no-gc" | "-fno-gc" => gtc_rust::disable_gc(),
@@ -285,14 +287,14 @@ fn main() -> ExitCode {
             if cur != last {
                 last = cur;
                 if lang::is_zh() { println!("\n[watch] 变更，重新构建…"); } else { println!("\n[watch] change detected, rebuilding..."); }
-                if let Err(e) = drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, &bare_arch, boot_image, link_script.as_deref()) {
+                if let Err(e) = drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, &bare_arch, boot_image, link_script.as_deref(), keep_ll) {
                     eprintln!("{}", e);
                 }
             }
         }
     }
 
-    match drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, &bare_arch, boot_image, link_script.as_deref()) {
+    match drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, &bare_arch, boot_image, link_script.as_deref(), keep_ll) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("{}", e);
@@ -354,6 +356,7 @@ fn drive(
     bare_arch: &str,
     boot_image: bool,
     link_script: Option<&Path>,
+    keep_ll: bool,
 ) -> Result<(), String> {
     let first = &sources[0];
 
@@ -493,7 +496,9 @@ fn drive(
                 None => first.with_extension("o"),
             }
         };
-        let ll = unit.write_llvm_opt(&obj.with_extension("ll"), opt)?;
+        // 默认写临时目录（不污染源码目录）；--keep-ll 时才与 .o 同目录
+        let ll_path = if keep_ll { obj.with_extension("ll") } else { std::env::temp_dir().join(format!("gtc_bare_{}.ll", std::process::id())) };
+        let ll = unit.write_llvm_opt(&ll_path, opt)?;
         gtc_rust::driver::compile_bare(&ll, &obj, opt, bare_arch)?;
         if lang::is_zh() {
             println!("裸机目标已生成：{}（arch={}）", obj.display(), bare_arch);
