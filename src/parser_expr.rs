@@ -69,6 +69,23 @@ impl Parser {
                 lhs = Expr::new(ExprKind::Match { subject: Box::new(lhs), arms }, line);
                 continue;
             }
+            // 空合并：`a ?? b` → `match a { Some(v) => v, None => b }`（Option）
+            if self.at_punct("??") && min_prec == 0 {
+                let line = self.line();
+                self.bump();
+                let fallback = self.expr(1)?;
+                let v = format!("__qq_v{}", line);
+                let vexpr = || Expr::new(ExprKind::Ident(v.clone()), line);
+                let some_pat = Expr::new(ExprKind::Call("Some".to_string(), vec![vexpr()]), line);
+                let arms = vec![
+                    MatchArm { pat: Some(some_pat), range: None, guard: None,
+                        body: vec![Stmt::Expr(vexpr())], line },
+                    MatchArm { pat: None, range: None, guard: None,
+                        body: vec![Stmt::Expr(fallback)], line },
+                ];
+                lhs = Expr::new(ExprKind::Match { subject: Box::new(lhs), arms }, line);
+                continue;
+            }
             // 管道：`x |> f` → `f(x)`（最低优先级，左结合）
             if self.at_punct("|>") && min_prec == 0 {
                 let line = self.line();
@@ -173,6 +190,28 @@ impl Parser {
                 continue;
             }
             // 字段访问：`expr.field`（但不要吞掉限定名 `mod.fn`，那已在 primary 折叠）
+            // 可选链：`a?.b` → `match a { Some(v) => Some(v.b), None => None }`
+            if self.at_punct("?.") {
+                let line = self.line();
+                self.bump();
+                let field = match &self.cur().tok {
+                    Tok::Ident(n) => { let s = n.clone(); self.bump(); s }
+                    _ => return Err(crate::lb!(self.line(), "'?.' needs a field name", "'?.' 后需要字段名")),
+                };
+                let v = format!("__oc_v{}", line);
+                let vexpr = || Expr::new(ExprKind::Ident(v.clone()), line);
+                let field_expr = Expr::new(ExprKind::Field(Box::new(vexpr()), field), line);
+                let some_pat = Expr::new(ExprKind::Call("Some".to_string(), vec![vexpr()]), line);
+                let some_body = Expr::new(ExprKind::Call("Some".to_string(), vec![field_expr]), line);
+                let arms = vec![
+                    MatchArm { pat: Some(some_pat), range: None, guard: None,
+                        body: vec![Stmt::Expr(some_body)], line },
+                    MatchArm { pat: None, range: None, guard: None,
+                        body: vec![Stmt::Expr(Expr::new(ExprKind::None, line))], line },
+                ];
+                e = Expr::new(ExprKind::Match { subject: Box::new(e), arms }, line);
+                continue;
+            }
             if self.at_punct(".") {
                 self.bump();
                 let f = match &self.cur().tok {

@@ -1,0 +1,8 @@
+fn main() {
+    a := Some(5)
+    put(a ?? 9)
+    put(10)
+    b := None
+    put(b ?? 9)
+    put(10)
+}
