@@ -22,9 +22,15 @@ pub fn gtlib_fn(name: &str) -> Option<StdFn> {
         return Some(f("boot_load", Ty::Void, &[Ty::Str, Ty::Str]));
     }
     if let Some(rest) = name.strip_prefix("boot.") {
-        let flat = format!("boot_{}", rest.replace('.', "_"));
-        if let Some(found) = gtlib_fn(&flat) {
-            return Some(found);
+        // `boot.<子模块>.<函数>`：先试 `boot_<子>_<函数>`，再试 `boot_<函数>`（丢子模块名）。
+        // 例：boot.serial.init -> boot_serial_init；boot.screen.vga_clear -> boot_vga_clear。
+        let parts: Vec<&str> = rest.split('.').collect();
+        let with_mod = format!("boot_{}", rest.replace('.', "_"));
+        if let Some(found) = gtlib_fn(&with_mod) { return Some(found); }
+        if parts.len() >= 2 {
+            let fname = parts.last().unwrap();
+            let no_mod = format!("boot_{}", fname);
+            if let Some(found) = gtlib_fn(&no_mod) { return Some(found); }
         }
     }
     Some(match name {

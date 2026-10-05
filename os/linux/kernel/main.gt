@@ -1,5 +1,5 @@
 //! 内核主入口
-import boot
+import boot.system
 import "console.gt"
 import "fs.gt"
 import "shell.gt"
@@ -15,5 +15,6 @@ fn main() {
     shell.run("help")
     shell.run("ls")
     console.puts("[kernel] done\n")
-    boot.hlt()
+    boot.system.hlt()
 }
+

@@ -1,22 +1,24 @@
 //! 键盘驱动
-import boot
+import boot.interrupt
+import boot.system
 import "console.gt"
 
 pub fn init() {
-    boot.idt_init()
-    boot.irq_enable()
+    boot.interrupt.idt_init()
+    boot.interrupt.irq_enable()
     console.puts("[kbd] ready\n")
 }
 
 pub fn poll() -> int {
-    return boot.keyboard_handler()
+    return boot.interrupt.keyboard_handler()
 }
 
 pub fn wait_key() -> int {
     while true {
         c := poll()
         if c >= 0 { return c }
-        boot.hlt()
+        boot.system.hlt()
     }
     return -1
 }
+

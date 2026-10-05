@@ -1,16 +1,17 @@
 //! 任务/调度封装
-import boot
+import boot.task
 import "console.gt"
 
 pub fn spawn(entry: int) -> int {
-    return boot.task_create(entry)
+    return boot.task.create(entry)
 }
 
 pub fn yield_now() {
-    boot.task_yield()
+    boot.task.yield()
 }
 
 pub fn start() {
     console.puts("[task] scheduler start\n")
-    boot.task_start()
+    boot.task.start()
 }
+

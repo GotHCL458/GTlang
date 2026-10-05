@@ -1,8 +1,10 @@
-import boot
+import boot.serial
+import boot.fs_ram
 
 fn main() {
-    boot.serial_init()
-    boot.serial_puts("hi\n")
-    n := boot.fs.write("a.txt", "xy", 2)
-    put(n)
+    boot.serial.init()
+    boot.serial.puts("hello\n")
+    boot.fs_ram.write("a.txt", "x", 1)
+    put(boot.fs_ram.count())
+    put(10)
 }

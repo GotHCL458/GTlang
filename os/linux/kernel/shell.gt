@@ -1,7 +1,7 @@
 //! 简易 shell（命令解析 + 内置命令）
 import "console.gt"
 import "fs.gt"
-import boot
+import boot.system
 
 pub fn cmd_help() {
     console.puts("commands: help, echo, ls, exit\n")
@@ -19,10 +19,11 @@ pub fn run(cmd: str) {
         cmd_ls()
     } elif cmd == "exit" {
         console.puts("bye\n")
-        boot.hlt()
+        boot.system.hlt()
     } else {
         console.puts("unknown: ")
         console.puts(cmd)
         console.newline()
     }
 }
+

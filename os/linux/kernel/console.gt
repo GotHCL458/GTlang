@@ -1,21 +1,22 @@
 //! 控制台：VGA 文本 + 串口双输出
-import boot
+import boot.serial
+import boot.screen
 
 pub fn init() {
-    boot.serial_init()
-    boot.vga_clear()
-    boot.vga_set_color(0x0F, 0x00)
-    boot.serial_puts("[console] ready\n")
+    boot.serial.init()
+    boot.screen.vga_clear()
+    boot.screen.vga_set_color(0x0F, 0x00)
+    boot.serial.puts("[console] ready\n")
 }
 
 pub fn puts(s: str) {
-    boot.serial_puts(s)
-    boot.vga_puts(s)
+    boot.serial.puts(s)
+    boot.screen.vga_puts(s)
 }
 
 pub fn putc(c: int) {
-    boot.serial_putc(c)
-    boot.vga_putc(c)
+    boot.serial.putc(c)
+    boot.screen.vga_putc(c)
 }
 
 pub fn newline() {
@@ -26,3 +27,4 @@ pub fn print_int(n: int) {
     put(n)
     newline()
 }
+
