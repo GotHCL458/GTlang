@@ -263,6 +263,43 @@ fn emit_instr(m: &str, ops: &[Op], _pc: i64, labels: &HashMap<String, i64>, equs
         "jo" => emit_jcc(0x70, &ops[0], labels, equs, out, ln)?,
         "jno" => emit_jcc(0x71, &ops[0], labels, equs, out, ln)?,
         "loop" => emit_jcc(0xE2, &ops[0], labels, equs, out, ln)?,
+        "div" => {
+            // div r/m16：DX:AX / r/m16 -> AX 商, DX 余
+            match &ops[0] {
+                Op::Reg16(r) => { out.push(0xF7); out.push(modrm(3, 6, reg16_code(r))); }
+                Op::Reg8(r) => { out.push(0xF6); out.push(modrm(3, 6, reg8_code(r))); }
+                _ => return Err(err("div 操作数非法".into())),
+            }
+        }
+        "mul" => {
+            match &ops[0] {
+                Op::Reg16(r) => { out.push(0xF7); out.push(modrm(3, 4, reg16_code(r))); }
+                Op::Reg8(r) => { out.push(0xF6); out.push(modrm(3, 4, reg8_code(r))); }
+                _ => return Err(err("mul 操作数非法".into())),
+            }
+        }
+        "neg" => {
+            match &ops[0] {
+                Op::Reg16(r) => { out.push(0xF7); out.push(modrm(3, 3, reg16_code(r))); }
+                Op::Reg8(r) => { out.push(0xF6); out.push(modrm(3, 3, reg8_code(r))); }
+                _ => return Err(err("neg 操作数非法".into())),
+            }
+        }
+        "not" => {
+            match &ops[0] {
+                Op::Reg16(r) => { out.push(0xF7); out.push(modrm(3, 2, reg16_code(r))); }
+                Op::Reg8(r) => { out.push(0xF6); out.push(modrm(3, 2, reg8_code(r))); }
+                _ => return Err(err("not 操作数非法".into())),
+            }
+        }
+        "imul" => {
+            match &ops[0] {
+                Op::Reg16(r) => { out.push(0xF7); out.push(modrm(3, 5, reg16_code(r))); }
+                _ => return Err(err("imul 操作数非法".into())),
+            }
+        }
+        "cwd" => out.push(0x99),
+        "cdq" => out.push(0x99),
         "lodsb" => out.push(0xAC),
         "stosb" => out.push(0xAA),
         "rep" => { out.push(0xF3); }
