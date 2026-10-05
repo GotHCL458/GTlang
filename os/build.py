@@ -19,8 +19,8 @@ def sh(*cmd):
     return r.stdout.decode('utf-8', 'replace')
 def build():
     os.makedirs(B, exist_ok=True)
-    sh(GTC, '--bare', '--target', 'x86_32', os.path.join(ROOT, 'kernel.gt'), '-o', os.path.join(B, 'kernel.o'))
-    sh(CLANG, '-target', 'i386-unknown-none-elf', '-ffreestanding', '-nostdlib',
+    sh(GTC, '--bare', '--target', 'x86_64', os.path.join(ROOT, 'kernel.gt'), '-o', os.path.join(B, 'kernel.o'))
+    sh(CLANG, '-target', 'x86_64-unknown-none-elf', '-ffreestanding', '-nostdlib',
        '-fno-stack-protector', '-c', os.path.join(ROOT, 'boot', 'rt_bare.c'), '-o', os.path.join(B, 'rt_bare.o'))
     sh(LLD, '-T', os.path.join(ROOT, 'boot', 'kernel.ld'), '-o', os.path.join(B, 'kernel.elf'),
        os.path.join(B, 'kernel.o'), os.path.join(B, 'rt_bare.o'))
