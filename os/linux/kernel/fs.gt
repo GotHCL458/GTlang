@@ -1,0 +1,19 @@
+//! 文件系统：ramfs + FAT16 封装
+import boot
+import console
+
+pub fn init() {
+    console.puts("[fs] ramfs ready\n")
+}
+
+pub fn write(name: str, data: str) -> int {
+    return boot.fs_ram_write(name, data, len(data))
+}
+
+pub fn read(name: str, buf: int, cap: int) -> int {
+    return boot.fs_ram_read(name, buf, cap)
+}
+
+pub fn count() -> int {
+    return boot.fs_ram_count()
+}

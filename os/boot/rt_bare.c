@@ -189,6 +189,38 @@ long long boot_keyboard_handler(void) {
     return (long long)c;
 }
 
+
+/* ===== 裸机最小 libc（LLVM 后端可能引用）===== */
+unsigned long strlen(const char *s) {
+    unsigned long n = 0;
+    while (s[n]) n++;
+    return n;
+}
+int strcmp(const char *a, const char *b) {
+    while (*a && *a == *b) { a++; b++; }
+    return (int)(unsigned char)*a - (int)(unsigned char)*b;
+}
+char *strcpy(char *d, const char *s) {
+    char *r = d;
+    while ((*d++ = *s++)) {}
+    return r;
+}
+void *memcpy(void *d, const void *s, unsigned long n) {
+    unsigned char *dd = (unsigned char *)d;
+    const unsigned char *ss = (const unsigned char *)s;
+    for (unsigned long i = 0; i < n; i++) dd[i] = ss[i];
+    return d;
+}
+void *memset(void *d, int c, unsigned long n) {
+    unsigned char *dd = (unsigned char *)d;
+    for (unsigned long i = 0; i < n; i++) dd[i] = (unsigned char)c;
+    return d;
+}
+int memcmp(const void *a, const void *b, unsigned long n) {
+    const unsigned char *aa = (const unsigned char *)a, *bb = (const unsigned char *)b;
+    for (unsigned long i = 0; i < n; i++) { if (aa[i] != bb[i]) return (int)aa[i] - (int)bb[i]; }
+    return 0;
+}
 /* ===== boot 标准库完整实现（gtlib: boot）===== */
 
 

@@ -1,0 +1,28 @@
+//! 简易 shell（命令解析 + 内置命令）
+import console
+import fs
+import boot
+
+pub fn cmd_help() {
+    console.puts("commands: help, echo, ls, exit\n")
+}
+
+pub fn cmd_ls() {
+    console.puts("files: ")
+    console.print_int(fs.count())
+}
+
+pub fn run(cmd: str) {
+    if cmd == "help" {
+        cmd_help()
+    } elif cmd == "ls" {
+        cmd_ls()
+    } elif cmd == "exit" {
+        console.puts("bye\n")
+        boot.hlt()
+    } else {
+        console.puts("unknown: ")
+        console.puts(cmd)
+        console.newline()
+    }
+}

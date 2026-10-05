@@ -1,0 +1,16 @@
+//! 内核主入口
+import boot
+import console
+import fs
+import shell
+
+fn main() {
+    console.init()
+    console.puts("[kernel] GTLang pseudo-Linux booting\n")
+    fs.init()
+    fs.write("motd", "welcome to GTLang linux")
+    shell.run("help")
+    shell.run("ls")
+    console.puts("[kernel] done\n")
+    boot.hlt()
+}
