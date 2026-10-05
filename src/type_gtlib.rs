@@ -187,6 +187,8 @@ pub fn gtlib_fn(name: &str) -> Option<StdFn> {
         "boot_serial_putc" => f("boot_serial_putc", Ty::Void, &[Ty::I64]),
         "boot_serial_puts" => f("boot_serial_puts", Ty::Void, &[Ty::Str]),
         "boot_serial_getc" => f("boot_serial_getc", Ty::I64, &[]),
+        "boot_serial_poll" => f("boot_serial_poll", Ty::I64, &[]),
+        "boot_keyboard_modifiers" => f("boot_keyboard_modifiers", Ty::I64, &[]),
         "boot_clear" => f("boot_clear", Ty::Void, &[]),
         "boot_putc_at" => f("boot_putc_at", Ty::Void, &[Ty::I64, Ty::I64, Ty::I64]),
         "boot_puts" => f("boot_puts", Ty::Void, &[Ty::Str]),
@@ -394,7 +396,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "tcp_connect" | "tcp_listen" | "accept" | "net_send" | "net_recv" | "recv_all" | "net_close" | "close_listener" | "peer_addr"
         | "sql_open" | "sql_close" | "sql_exec" | "sql_query" | "sql_run" | "sql_error" | "sql_begin" | "sql_commit" | "sql_rollback" | "sql_exec_many"
         | "core_free" | "core_version" | "core_echo"
-        | "boot_serial_init" | "boot_serial_putc" | "boot_serial_puts" | "boot_serial_getc"
+        | "boot_serial_init" | "boot_serial_putc" | "boot_serial_puts" | "boot_serial_getc" | "boot_serial_poll" | "boot_keyboard_modifiers"
         | "boot_clear" | "boot_putc_at" | "boot_puts" | "boot_getkey"
         | "boot_vga_clear" | "boot_vga_set_color" | "boot_vga_putc" | "boot_vga_puts"
         | "boot_mem_alloc" | "boot_mem_free" | "boot_mem_size" | "boot_mem_free_bytes" | "boot_paging_init" | "boot_irq_register" | "boot_task_exit"

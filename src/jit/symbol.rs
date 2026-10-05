@@ -163,7 +163,8 @@ pub(crate) const GTLIB_NAMES: &[&str] = &[
     // core
     "core_free", "core_version", "core_echo",
     // boot（裸机引导库）
-    "boot_serial_init", "boot_serial_putc", "boot_serial_puts", "boot_serial_getc",
+    "boot_serial_init", "boot_serial_putc", "boot_serial_puts", "boot_serial_getc", "boot_serial_poll",
+    "boot_keyboard_modifiers",
     "boot_clear", "boot_putc_at", "boot_puts", "boot_getkey",
     "boot_vga_clear", "boot_vga_set_color", "boot_vga_putc", "boot_vga_puts",
     "boot_mem_alloc", "boot_mem_free", "boot_mem_size", "boot_mem_free_bytes", "boot_paging_init", "boot_irq_register", "boot_task_exit",

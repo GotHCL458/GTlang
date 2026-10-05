@@ -113,11 +113,13 @@ extern void irq1_stub(void);
 static volatile unsigned long long pit_ticks = 0;
 
 /* 通用 IRQ 处理（由 stub 调用） */
+static void kbd_handle_modifier(unsigned char sc);
 
 void irq_handler(unsigned long irq) {
     if (irq == 0) { pit_ticks++; }
     if (irq == 1) {
         unsigned char sc = inb(0x60);
+        kbd_handle_modifier(sc);
         if (!(sc & 0x80) && sc < 128) {
             char c = kbd_map[sc];
             if (c) kbd_push(c);
@@ -938,6 +940,45 @@ long long boot_irq_register(long long irq, long long fn) {
     if (irq < 0 || irq >= MAX_IRQ_HANDLERS) return -1;
     irq_handlers[irq] = (void (*)(void))fn;
     return 0;
+}
+
+/* ===== keyboard：修饰键（Shift/Ctrl/Alt）===== */
+static int kbd_shift = 0, kbd_ctrl = 0, kbd_alt = 0;
+
+/* 键盘修饰键状态：返回 bit0=shift bit1=ctrl bit2=alt */
+long long boot_keyboard_modifiers(void) {
+    return (kbd_shift ? 1 : 0) | (kbd_ctrl ? 2 : 0) | (kbd_alt ? 4 : 0);
+}
+
+/* 供 irq_handler 调用：处理修饰键（左右 Shift=0x2A/0x36, Ctrl=0x1D, Alt=0x38）*/
+static void kbd_handle_modifier(unsigned char sc) {
+    int released = sc & 0x80;
+    unsigned char code = sc & 0x7F;
+    if (code == 0x2A || code == 0x36) kbd_shift = !released;
+    else if (code == 0x1D) kbd_ctrl = !released;
+    else if (code == 0x38) kbd_alt = !released;
+}
+
+/* ===== serial：中断接收（环形缓冲）===== */
+#define SER_BUF 256
+static volatile char ser_buf[SER_BUF];
+static volatile int ser_head = 0, ser_tail = 0;
+
+static void ser_isr(void) {
+    while (inb(0x3FD) & 0x01) {
+        char c = (char)inb(0x3F8);
+        int n = (ser_head + 1) % SER_BUF;
+        if (n != ser_tail) { ser_buf[ser_head] = c; ser_head = n; }
+    }
+    outb(0x20, 0x20);   // EOI
+}
+
+/* 取串口接收字符（无则 -1） */
+long long boot_serial_poll(void) {
+    if (ser_tail == ser_head) return -1;
+    char c = ser_buf[ser_tail];
+    ser_tail = (ser_tail + 1) % SER_BUF;
+    return (long long)c;
 }
 /* ===== 简单协作式多任务（轮转调度）===== */
 #define TASK_MAX 8

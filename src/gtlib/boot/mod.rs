@@ -69,6 +69,8 @@ pub const BOOT_FUNCS: &[BootFn] = &[
     BootFn { name: "boot_task_exit", symbol: "boot_task_exit", group: "task" },
     BootFn { name: "boot_pic_init", symbol: "boot_pic_init", group: "interrupt" },
     BootFn { name: "boot_keyboard_handler", symbol: "boot_keyboard_handler", group: "interrupt" },
+    BootFn { name: "boot_keyboard_modifiers", symbol: "boot_keyboard_modifiers", group: "keyboard" },
+    BootFn { name: "boot_serial_poll", symbol: "boot_serial_poll", group: "serial" },
     // fs_ram（内存文件系统）
     BootFn { name: "boot_fs_ram_create", symbol: "boot_fs_ram_create", group: "fs_ram" },
     BootFn { name: "boot_fs_ram_write", symbol: "boot_fs_ram_write", group: "fs_ram" },

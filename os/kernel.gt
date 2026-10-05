@@ -2,15 +2,12 @@ import boot
 
 fn main() {
     boot.serial_init()
-    boot.serial_puts("[gtlang] paging + irq\n")
-    pg := boot.mem_alloc(0x3000)
-    rc := boot.paging_init(pg)
-    boot.serial_puts("paging rc=")
-    put(rc)
+    boot.serial_puts("[gtlang] kbd modifiers + serial poll\n")
+    m := boot.keyboard_modifiers()
+    boot.serial_puts("modifiers=")
+    put(m)
     put(10)
-    freeb := boot.mem_free_bytes()
-    boot.serial_puts("free bytes ok\n")
-    boot.irq_register(0, 0)
-    boot.serial_puts("irq register ok\n")
+    c := boot.serial_poll()
+    boot.serial_puts("serial poll ok\n")
     boot.hlt()
 }

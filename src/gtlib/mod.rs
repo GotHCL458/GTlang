@@ -121,12 +121,12 @@ pub const MODULES: &[StdModule] = &[
         dll: "boot",
         funcs: &[
             // 串口
-            "boot_serial_init", "boot_serial_putc", "boot_serial_puts", "boot_serial_getc",
+            "boot_serial_init", "boot_serial_putc", "boot_serial_puts", "boot_serial_getc", "boot_serial_poll",
             // 屏幕
             "boot_clear", "boot_putc_at", "boot_puts",
             "boot_vga_clear", "boot_vga_set_color", "boot_vga_putc", "boot_vga_puts",
             // 键盘
-            "boot_getkey",
+            "boot_getkey", "boot_keyboard_modifiers",
             // 内存
             "boot_mem_alloc", "boot_mem_free", "boot_mem_size", "boot_mem_free_bytes", "boot_paging_init",
             // 时间
