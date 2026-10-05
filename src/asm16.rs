@@ -111,6 +111,16 @@ fn emit(items: &[Item]) -> Result<Vec<u8>, String> {
                 let before = out.len();
                 emit_instr(m, ops, pc, &labels, &equs, *ln, &mut out)?;
                 let len = (out.len() - before) as i64;
+                // mov reg, Sym：立即数占位按标签地址回填（用 labels 直接写回 out）
+                if m == "mov" || m == "movw" {
+                    if let Some(Op::Sym(name)) = ops.get(1) {
+                        if let Some(t) = labels.get(name) {
+                            let imm_at = out.len() - 2;
+                            out[imm_at] = (*t as u16 & 0xFF) as u8;
+                            out[imm_at + 1] = ((*t as u16 >> 8) & 0xFF) as u8;
+                        }
+                    }
+                }
                 // 回填相对跳转（指令末尾的 2 字节占位 -> 相对位移）
                 if matches!(m.as_str(), "jmp" | "call" | "je" | "jz" | "jne" | "jnz" | "jb" | "jc" | "jnae" | "jae" | "jnc" | "jnb" | "jbe" | "jna" | "ja" | "jnbe" | "jl" | "jnge" | "jge" | "jnl" | "jle" | "jng" | "jg" | "jnle" | "js" | "jns" | "jo" | "jno" | "loop") {
                     if let Some(Op::Sym(name)) = ops.first() {
@@ -362,6 +372,15 @@ fn emit_mov(dst: &Op, src: &Op, _labels: &HashMap<String, i64>, equs: &HashMap<S
             let v = *v;
             out.push(0xB8 + reg16_code(r));
             out.extend_from_slice(&(v as u16).to_le_bytes());
+        }
+        (Op::Reg16(r), Op::Sym(_)) => {
+            // 标签地址占位（由 emit 的 Abs16 fixup 回填）
+            out.push(0xB8 + reg16_code(r));
+            out.extend_from_slice(&[0, 0]);
+        }
+        (Op::Reg8(r), Op::Sym(_)) => {
+            out.push(0xB0 + reg8_code(r));
+            out.push(0);
         }
         (Op::Reg8(r), Op::Imm(v)) => {
             out.push(0xB0 + reg8_code(r));

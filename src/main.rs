@@ -146,6 +146,7 @@ fn main() -> ExitCode {
     let mut lint_json = false;
     let mut sources: Vec<PathBuf> = Vec::new();
     let mut bare_arch: String = "x86_64".to_string();
+    let mut boot_image = false;
 
     let mut i = 0;
     while i < args.len() {
@@ -170,6 +171,7 @@ fn main() -> ExitCode {
             "--emit-llvm" => mode = Mode::EmitLlvm,
             "--asm16" => mode = Mode::Asm16,
             "--asm16gen" | "--x86_16" => mode = Mode::Asm16Gen,
+            "--boot" => { mode = Mode::Bare; boot_image = true; }
             "--bare" | "--target" => {
                 // `--target <arch>`：裸机目标（arch: x86_64|x86_32|x86_16）；`--bare` 等价默认 x86_64。
                 mode = Mode::Bare;
@@ -258,14 +260,14 @@ fn main() -> ExitCode {
             if cur != last {
                 last = cur;
                 if lang::is_zh() { println!("\n[watch] 变更，重新构建…"); } else { println!("\n[watch] change detected, rebuilding..."); }
-                if let Err(e) = drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, &bare_arch) {
+                if let Err(e) = drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, &bare_arch, boot_image) {
                     eprintln!("{}", e);
                 }
             }
         }
     }
 
-    match drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, &bare_arch) {
+    match drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, &bare_arch, boot_image) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("{}", e);
@@ -325,6 +327,7 @@ fn drive(
     lint_strict: bool,
     lint_json: bool,
     bare_arch: &str,
+    boot_image: bool,
 ) -> Result<(), String> {
     let first = &sources[0];
 
@@ -465,6 +468,15 @@ fn drive(
             println!("裸机目标已生成：{}（arch={}）", obj.display(), bare_arch);
         } else {
             println!("bare object written: {} (arch={})", obj.display(), bare_arch);
+        }
+        if boot_image {
+            // 自动拼"可启动镜像"：引导库（stage1+stage2）+ 内核 + 运行时
+            let img = gtc_rust::driver::make_boot_image(&obj, &ll, opt, bare_arch, keep_tmp)?;
+            if lang::is_zh() {
+                println!("可启动镜像：{}", img.display());
+            } else {
+                println!("bootable image: {}", img.display());
+            }
         }
         return Ok(());
     }

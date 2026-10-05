@@ -188,6 +188,163 @@ pub fn compile_bare(ll: &Path, out: &Path, opt: u8, arch: &str) -> Result<(), St
     }
     Ok(())
 }
+
+/// 找 nasm：GTC_NASM -> 发行包 res/bin -> 系统 PATH / Program Files。
+fn find_nasm() -> Option<PathBuf> {
+    if let Ok(p) = std::env::var("GTC_NASM") { if !p.is_empty() { return Some(PathBuf::from(p)); } }
+    let mut starts: Vec<PathBuf> = Vec::new();
+    if let Ok(exe) = std::env::current_exe() { if let Some(d) = exe.parent() { starts.push(d.to_path_buf()); } }
+    if let Ok(cwd) = std::env::current_dir() { starts.push(cwd); }
+    for s in &starts {
+        for rel in ["res/bin/nasm.exe", "bin/nasm.exe", "nasm.exe"] {
+            let p = s.join(rel);
+            if p.is_file() { return Some(p); }
+        }
+    }
+    for p in ["C:/Program Files/NASM/nasm.exe", "nasm.exe", "nasm"] {
+        let pb = PathBuf::from(p);
+        if pb.is_file() { return Some(pb); }
+        if Command::new(&pb).arg("-v").stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status().map(|s| s.success()).unwrap_or(false) {
+            return Some(pb);
+        }
+    }
+    None
+}
+
+/// 用 nasm 组装 `-f bin`。
+fn run_nasm(nasm: &Path, src: &Path, out: &Path) -> Result<(), String> {
+    let o = Command::new(nasm).arg("-f").arg("bin").arg(src).arg("-o").arg(out)
+        .output().map_err(|e| format!("无法启动 nasm：{}", e))?;
+    if !o.status.success() { return Err(format!("nasm 组装失败：\n{}", String::from_utf8_lossy(&o.stderr).trim())); }
+    Ok(())
+}
+/// `gtc --bare --boot`：用引导库把内核打成可启动镜像。
+/// 步骤：
+/// 1) 编译 `rt_bare.c`（裸机运行时 + boot 库）
+/// 2) 链接 kernel.o + rt_bare.o -> kernel.elf -> kernel.bin
+/// 3) 组装 stage1.asm / stage2.asm（用内置 16 位汇编器）
+/// 4) 拼成 1.44MB 软盘镜像（stage1 | stage2 | kernel）
+pub fn make_boot_image(kernel_o: &Path, _ll: &Path, opt: u8, arch: &str, keep_tmp: bool) -> Result<PathBuf, String> {
+    let boot_dir = find_boot_lib().ok_or_else(|| "未找到引导库（boot/ 目录）：需要 stage1.asm / stage2.asm / rt_bare.c / kernel.ld".to_string())?;
+    let clang = find_clang().ok_or_else(|| "未找到 clang".to_string())?;
+    let lld = find_lld().ok_or_else(|| "未找到 ld.lld".to_string())?;
+    let tmp = crate::tmp::TempDir::new("boot")?;
+    // 1) 运行时
+    let triple = if arch.starts_with("x86_32") || arch.starts_with("i386") { "i386-unknown-none-elf" } else { "x86_64-unknown-none-elf" };
+    let rt_o = tmp.file("rt_bare.o");
+    let o = Command::new(&clang)
+        .arg("-target").arg(triple)
+        .arg("-ffreestanding").arg("-nostdlib").arg("-fno-stack-protector")
+        .arg("-c").arg(boot_dir.join("rt_bare.c"))
+        .arg("-o").arg(&rt_o)
+        .output().map_err(|e| format!("无法启动 clang：{}", e))?;
+    if !o.status.success() { return Err(format!("裸机运行时编译失败：\n{}", String::from_utf8_lossy(&o.stderr).trim())); }
+    // 2) 链接
+    let elf = tmp.file("kernel.elf");
+    let o = Command::new(&lld)
+        .arg("-T").arg(boot_dir.join("kernel.ld"))
+        .arg("-o").arg(&elf)
+        .arg(kernel_o).arg(&rt_o)
+        .output().map_err(|e| format!("无法启动 ld.lld：{}", e))?;
+    if !o.status.success() { return Err(format!("链接失败：\n{}", String::from_utf8_lossy(&o.stderr).trim())); }
+    let kbin = tmp.file("kernel.bin");
+    objcopy_bin(&elf, &kbin)?;
+    // 3) 引导扇区：优先用 nasm（stage2 含 32/64 位代码）；无 nasm 时回退内置汇编器
+    let (s1, s2) = if let Some(nasm) = find_nasm() {
+        let s1o = tmp.file("stage1.bin");
+        let s2o = tmp.file("stage2.bin");
+        run_nasm(&nasm, &boot_dir.join("stage1.asm"), &s1o)?;
+        run_nasm(&nasm, &boot_dir.join("stage2.asm"), &s2o)?;
+        (std::fs::read(&s1o).map_err(|e| e.to_string())?, std::fs::read(&s2o).map_err(|e| e.to_string())?)
+    } else {
+        let s1_src = std::fs::read_to_string(boot_dir.join("stage1.asm")).map_err(|e| format!("读 stage1.asm 失败：{}", e))?;
+        let s1 = crate::asm16::assemble(&s1_src)?;
+        let s2_src = std::fs::read_to_string(boot_dir.join("stage2.asm")).map_err(|e| format!("读 stage2.asm 失败：{}", e))?;
+        let s2 = crate::asm16::assemble(&s2_src)?;
+        (s1, s2)
+    };
+    // 4) 拼镜像
+    let img = if keep_tmp { tmp.file("os.img") } else { std::env::temp_dir().join("gtc_boot.img") };
+    let mut data: Vec<u8> = Vec::new();
+    data.extend_from_slice(&s1);
+    while data.len() < 512 { data.push(0); }
+    data.extend_from_slice(&s2);
+    while data.len() < 512 + 512 * 128 { data.push(0); }
+    let k = std::fs::read(&kbin).map_err(|e| format!("读 kernel.bin 失败：{}", e))?;
+    data.extend_from_slice(&k);
+    while data.len() < 1474560 { data.push(0); }
+    std::fs::write(&img, &data).map_err(|e| format!("写镜像失败：{}", e))?;
+    let _ = opt;
+    Ok(img)
+}
+
+/// 定位引导库目录（`boot/`：含 stage1.asm/stage2.asm/rt_bare.c/kernel.ld）。
+fn find_boot_lib() -> Option<PathBuf> {
+    let mut starts: Vec<PathBuf> = Vec::new();
+    if let Ok(cwd) = std::env::current_dir() { starts.push(cwd.clone()); starts.push(cwd.join("os")); }
+    if let Ok(exe) = std::env::current_exe() { if let Some(d) = exe.parent() { starts.push(d.to_path_buf()); starts.push(d.join("boot")); } }
+    for s in starts {
+        for cand in [s.join("boot"), s.clone(), s.join("os").join("boot"), s.join("res").join("boot")] {
+            if cand.join("stage1.asm").is_file() && cand.join("stage2.asm").is_file() && cand.join("rt_bare.c").is_file() {
+                return Some(cand);
+            }
+        }
+    }
+    None
+}
+
+/// 找 ld.lld（与 clang 同目录）。
+fn find_lld() -> Option<PathBuf> {
+    if let Ok(p) = std::env::var("GTC_LLD") { if !p.is_empty() { return Some(PathBuf::from(p)); } }
+    if let Some(c) = find_clang() {
+        if let Some(d) = c.parent() {
+            for name in ["ld.lld.exe", "ld.lld", "lld.exe"] {
+                let p = d.join(name);
+                if p.is_file() { return Some(p); }
+            }
+        }
+    }
+    for dir in ["D:/LLVM/bin", "C:/Program Files/LLVM/bin"] {
+        for name in ["ld.lld.exe", "ld.lld"] {
+            let p = PathBuf::from(dir).join(name);
+            if p.is_file() { return Some(p); }
+        }
+    }
+    // 兜底：PATH 上的 ld.lld（若有）
+    let p = PathBuf::from("ld.lld");
+    if Command::new(&p).arg("--version").stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status().map(|s| s.success()).unwrap_or(false) {
+        return Some(p);
+    }
+    None
+}
+
+/// `llvm-objcopy -O binary`。
+fn objcopy_bin(elf: &Path, out: &Path) -> Result<(), String> {
+    let oc = find_objcopy().ok_or_else(|| "未找到 llvm-objcopy".to_string())?;
+    let o = Command::new(&oc).arg("-O").arg("binary").arg(elf).arg(out)
+        .output().map_err(|e| format!("无法启动 llvm-objcopy：{}", e))?;
+    if !o.status.success() { return Err(format!("objcopy 失败：\n{}", String::from_utf8_lossy(&o.stderr).trim())); }
+    Ok(())
+}
+
+fn find_objcopy() -> Option<PathBuf> {
+    if let Ok(p) = std::env::var("GTC_OBJCOPY") { if !p.is_empty() { return Some(PathBuf::from(p)); } }
+    if let Some(c) = find_clang() {
+        if let Some(d) = c.parent() {
+            for name in ["llvm-objcopy.exe", "llvm-objcopy"] {
+                let p = d.join(name);
+                if p.is_file() { return Some(p); }
+            }
+        }
+    }
+    for dir in ["D:/LLVM/bin", "C:/Program Files/LLVM/bin"] {
+        for name in ["llvm-objcopy.exe", "llvm-objcopy"] {
+            let p = PathBuf::from(dir).join(name);
+            if p.is_file() { return Some(p); }
+        }
+    }
+    None
+}
 /// 查找预编译的运行时静态库 `gt_rt.lib`：
 /// 依次在 `res/lib`、`res`、`toolchain/rt`、exe 同级及其上级目录中查找。
 pub fn find_runtime_lib() -> Option<PathBuf> {
