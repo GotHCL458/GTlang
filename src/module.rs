@@ -220,6 +220,11 @@ impl Linker {
                 Some(t) => t,
                 None => {
                     // 找不到文件时，若为内置标准库（math/string/os/file/json/...）则跳过（运行时提供）
+                    // 内置模块：`import math`（单段）或 `import boot.fs`（多段，boot 命名空间）
+                    if imp.path[0] == "boot" && crate::gtlib::boot::all_funcs().iter().any(|f| !f.is_empty()) {
+                        self.imported_gtlib.push(imp.path.join("."));
+                        continue;
+                    }
                     if imp.path.len() == 1 && crate::gtlib::MODULES.iter().any(|m| m.dll == imp.path[0].as_str()) {
                         self.imported_gtlib.push(imp.path[0].clone());
                         continue;

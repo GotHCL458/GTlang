@@ -1,0 +1,11 @@
+import boot.boot
+
+fn 主入口() {
+    boot.serial_init()
+    boot.serial_puts("[kernel] entered via boot.boot.load\n")
+    boot.hlt()
+}
+
+fn main() {
+    boot.boot.load("kernel_entry", "主入口")
+}

@@ -4,6 +4,10 @@ use super::*;
 
 impl<'a> Codegen<'a> {
     pub(crate) fn call(&mut self, name: &str, args: &[Expr], line: usize, call_ty: &Ty) -> Result<Val, String> {
+        // boot.boot.load("模块", "入口")：编译期登记为内核引导入口，运行时直接调用该符号。
+        if name == "boot.boot.load" || name == "boot_load" {
+            return self.boot_load(args, line, call_ty);
+        }
         // fn_addr(f)：取顶层函数 f 的地址（i64），裸机多任务入口用
         if name == "fn_addr" {
             // 实参可能是：函数名（被 hoist 成 ClosureNew）或 闭包值。
@@ -314,6 +318,35 @@ impl<'a> Codegen<'a> {
                 }
             }
         }
+    }
+
+    /// `boot.boot.load("模块", "入口")` —— 编译期登记引导入口并生成直接调用。
+    ///
+    /// A 方案：两个参数必须是字符串字面量；编译器解析出扁平符号
+    /// `gt_<模块>__<入口>`，登记到 `boot_entries`（供 __gt_boot_entries 表），
+    /// 并生成对该符号的直接调用（运行时不做字符串查表）。
+    pub(crate) fn boot_load(&mut self, args: &[Expr], line: usize, _call_ty: &Ty) -> Result<Val, String> {
+        let lit = |a: &Expr| -> Option<String> {
+            match &a.kind {
+                ExprKind::Str(s) => Some(s.clone()),
+                _ => None,
+            }
+        };
+        if args.len() != 2 {
+            return Err(crate::lb!(line, "boot.boot.load expects (module, entry)", "boot.boot.load 需要 (模块, 入口) 两个参数"));
+        }
+        let module = lit(&args[0]).ok_or_else(|| crate::lb!(line, "boot.boot.load: first argument must be a string literal", "boot.boot.load：第一个参数必须是字符串字面量"))?;
+        let entry = lit(&args[1]).ok_or_else(|| crate::lb!(line, "boot.boot.load: second argument must be a string literal", "boot.boot.load：第二个参数必须是字符串字面量"))?;
+        let symbol = crate::gtlib::boot::entry_symbol(&module, &entry);   // gt_<mangle(入口)>
+        if !self.boot_entries.iter().any(|e| e.module == module && e.entry == entry) {
+            self.boot_entries.push(crate::gtlib::boot::BootEntry { module: module.clone(), entry: entry.clone(), symbol: symbol.clone() });
+        }
+        // 若是本文件定义的函数，不要重复 declare（否则与 define 冲突）。
+        if !self.fns.contains_key(&entry) {
+            self.declare(&format!("declare void @{}()", symbol));
+        }
+        self.body.push_str(&format!("  call void @{}()\n", symbol));
+        Ok(Val::new(&Ty::Void, "0"))
     }
 
     // ---------- 类型转换内置 ----------

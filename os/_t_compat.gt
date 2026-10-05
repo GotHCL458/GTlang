@@ -1,0 +1,7 @@
+import boot
+
+fn main() {
+    boot_serial_init()
+    boot_serial_puts("flat name ok\n")
+    boot.hlt()
+}

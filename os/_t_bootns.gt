@@ -1,0 +1,8 @@
+import boot
+
+fn main() {
+    boot.serial_init()
+    boot.serial_puts("hi\n")
+    n := boot.fs.write("a.txt", "xy", 2)
+    put(n)
+}

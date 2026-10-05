@@ -202,22 +202,19 @@ impl Parser {
             }
             if self.at_punct("(") {
                 // 支持 `f(...)`（Ident）与 `类型.方法(...)` / `obj.方法(...)`（Field）
-                let callee = match &e.kind {
-                    ExprKind::Ident(n) => Some(n.clone()),
-                    ExprKind::Field(base, f) => {
-                        if let ExprKind::Ident(h) = &base.kind {
-                            Some(format!("{}.{}", h, f))
-                        } else {
-                            None
-                        }
+                // 折叠纯点分链（Ident/Field 逐层）为全名：a(...)、a.b(...)、boot.fs.write(...)
+                fn dotted_name(e: &Expr) -> Option<String> {
+                    match &e.kind {
+                        ExprKind::Ident(n) => Some(n.clone()),
+                        ExprKind::Field(base, f) => dotted_name(base).map(|h| format!("{}.{}", h, f)),
+                        _ => None,
                     }
-                    _ => None,
-                };
-                // 方法链 `expr.方法(...)`（expr 是任意表达式，如另一个调用结果）
+                }
+                let callee = dotted_name(&e);
+                // 方法链 `expr.方法(...)`（expr 是任意表达式，如另一个调用结果）。
+                // 但纯点分链（base 也是 Ident/Field）已在 callee 里折叠成全名，不算方法链。
                 let chain: Option<(Box<Expr>, String)> = match &e.kind {
-                    ExprKind::Field(base, f) if !matches!(base.kind, ExprKind::Ident(_)) => {
-                        Some((base.clone(), f.clone()))
-                    }
+                    ExprKind::Field(base, f) if dotted_name(base).is_none() => Some((base.clone(), f.clone())),
                     _ => None,
                 };
                 // 任意表达式作 callee（如 `fs[0](5)`、`(工厂())(x)`）→ 间接调用 CallValue

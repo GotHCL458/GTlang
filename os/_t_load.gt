@@ -1,0 +1,9 @@
+import boot.boot
+
+fn 主入口() {
+    put("kernel main\n")
+}
+
+fn main() {
+    boot.boot.load("内核主程序", "主入口")
+}

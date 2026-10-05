@@ -16,6 +16,17 @@ pub struct StdFn {
 /// 两个后端与 sema 共用此表：sema 做类型检查，codegen/jit 生成对 `py_*` 的调用。
 pub fn gtlib_fn(name: &str) -> Option<StdFn> {
     let f = |symbol, ret, params: &'static [Ty]| StdFn { symbol, ret, params };
+    // `boot.<组>.<函数>` 命名空间：归一化为下划线名（与旧 `boot_xxx` 名等价）。
+    // 这样新增 boot 子模块无需逐条登记。
+    if name == "boot.boot.load" || name == "boot_load" {
+        return Some(f("boot_load", Ty::Void, &[Ty::Str, Ty::Str]));
+    }
+    if let Some(rest) = name.strip_prefix("boot.") {
+        let flat = format!("boot_{}", rest.replace('.', "_"));
+        if let Some(found) = gtlib_fn(&flat) {
+            return Some(found);
+        }
+    }
     Some(match name {
         // ---- math ----
         "sqrt" => f("py_sqrt", Ty::F64, &[Ty::F64]),
@@ -213,6 +224,8 @@ pub fn gtlib_fn(name: &str) -> Option<StdFn> {
         "boot_task_create" => f("boot_task_create", Ty::I64, &[Ty::I64]),
         "boot_task_yield" => f("boot_task_yield", Ty::Void, &[]),
         "boot_task_start" => f("boot_task_start", Ty::Void, &[]),
+        // boot.boot.load("模块", "入口")：编译期登记内核入口，运行时直接跳转
+        "boot_load" => f("boot_load", Ty::Void, &[Ty::Str, Ty::Str]),
         // ---- core ----
         "core_free" => f("py_free", Ty::Void, &[Ty::Str]),
         "core_version" => f("py_core_version", Ty::Str, &[]),
@@ -323,6 +336,10 @@ pub fn gtlib_fn(name: &str) -> Option<StdFn> {
 
 /// 该名字是否留作内置函数（用户不可重定义）
 pub fn is_builtin_name(name: &str) -> bool {
+    // `boot.<组>.<函数>` 命名空间：统一按内置处理（具体签名由 gtlib_fn 校验）
+    if name.starts_with("boot.") {
+        return true;
+    }
     matches!(
         name,
         // 输出 / 长度 / 转换

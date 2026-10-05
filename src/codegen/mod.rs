@@ -78,6 +78,7 @@ pub fn generate(prog: &Program, an: &Analysis, file: &str) -> Result<String, Str
         range_analysis: None,
         labeled: Vec::new(),
         label_targets: HashMap::new(),
+        boot_entries: Vec::new(),
     };
     // 先做范围分析（用 &Program，与后续遍历同一 AST，地址一致）
     cg.range_analysis = Some(crate::range::analyze(prog));
@@ -194,6 +195,8 @@ struct Codegen<'a> {
     /// 当前 try 的错误目标栈：(catch 标签, 错误值槽)。
     /// `throw`/`?` 命中 Err 时跳到栈顶；栈空时从函数返回（向上传播）。
     pub(crate) err_stack: Vec<(String, String)>,
+    /// `boot.boot.load("模块", "入口")` 编译期登记的引导入口符号（模块.入口 → 扁平符号）。
+    pub(crate) boot_entries: Vec<crate::gtlib::boot::BootEntry>,
 }
 
 impl<'a> Codegen<'a> {
@@ -276,8 +279,28 @@ impl<'a> Codegen<'a> {
             "source_filename = \"{}\"\n\n",
             self.file.replace('\\', "/")
         ));
+        // 引导入口表：先 intern 字符串（会写入 self.globals），再统一输出 globals + 表。
+        let mut boot_extra = String::new();
+        if !self.boot_entries.is_empty() {
+            let entries = self.boot_entries.clone();
+            let n = entries.len();
+            let mut tbl = String::new();
+            for (i, e) in entries.iter().enumerate() {
+                let m = self.intern_named(&format!("gt_boot_s{}_m", i), e.module.as_bytes());
+                let en = self.intern_named(&format!("gt_boot_s{}_e", i), e.entry.as_bytes());
+                let sep = if i + 1 < n { ",\n" } else { "\n" };
+                tbl.push_str(&format!("  %__gt_boot_entry_t {{ ptr {}, ptr {}, ptr @{} }}{}", m, en, e.symbol, sep));
+            }
+            boot_extra.push_str("%__gt_boot_entry_t = type { ptr, ptr, ptr }\n");
+            boot_extra.push_str(&format!("@__gt_boot_entries = global [{} x %__gt_boot_entry_t] [\n{}]\n", n, tbl));
+            boot_extra.push_str(&format!("@__gt_boot_entry_count = global i64 {}\n", n));
+        }
         out.push_str(&self.globals);
         if !self.globals.is_empty() {
+            out.push('\n');
+        }
+        if !boot_extra.is_empty() {
+            out.push_str(&boot_extra);
             out.push('\n');
         }
         let mut ds: Vec<&String> = self.declares.iter().collect();
