@@ -1,0 +1,7 @@
+extern "C" {
+    fn boot_serial_puts(s: str)
+}
+
+pub fn user_main() {
+    boot_serial_puts("[user] hello from loaded app\n")
+}
