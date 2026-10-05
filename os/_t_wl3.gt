@@ -1,0 +1,11 @@
+fn main() {
+    a := [10, 20, 30]
+    i := 0
+    while let Some(x) = if i < 3 { Some(a[i]) } else { None } {
+        put(x)
+        put(10)
+        i = i + 1
+    }
+    put(99)
+    put(10)
+}

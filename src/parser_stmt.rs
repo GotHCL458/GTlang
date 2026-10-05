@@ -122,6 +122,39 @@ impl Parser {
         }
 
         if self.at_ident("if") {
+            // `if let PAT = EXPR { A } else { B }` → `match EXPR { PAT => { A }, _ => { B } }`
+            if self.peek_at(1).tok == Tok::Ident("let".to_string()) {
+                self.bump(); // if
+                self.bump(); // let
+                // 解析 pattern：支持 `Some(x)` / `Ok(v)` / `E::V(x)` / 标识符
+                let pat = self.pattern()?;
+                self.expect_punct("=")?;
+                let saved = self.no_struct_lit;
+                self.no_struct_lit = true;
+                let subj = self.expr(0);
+                self.no_struct_lit = saved;
+                let subj = subj?;
+                let then = self.block()?;
+                let els = if self.eat_ident("else") {
+                    if self.at_ident("if") {
+                        let line2 = self.line();
+                        let inner = self.parse_if_or_iflet()?;
+                        Some(vec![inner])
+                    } else {
+                        Some(self.block()?)
+                    }
+                } else { None };
+                let mut arms = vec![MatchArm { pat: Some(pat), range: None, guard: None, body: then, line }];
+                arms.push(MatchArm {
+                    pat: None,
+                    range: None,
+                    guard: None,
+                    body: els.unwrap_or_default(),
+                    line,
+                });
+                let m = Expr::new(ExprKind::Match { subject: Box::new(subj), arms }, line);
+                return Ok(Stmt::Expr(m));
+            }
             let (cond, then, els) = self.if_parts()?;
             return Ok(Stmt::If { cond, then, els, line });
         }
@@ -310,6 +343,26 @@ impl Parser {
         }
 
         if self.at_ident("while") {
+            // `while let PAT = EXPR { body }` → `loop { if let PAT = EXPR { body } else { break } }`
+            if self.peek_at(1).tok == Tok::Ident("let".to_string()) {
+                self.bump(); // while
+                self.bump(); // let
+                let pat = self.pattern()?;
+                self.expect_punct("=")?;
+                let saved = self.no_struct_lit;
+                self.no_struct_lit = true;
+                let subj = self.expr(0);
+                self.no_struct_lit = saved;
+                let subj = subj?;
+                let body = self.block()?;
+                let arms = vec![
+                    MatchArm { pat: Some(pat), range: None, guard: None, body, line },
+                    MatchArm { pat: None, range: None, guard: None, body: vec![Stmt::Break(None, line)], line },
+                ];
+                let m = Expr::new(ExprKind::Match { subject: Box::new(subj), arms }, line);
+                let inner = vec![Stmt::Expr(m)];
+                return Ok(Stmt::While { cond: Expr::new(ExprKind::Bool(true), line), body: inner, line });
+            }
             self.bump();
             let saved = self.no_struct_lit;
             self.no_struct_lit = true;
@@ -511,6 +564,16 @@ impl Parser {
 
     /// `if cond { } elif ... { } elif ... { } else { }` 的公共部分。
     /// `elif` 是 `else if` 的语法糖，二者等价。
+    /// 解析一个 match 模式（与 `match` 的 pattern 一致：`expr(1)`，`_` 单独处理）。
+    pub(crate) fn pattern(&mut self) -> Result<Expr, String> {
+        self.expr(1)
+    }
+
+    /// 解析 `if [let] ...` 语句（供 `else if` 复用）。
+    pub(crate) fn parse_if_or_iflet(&mut self) -> Result<Stmt, String> {
+        self.stmt()
+    }
+
     pub(crate) fn if_parts(&mut self) -> Result<(Expr, Block, Option<Block>), String> {
         self.eat_ident("if");
         let saved = self.no_struct_lit;
