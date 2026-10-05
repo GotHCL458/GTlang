@@ -246,6 +246,8 @@
     match f(-1) { Ok(v) => { ... } Err(e) => { ... } }
     o := Some(1)             // Option
     v := o or 0              // 默认值：Some(v) 取 v，None 取 0
+    v := f(-1) or { put("失败")  0 }   // 块形式：None/Err 时执行块（最后表达式为默认值，
+                                       // 也可 return/throw）
     try { throw "异常" } expt e { put(e) } fily { ... }
 
 ---
