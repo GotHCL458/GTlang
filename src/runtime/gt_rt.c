@@ -1186,6 +1186,52 @@ long long gt_map_key_at(GtMap *m, long long i) {
 }
 
 /* 字符串拼接：返回新分配的 NUL 结尾字符串 */
+
+/* ============================================================
+ * 字符串构建器（str_builder）：避免循环里 s = s + x 的 O(n^2) 复制与泄漏
+ * 用法：b = str_builder(); sb_append(b, x); ... s = sb_finish(b)
+ * ============================================================ */
+typedef struct { char *buf; size_t len; size_t cap; } GtStrBuilder;
+
+long long str_builder(void) {
+    GtStrBuilder *b = (GtStrBuilder *)gt_alloc(sizeof(GtStrBuilder));
+    b->cap = 64; b->len = 0;
+    b->buf = (char *)gt_alloc(b->cap);
+    b->buf[0] = 0;
+    return (long long)b;
+}
+
+static void sb_reserve(GtStrBuilder *b, size_t extra) {
+    if (b->len + extra + 1 > b->cap) {
+        while (b->len + extra + 1 > b->cap) b->cap *= 2;
+        b->buf = (char *)gt_realloc(b->buf, b->cap);
+    }
+}
+
+void sb_append(long long h, const char *s) {
+    GtStrBuilder *b = (GtStrBuilder *)h;
+    if (!b || !s) return;
+    size_t n = strlen(s);
+    sb_reserve(b, n);
+    memcpy(b->buf + b->len, s, n);
+    b->len += n;
+    b->buf[b->len] = 0;
+}
+
+void sb_append_int(long long h, long long v) {
+    char tmp[32];
+    snprintf(tmp, sizeof(tmp), "%lld", v);
+    sb_append(h, tmp);
+}
+
+const char *sb_finish(long long h) {
+    GtStrBuilder *b = (GtStrBuilder *)h;
+    if (!b) return "";
+    char *r = b->buf;
+    b->buf = NULL;
+    gt_free(b);
+    return r;
+}
 char *gt_str_concat(const char *a, const char *b) {
     if (!a) a = "";
     if (!b) b = "";

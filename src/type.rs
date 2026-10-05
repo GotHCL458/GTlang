@@ -628,6 +628,12 @@ fn builtin_check(name: &str, args: &[Ty]) -> Result<Ty, String> {
 
         // ---------- 裸内存 ----------
         // mem_alloc(n) → 指针（i64）
+        "sb_new" => { arity(0)?; Ok(Ty::I64) }
+        "sb_push" | "sb_push_str" | "sb_push_int" | "sb_push_i64" | "sb_push_f64" | "sb_push_bool" => { arity(2)?; Ok(Ty::Void) }
+        "str_builder" => { arity(0)?; Ok(Ty::I64) }
+        "sb_append" => { arity(2)?; Ok(Ty::Void) }
+        "sb_append_int" => { arity(2)?; Ok(Ty::Void) }
+        "sb_finish" => { arity(1)?; Ok(Ty::Str) }
         "mem_alloc" => {
             arity(1)?;
             Ok(Ty::I64)

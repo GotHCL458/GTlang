@@ -263,6 +263,10 @@ impl<'a> Jit<'a> {
         jb.symbol("rt_thread_spawn", rt_thread_spawn as *const u8);
         jb.symbol("rt_sleep", rt_sleep as *const u8);
         jb.symbol("rt_rt_init", rt_rt_init as *const u8);
+        jb.symbol("str_builder", rt_str_builder as *const u8);
+        jb.symbol("sb_append", rt_sb_append as *const u8);
+        jb.symbol("sb_append_int", rt_sb_append_int as *const u8);
+        jb.symbol("sb_finish", rt_sb_finish2 as *const u8);
         // boot 模拟后端（宿主机）
         jb.symbol("boot_serial_init", boot_serial_init as *const u8);
         jb.symbol("boot_serial_putc", boot_serial_putc as *const u8);

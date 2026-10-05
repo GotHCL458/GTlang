@@ -145,6 +145,34 @@ pub(crate) extern "C" fn boot_task_start() {}
 pub(crate) extern "C" fn boot_task_exit() {}
 
 
+
+// ---- str_builder（JIT：全局表 id -> String）----
+use std::sync::atomic::AtomicI64;
+static SB_NEXT: AtomicI64 = AtomicI64::new(1);
+static SB_TABLE: Mutex<Vec<(i64, String)>> = Mutex::new(Vec::new());
+
+pub(crate) extern "C" fn rt_str_builder() -> i64 {
+    let id = SB_NEXT.fetch_add(1, Ordering::SeqCst);
+    SB_TABLE.lock().unwrap().push((id, String::new()));
+    id
+}
+pub(crate) extern "C" fn rt_sb_append(id: i64, s: i64) {
+    if s == 0 { return; }
+    let cs = unsafe { std::ffi::CStr::from_ptr(s as *const i8) };
+    let mut t = SB_TABLE.lock().unwrap();
+    if let Some(e) = t.iter_mut().find(|(i, _)| *i == id) { e.1.push_str(&cs.to_string_lossy()); }
+}
+pub(crate) extern "C" fn rt_sb_append_int(id: i64, v: i64) {
+    let mut t = SB_TABLE.lock().unwrap();
+    if let Some(e) = t.iter_mut().find(|(i, _)| *i == id) { e.1.push_str(&v.to_string()); }
+}
+pub(crate) extern "C" fn rt_sb_finish2(id: i64) -> i64 {
+    let mut t = SB_TABLE.lock().unwrap();
+    let s = t.iter().find(|(i, _)| *i == id).map(|(_, s)| s.clone()).unwrap_or_default();
+    t.retain(|(i, _)| *i != id);
+    let c = std::ffi::CString::new(s).unwrap_or_default();
+    c.into_raw() as i64
+}
 // ---- fs_ram（内存文件系统，HashMap<name, Vec<u8>>）----
 static BOOT_FS: Mutex<Vec<(Vec<u8>, Vec<u8>)>> = Mutex::new(Vec::new());
 
