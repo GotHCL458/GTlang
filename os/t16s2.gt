@@ -1,0 +1,6 @@
+fn main() {
+    s := "AB"
+    put(88)
+    put(s[0])
+    put(89)
+}

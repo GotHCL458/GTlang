@@ -19,6 +19,8 @@ pub struct Asm16 {
     fixups: Vec<(usize, String, FixKind)>,
     fn_addr: HashMap<String, i64>,
     #[allow(dead_code)] entry: Option<String>,
+    /// 字符串常量（内容 -> 在数据段的标签名）
+    strs: Vec<(String, Vec<u8>)>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -55,6 +57,12 @@ pub fn compile(prog: &Program) -> Result<Vec<u8>, String> {
         a.fn_addr.insert(f.name.clone(), addr);
         a.label(&format!("fn__{}", f.name));
         gen_fn(&mut a, f)?;
+    }
+    // 发射字符串常量（数据段）
+    let strs = a.strs.clone();
+    for (lab, bytes) in strs {
+        a.label(&lab);
+        for b in bytes { a.b(b); }
     }
     resolve_fixups(&mut a)?;
     // 补 MBR 引导签名（0xAA55 @ 510）
@@ -231,9 +239,51 @@ fn load_ax(a: &mut Asm16, off: i64) {
 fn cmp_ax_0(a: &mut Asm16) { a.b(0x3D); a.w(0); } // cmp ax, 0
 fn ret(a: &mut Asm16) { a.b(0x89); a.b(0xEC); a.b(0x5D); a.b(0xC3); } // mov sp,bp; pop bp; ret
 
+
+/// 字符串常量表：内容 -> 标签名（在数据段末尾统一发射）
+fn str_label(s: &str) -> String {
+    let mut h: u32 = 2166136261;
+    for b in s.bytes() { h = (h ^ b as u32).wrapping_mul(16777619); }
+    format!("str_{:08x}", h)
+}
 fn gen_expr(a: &mut Asm16, sc: &mut Scope, e: &Expr) -> Result<(), String> {
     match &e.kind {
         ExprKind::Int(v) => { a.b(0xB8); a.w(*v); }
+        ExprKind::Bool(v) => { a.b(0xB8); a.w(if *v { 1 } else { 0 }); }
+        ExprKind::Str(s) => {
+            // 字符串常量：登记到数据段，运行时 AX = 其地址
+            let lab = str_label(s);
+            if !a.strs.iter().any(|(l, _)| l == &lab) {
+                let mut bytes = s.as_bytes().to_vec();
+                bytes.push(0);
+                a.strs.push((lab.clone(), bytes));
+            }
+            a.b(0xB8);
+            let at = a.out.len(); a.w(0);
+            a.fixups.push((at, lab, FixKind::Abs16));
+        }
+        ExprKind::Index(base, idx) => {
+            // 字符串/数组按字节取（字符串）或按 2 字节（数组）取
+            gen_expr(a, sc, base)?;      // AX = 基址
+            push_ax(a);
+            gen_expr(a, sc, idx)?;       // AX = 下标
+            a.b(0x89); a.b(0xC3);        // mov bx, ax（BX = 下标）
+            pop_ax(a);                   // AX = 基址
+            a.b(0x01); a.b(0xD8);        // add ax, bx（字节偏移）
+            a.b(0x89); a.b(0xC3);        // mov bx, ax（BX = 基址+偏移）
+            a.b(0x8A); a.b(0x07);        // mov al, [bx]
+            a.b(0x0F); a.b(0xB6); a.b(0xC0); // movzx ax, al
+        }
+        ExprKind::ArrayLit(items) => {
+            // 数组：在栈上按 2 字节/元素分配，返回首元素地址（AX）
+            let base = alloc(sc);
+            for (i, it) in items.iter().enumerate() {
+                gen_expr(a, sc, it)?;
+                store_ax(a, base - (i as i64) * 2);
+            }
+            // AX = [bp+base] 的地址
+            a.b(0x8D); a.b(0x46); a.b(base as u8); // lea ax, [bp+base]
+        }
         ExprKind::Ident(n) => {
             let off = *sc.vars.get(n).ok_or_else(|| format!("未定义变量 '{}'", n))?;
             load_ax(a, off);
@@ -249,7 +299,7 @@ fn gen_expr(a: &mut Asm16, sc: &mut Scope, e: &Expr) -> Result<(), String> {
                 BinOp::Div | BinOp::FloorDiv => { a.b(0x99); a.b(0xF7); a.b(0xFB); } // cwd; idiv bx
                 BinOp::Rem => { a.b(0x99); a.b(0xF7); a.b(0xFB); a.b(0x89); a.b(0xD0); } // cwd; idiv bx; mov ax,dx
                 BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge => {
-                    a.b(0x39); a.b(0xD8); // cmp ax, bx（注意方向）
+                    a.b(0x39); a.b(0xC3); // cmp bx, ax（BX 是左值、AX 是右值）
                     let cc: u8 = match op {
                         BinOp::Eq => 0x94, BinOp::Ne => 0x95, BinOp::Lt => 0x9C,
                         BinOp::Le => 0x9E, BinOp::Gt => 0x9F, _ => 0x9D,
@@ -302,7 +352,7 @@ fn gen_expr(a: &mut Asm16, sc: &mut Scope, e: &Expr) -> Result<(), String> {
 
 impl Asm16 {
     pub fn new() -> Self {
-        Asm16 { out: Vec::new(), labels: HashMap::new(), fixups: Vec::new(), fn_addr: HashMap::new(), entry: None }
+        Asm16 { out: Vec::new(), labels: HashMap::new(), fixups: Vec::new(), fn_addr: HashMap::new(), entry: None, strs: Vec::new() }
     }
 
     fn pc(&self) -> i64 { ORG + self.out.len() as i64 }

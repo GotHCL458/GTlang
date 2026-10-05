@@ -1,0 +1,6 @@
+fn main() {
+    s := "Hi"
+    put(s[0])
+    put(s[1])
+    put(10)
+}
