@@ -225,6 +225,11 @@ fn run_nasm(nasm: &Path, src: &Path, out: &Path) -> Result<(), String> {
 /// 3) 组装 stage1.asm / stage2.asm（用内置 16 位汇编器）
 /// 4) 拼成 1.44MB 软盘镜像（stage1 | stage2 | kernel）
 pub fn make_boot_image(kernel_o: &Path, out: Option<&Path>, opt: u8, arch: &str, keep_tmp: bool) -> Result<PathBuf, String> {
+    make_boot_image_ex(kernel_o, out, opt, arch, keep_tmp, None)
+}
+
+/// 同 `make_boot_image`，但可指定自定义链接脚本（`--link`）。
+pub fn make_boot_image_ex(kernel_o: &Path, out: Option<&Path>, opt: u8, arch: &str, keep_tmp: bool, link_script: Option<&Path>) -> Result<PathBuf, String> {
     let boot_dir = find_boot_lib().ok_or_else(|| "未找到引导库（boot/ 目录）：需要 stage1.asm / stage2.asm / rt_bare.c / kernel.ld".to_string())?;
     let clang = find_clang().ok_or_else(|| "未找到 clang".to_string())?;
     let lld = find_lld().ok_or_else(|| "未找到 ld.lld".to_string())?;
@@ -257,7 +262,8 @@ pub fn make_boot_image(kernel_o: &Path, out: Option<&Path>, opt: u8, arch: &str,
     }
     let elf = tmp.file("kernel.elf");
     let mut lld_cmd = Command::new(&lld);
-    lld_cmd.arg("-T").arg(boot_dir.join("kernel.ld")).arg("-o").arg(&elf).arg(kernel_o).arg(&rt_o);
+    let ld_script = match link_script { Some(p) => p.to_path_buf(), None => boot_dir.join("kernel.ld") };
+    lld_cmd.arg("-T").arg(ld_script).arg("-o").arg(&elf).arg(kernel_o).arg(&rt_o);
     for e in &extra_objs { lld_cmd.arg(e); }
     let o = lld_cmd.output().map_err(|e| format!("无法启动 ld.lld：{}", e))?;
     if !o.status.success() { return Err(format!("链接失败：\n{}", String::from_utf8_lossy(&o.stderr).trim())); }

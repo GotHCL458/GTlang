@@ -147,6 +147,9 @@ fn main() -> ExitCode {
     let mut sources: Vec<PathBuf> = Vec::new();
     let mut bare_arch: String = "x86_64".to_string();
     let mut boot_image = false;
+    let mut kernel_entry: Option<String> = None;
+    let mut link_script: Option<PathBuf> = None;
+    let mut include_dirs: Vec<PathBuf> = Vec::new();
 
     let mut i = 0;
     while i < args.len() {
@@ -172,6 +175,28 @@ fn main() -> ExitCode {
             "--asm16" => mode = Mode::Asm16,
             "--asm16gen" | "--x86_16" => mode = Mode::Asm16Gen,
             "--boot" => { mode = Mode::Bare; boot_image = true; }
+            "--os" => { mode = Mode::Bare; boot_image = true; }   // OS 开发模式（= --bare --boot）
+            "--kernel" => {
+                i += 1;
+                match args.get(i) {
+                    Some(x) => kernel_entry = Some(x.clone()),
+                    None => { eprintln!("{}", lang::tr("error: --kernel requires an entry name", "错误：--kernel 需要入口名")); return ExitCode::from(1); }
+                }
+            }
+            "--link" => {
+                i += 1;
+                match args.get(i) {
+                    Some(x) => link_script = Some(PathBuf::from(x)),
+                    None => { eprintln!("{}", lang::tr("error: --link requires a script path", "错误：--link 需要脚本路径")); return ExitCode::from(1); }
+                }
+            }
+            "-I" => {
+                i += 1;
+                match args.get(i) {
+                    Some(x) => include_dirs.push(PathBuf::from(x)),
+                    None => { eprintln!("{}", lang::tr("error: -I requires a directory", "错误：-I 需要目录")); return ExitCode::from(1); }
+                }
+            }
             "--bare" | "--target" => {
                 // `--target <arch>`：裸机目标（arch: x86_64|x86_32|x86_16）；`--bare` 等价默认 x86_64。
                 mode = Mode::Bare;
@@ -260,14 +285,14 @@ fn main() -> ExitCode {
             if cur != last {
                 last = cur;
                 if lang::is_zh() { println!("\n[watch] 变更，重新构建…"); } else { println!("\n[watch] change detected, rebuilding..."); }
-                if let Err(e) = drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, &bare_arch, boot_image) {
+                if let Err(e) = drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, &bare_arch, boot_image, link_script.as_deref()) {
                     eprintln!("{}", e);
                 }
             }
         }
     }
 
-    match drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, &bare_arch, boot_image) {
+    match drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, &bare_arch, boot_image, link_script.as_deref()) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("{}", e);
@@ -328,6 +353,7 @@ fn drive(
     lint_json: bool,
     bare_arch: &str,
     boot_image: bool,
+    link_script: Option<&Path>,
 ) -> Result<(), String> {
     let first = &sources[0];
 
@@ -476,7 +502,7 @@ fn drive(
         }
         if boot_image {
             // 自动拼"可启动镜像"：引导库（stage1+stage2）+ 内核 + 运行时
-            let img = gtc_rust::driver::make_boot_image(&obj, out, opt, bare_arch, keep_tmp)?;
+            let img = gtc_rust::driver::make_boot_image_ex(&obj, out, opt, bare_arch, keep_tmp, link_script)?;
             if lang::is_zh() {
                 println!("可启动镜像：{}", img.display());
             } else {
