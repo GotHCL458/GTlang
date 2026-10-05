@@ -190,6 +190,10 @@ pub fn gtlib_fn(name: &str) -> Option<StdFn> {
         "boot_clear" => f("boot_clear", Ty::Void, &[]),
         "boot_putc_at" => f("boot_putc_at", Ty::Void, &[Ty::I64, Ty::I64, Ty::I64]),
         "boot_puts" => f("boot_puts", Ty::Void, &[Ty::Str]),
+        "boot_vga_clear" => f("boot_vga_clear", Ty::Void, &[]),
+        "boot_vga_set_color" => f("boot_vga_set_color", Ty::Void, &[Ty::I64, Ty::I64]),
+        "boot_vga_putc" => f("boot_vga_putc", Ty::Void, &[Ty::I64]),
+        "boot_vga_puts" => f("boot_vga_puts", Ty::Void, &[Ty::Str]),
         "boot_getkey" => f("boot_getkey", Ty::I64, &[]),
         "boot_mem_alloc" => f("boot_mem_alloc", Ty::I64, &[Ty::I64]),
         "boot_mem_free" => f("boot_mem_free", Ty::Void, &[Ty::I64]),
@@ -384,6 +388,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "core_free" | "core_version" | "core_echo"
         | "boot_serial_init" | "boot_serial_putc" | "boot_serial_puts" | "boot_serial_getc"
         | "boot_clear" | "boot_putc_at" | "boot_puts" | "boot_getkey"
+        | "boot_vga_clear" | "boot_vga_set_color" | "boot_vga_putc" | "boot_vga_puts"
         | "boot_mem_alloc" | "boot_mem_free" | "boot_mem_size"
         | "boot_time_ms" | "boot_sleep_ms"
         | "boot_hlt" | "boot_exit" | "boot_reboot" | "boot_shutdown"

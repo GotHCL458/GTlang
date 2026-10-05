@@ -124,6 +124,7 @@ pub const MODULES: &[StdModule] = &[
             "boot_serial_init", "boot_serial_putc", "boot_serial_puts", "boot_serial_getc",
             // 屏幕
             "boot_clear", "boot_putc_at", "boot_puts",
+            "boot_vga_clear", "boot_vga_set_color", "boot_vga_putc", "boot_vga_puts",
             // 键盘
             "boot_getkey",
             // 内存

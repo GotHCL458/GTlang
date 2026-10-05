@@ -726,8 +726,154 @@ long long boot_fat32_list(long long out, long long cap) {
     return count;
 }
 
-long long boot_fat32_write(const char *name83, const char *data, long long n) { (void)name83; (void)data; (void)n; return -1; }
-long long boot_fat32_delete(const char *name83) { (void)name83; return -1; }
+long long boot_fat32_delete(const char *name83);
+
+/* 写 FAT32 表项（简化：只写第一个 FAT 副本） */
+static int fat32_set(long long cluster, unsigned int val) {
+    long long off = (cluster * 4) % 512;
+    long long lba = 32 + (cluster * 4) / 512;
+    if (boot_disk_read(lba, 1, (long long)fat_buf) < 0) return -1;
+    fat_buf[off] = (unsigned char)(val & 0xFF);
+    fat_buf[off+1] = (unsigned char)((val >> 8) & 0xFF);
+    fat_buf[off+2] = (unsigned char)((val >> 16) & 0xFF);
+    fat_buf[off+3] = (unsigned char)((val >> 24) & 0xFF);
+    return boot_disk_write(lba, 1, (long long)fat_buf);
+}
+
+/* 找空闲簇（FAT 表项为 0） */
+static long long fat32_alloc_cluster(void) {
+    for (long long c = 3; c < 1000; c++) {
+        if (fat32_next(c, 32) == 0) return c;
+    }
+    return 0;
+}
+
+/* 在根目录簇链里找空项（返回簇 + 项索引的高低位） */
+static long long fat32_free_slot(long long *out_lba, long long *out_off) {
+    unsigned char e[32];
+    long long cluster = 2;
+    while (cluster >= 2 && cluster < 0x0FFFFFF0) {
+        long long lba = 100 + (cluster - 2) * 1;
+        if (boot_disk_read(lba, 1, (long long)fat_buf) < 0) return -1;
+        for (long long i = 0; i < 16; i++) {
+            for (int k = 0; k < 32; k++) e[k] = fat_buf[i * 32 + k];
+            if (e[0] == 0 || e[0] == 0xE5) { *out_lba = lba; *out_off = i * 32; return 0; }
+        }
+        cluster = fat32_next(cluster, 32);
+    }
+    return -1;
+}
+
+long long boot_fat32_write(const char *name83, const char *data, long long n) {
+    boot_fat32_delete(name83);
+    long long lba = 0, off = 0;
+    if (fat32_free_slot(&lba, &off) != 0) return -1;
+    long long first = fat32_alloc_cluster();
+    if (first == 0) return -1;
+    fat32_set(first, 0x0FFFFFFF);
+    long long cluster = first;
+    long long written = 0;
+    const unsigned char *p = (const unsigned char *)data;
+    while (written < n) {
+        long long dlba = 100 + (cluster - 2) * 1;
+        long long m = (n - written) < 512 ? (n - written) : 512;
+        for (long long k = 0; k < 512; k++) fat_buf[k] = (k < m) ? p[written + k] : 0;
+        if (boot_disk_write(dlba, 1, (long long)fat_buf) < 0) return -1;
+        written += m;
+        if (written < n) {
+            long long next = fat32_alloc_cluster();
+            if (next == 0) break;
+            fat32_set(cluster, (unsigned int)next);
+            cluster = next;
+            fat32_set(cluster, 0x0FFFFFFF);
+        }
+    }
+    unsigned char e[32];
+    for (int i = 0; i < 32; i++) e[i] = 0;
+    for (int j = 0; j < 11; j++) { char c = name83[j]; if (c >= 'a' && c <= 'z') c -= 32; e[j] = (unsigned char)c; }
+    e[11] = 0x20;
+    e[26] = (unsigned char)(first & 0xFF);
+    e[27] = (unsigned char)((first >> 8) & 0xFF);
+    e[20] = (unsigned char)((first >> 16) & 0xFF);
+    e[21] = (unsigned char)((first >> 24) & 0xFF);
+    e[28] = (unsigned char)(n & 0xFF);
+    e[29] = (unsigned char)((n >> 8) & 0xFF);
+    e[30] = (unsigned char)((n >> 16) & 0xFF);
+    e[31] = (unsigned char)((n >> 24) & 0xFF);
+    if (boot_disk_read(lba, 1, (long long)fat_buf) < 0) return -1;
+    for (int i = 0; i < 32; i++) fat_buf[off + i] = e[i];
+    if (boot_disk_write(lba, 1, (long long)fat_buf) < 0) return -1;
+    return n;
+}
+
+long long boot_fat32_delete(const char *name83) {
+    unsigned char e[32];
+    long long cluster = 2;
+    while (cluster >= 2 && cluster < 0x0FFFFFF0) {
+        long long lba = 100 + (cluster - 2) * 1;
+        if (boot_disk_read(lba, 1, (long long)fat_buf) < 0) break;
+        for (long long i = 0; i < 16; i++) {
+            for (int k = 0; k < 32; k++) e[k] = fat_buf[i * 32 + k];
+            if (e[0] == 0) return -1;
+            if (e[0] == 0xE5) continue;
+            int ok = 1;
+            for (int j = 0; j < 11; j++) { char c = name83[j]; if (c >= 'a' && c <= 'z') c -= 32; if (e[j] != (unsigned char)c) { ok = 0; break; } }
+            if (!ok) continue;
+            long long fc = e[26] | (e[27] << 8) | (e[20] << 16) | ((unsigned int)e[21] << 24);
+            while (fc >= 2 && fc < 0x0FFFFFF0) {
+                unsigned int next = fat32_next(fc, 32);
+                fat32_set(fc, 0);
+                fc = next;
+            }
+            fat_buf[i * 32] = 0xE5;
+            return boot_disk_write(lba, 1, (long long)fat_buf);
+        }
+        cluster = fat32_next(cluster, 32);
+    }
+    return -1;
+}
+
+/* ===== VGA 文本模式直写（0xB8000，80x25）===== */
+#define VGA_BASE 0xB8000
+#define VGA_COLS 80
+#define VGA_ROWS 25
+static int vga_row = 0, vga_col = 0;
+static unsigned char vga_attr = 0x07;   /* 浅灰字 / 黑底 */
+
+static void vga_scroll(void) {
+    unsigned short *v = (unsigned short *)VGA_BASE;
+    for (int i = 0; i < (VGA_ROWS - 1) * VGA_COLS; i++) v[i] = v[i + VGA_COLS];
+    for (int i = (VGA_ROWS - 1) * VGA_COLS; i < VGA_ROWS * VGA_COLS; i++) v[i] = (vga_attr << 8) | ' ';
+    vga_row = VGA_ROWS - 1;
+}
+
+void boot_vga_clear(void) {
+    unsigned short *v = (unsigned short *)VGA_BASE;
+    for (int i = 0; i < VGA_ROWS * VGA_COLS; i++) v[i] = (vga_attr << 8) | ' ';
+    vga_row = 0; vga_col = 0;
+}
+
+void boot_vga_set_color(long long fg, long long bg) {
+    vga_attr = (unsigned char)(((bg & 0x0F) << 4) | (fg & 0x0F));
+}
+
+void boot_vga_putc(long long c) {
+    unsigned short *v = (unsigned short *)VGA_BASE;
+    if (c == '\n') { vga_col = 0; vga_row++; }
+    else if (c == '\r') { vga_col = 0; }
+    else {
+        v[vga_row * VGA_COLS + vga_col] = (unsigned short)((vga_attr << 8) | (c & 0xFF));
+        vga_col++;
+        if (vga_col >= VGA_COLS) { vga_col = 0; vga_row++; }
+    }
+    if (vga_row >= VGA_ROWS) vga_scroll();
+    /* 更新硬件光标 */
+    unsigned short pos = (unsigned short)(vga_row * VGA_COLS + vga_col);
+    outb(0x3D4, 0x0F); outb(0x3D5, (unsigned char)(pos & 0xFF));
+    outb(0x3D4, 0x0E); outb(0x3D5, (unsigned char)((pos >> 8) & 0xFF));
+}
+
+void boot_vga_puts(const char *s) { while (*s) boot_vga_putc((unsigned char)*s++); }
 /* ===== 简单协作式多任务（轮转调度）===== */
 #define TASK_MAX 8
 #define TASK_STACK 8192

@@ -165,6 +165,7 @@ pub(crate) const GTLIB_NAMES: &[&str] = &[
     // boot（裸机引导库）
     "boot_serial_init", "boot_serial_putc", "boot_serial_puts", "boot_serial_getc",
     "boot_clear", "boot_putc_at", "boot_puts", "boot_getkey",
+    "boot_vga_clear", "boot_vga_set_color", "boot_vga_putc", "boot_vga_puts",
     "boot_mem_alloc", "boot_mem_free", "boot_mem_size",
     "boot_time_ms", "boot_sleep_ms",
     "boot_hlt", "boot_exit", "boot_reboot", "boot_shutdown",
