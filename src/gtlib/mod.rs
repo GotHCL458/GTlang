@@ -175,5 +175,5 @@ pub fn dll_of(func: &str) -> Option<&'static str> {
 }
 
 #[cfg(test)]
-#[path = "../gtlib_tests/mod_tests.rs"]
+#[path = "../tests/gtlib_mod.rs"]
 mod mod_tests;

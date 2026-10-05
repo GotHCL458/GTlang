@@ -193,6 +193,6 @@ fn range_of(ctx: &mut Ctx, e: &Expr) -> Range {
     }
 }
 
-#[path = "range_tests.rs"]
+#[path = "tests/range.rs"]
 #[cfg(test)]
 mod range_tests;

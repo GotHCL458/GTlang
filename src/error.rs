@@ -571,6 +571,6 @@ fn related_codes(code: &str) -> Vec<&'static str> {
     }
 }
 
-#[path = "error_tests.rs"]
+#[path = "tests/error.rs"]
 #[cfg(test)]
 mod error_tests;

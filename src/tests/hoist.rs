@@ -226,7 +226,7 @@ fn convert_closure_calls_covers_stmt_variants() {
     cases.push(("Throw", Stmt::Throw(cc(), 0)));
     cases.push(("Labeled", Stmt::Labeled { label: "L".into(), inner: Box::new(Stmt::Expr(cc())), line: 0 }));
     cases.push(("Try", Stmt::Try { body: blk(cc()), catches: vec![CatchArm { binding: None, label: None, guard: None, body: blk(cc()), line: 0 }], fin: Some(blk(cc())), line: 0 }));
-    cases.push(("LocalFn", Stmt::LocalFn(FnDef { name: "h".into(), type_params: vec![], params: vec![], ret: None, ret_ty: Ty::Void, body: blk(cc()), line: 0, is_pub: false, bounds: vec![] })));
+    cases.push(("LocalFn", Stmt::LocalFn(FnDef { name: "h".into(), type_params: vec![], params: vec![], ret: None, ret_ty: Ty::Void, body: blk(cc()), line: 0, is_pub: false, bounds: vec![], attrs: vec![] })));
     let mut missing: Vec<&str> = Vec::new();
     for (name, st) in &cases {
         let mut b: Block = vec![st.clone()];

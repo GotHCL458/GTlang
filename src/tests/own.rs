@@ -17,6 +17,7 @@ fn fn_with(params: Vec<(&str, Ty)>, body: Block) -> Item {
         line: 0,
         is_pub: false,
         bounds: vec![],
+        attrs: vec![],
     })
 }
 

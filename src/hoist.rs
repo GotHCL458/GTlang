@@ -19,7 +19,7 @@ thread_local! {
 }
 
 #[cfg(test)]
-#[path = "hoist_tests.rs"]
+#[path = "tests/hoist.rs"]
 mod hoist_tests;
 
 /// 判断函数体是否直接返回闭包字面量（用于识别"返回闭包的函数"）。

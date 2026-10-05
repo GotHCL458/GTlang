@@ -210,7 +210,7 @@ impl Parser {
 #[path = "parser_item.rs"]
 mod parser_item;
 
-#[path = "parser_tests.rs"]
+#[path = "tests/parser.rs"]
 #[cfg(test)]
 mod parser_tests;
 #[path = "parser_type.rs"]

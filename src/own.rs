@@ -561,6 +561,6 @@ fn loans_conflict(a: &Loan, b: &Loan) -> bool {
 }
 
 
-#[path = "own_tests.rs"]
+#[path = "tests/own.rs"]
 #[cfg(test)]
 mod own_tests;

@@ -18,7 +18,7 @@ mod sema_stmt;
 #[path = "sema_util.rs"]
 mod sema_util;
 #[cfg(test)]
-#[path = "sema_util_tests.rs"]
+#[path = "tests/sema_util.rs"]
 mod sema_util_tests;
 use sema_const::*;
 use sema_match::*;

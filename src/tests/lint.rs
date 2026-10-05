@@ -17,6 +17,7 @@ fn fn_def(name: &str, body: Block, line: usize) -> FnDef {
         line,
         is_pub: false,
         bounds: vec![],
+        attrs: vec![],
     }
 }
 

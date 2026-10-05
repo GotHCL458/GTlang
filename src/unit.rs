@@ -136,6 +136,6 @@ impl Unit {
 }
 
 
-#[path = "unit_tests.rs"]
+#[path = "tests/unit.rs"]
 #[cfg(test)]
 mod unit_tests;

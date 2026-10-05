@@ -322,6 +322,6 @@ fn collect_locals_stmt(s: &Stmt, out: &mut Vec<(String, usize)>) {
     }
 }
 
-#[path = "lint_tests.rs"]
+#[path = "tests/lint.rs"]
 #[cfg(test)]
 mod lint_tests;

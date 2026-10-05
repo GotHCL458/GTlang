@@ -435,6 +435,6 @@ pub fn is_builtin_name(name: &str) -> bool {
 }
 
 
-#[path = "type_gtlib_tests.rs"]
+#[path = "tests/type_gtlib.rs"]
 #[cfg(test)]
 mod type_gtlib_tests;

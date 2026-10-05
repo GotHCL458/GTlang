@@ -104,6 +104,6 @@ pub fn strip_line_prefix(msg: &str) -> &str {
     msg
 }
 
-#[path = "diag_tests.rs"]
+#[path = "tests/diag.rs"]
 #[cfg(test)]
 mod diag_tests;

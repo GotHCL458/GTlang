@@ -525,7 +525,7 @@ pub(crate) use builtins::*;
 #[allow(unused_imports)]
 pub(crate) use value::*;
 
-#[path = "aux_tests.rs"]
+#[path = "../tests/codegen_aux.rs"]
 #[cfg(test)]
 mod aux_tests;
 
