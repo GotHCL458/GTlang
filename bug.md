@@ -54,6 +54,13 @@
 | 44 | sema | **`set()` 元素类型未从 `insert` 细化** → `for k in set` 输出原始句柄值 | fuzz |
 | 45 | sema/JIT/codegen | **`map` 的 `f64` 值**（`m["k"] = 3.5` / `m["k"]`）：JIT 垃圾值、AOT 非法 IR | fuzz |
 | 46 | JIT/codegen | **`list`/`map` 的 `f64` 元素**（`push(l, 3.5)` / `l[0]`）：JIT 垃圾值、AOT 非法 IR（第 45 的根因统一修复）| fuzz |
+| 47 | sema | **list 非整数下标 / for 非整数边界**（崩溃 / 死循环）| fuzz |
+| 48 | parser | **元组类型 `-> (T, T)` 解析失败** | fuzz |
+| 49 | mono | **泛型函数前向引用失败** | fuzz |
+| 50 | mono | **`subst_ty_a` 缺 Tuple/Option/Ref** | fuzz |
+| 51 | mono | **`where T: Ord` 对 int 报错** | fuzz |
+| 52 | hoist | **泛型函数名与变量同名 → 误转闭包** | fuzz |
+| 53 | sema/mono/codegen | **`list[dyn Trait]` 容器**（未装箱/裸指针/ABI 不匹配）| fuzz |
 
 ---
 
@@ -210,12 +217,44 @@
 - **根因**：与第 45 同源 —— 容器元素槽是 i64，f64 元素必须 bitcast 保位模式，实现里存/取却是值转换。
 - **修复**：JIT 新增 `to_slot`/`from_slot_jit`（f64↔i64 bitcast），`list_set`/`map_insert` 与 `Index` 的 List/Map 分支改用它们，`convert` 对 `(I64, F64)` 也 bitcast；LLVM 的 `Index` List/Map 分支元素为 F64 时用 `bitcast i64 <-> double`。
 
+
+### 47. list 非整数下标 / for 非整数边界
+- **现象**：`l["k"]`（list 用字符串下标）运行时崩 "index out of bounds"；`for i in 0..3.5` 死循环。
+- **根因**：sema 未检查 list/array 下标与 for-range 边界的整数性。
+- **修复**：sema 拒绝非整数下标与边界。
+
+### 48. 元组类型 `-> (T, T)` 解析失败
+- **现象**：`fn pair[T](a: T, b: T) -> (T, T)` 报 "类型 must be an identifier, found '('"。
+- **根因**：`parse_type_inner` 无元组分支。
+- **修复**：加 `(` 分支解析 `Ty::Tuple`。
+
+### 49. 泛型函数前向引用
+- **现象**：`fn a[T]` 调用定义在其后的 `fn b[T]` → `undefined function 'b'`。
+- **根因**：mono 只对 `plain_fns` 做泛型调用改写，泛型实例之间的调用未改写。
+- **修复**：对 `instances` 也做 `rewrite_calls`；`subst_block_ty` 实际替换体内类型。
+
+### 50. `subst_ty_a` 缺 Tuple/Option/Ref
+- **现象**：泛型 `Box[T]` 返回类型里的 `T` 未替换。
+- **修复**：`subst_ty_a` 补 `Tuple`/`Option`/`Ref`/`RefMut`。
+
+### 51. `where T: Ord` 对 int 报错
+- **现象**：`fn max[T](...) where T: Ord` 用 `int` 实参报 "int does not satisfy bound"。
+- **修复**：基础类型（int/f64/str/bool）内置满足 Ord/Eq/Hash 等。
+
+### 52. 泛型函数名与变量同名
+- **现象**：`fn a`/`fn b` 与 `max2` 的参数 `a`/`b` 同名时，`a > b` 被当成"闭包比较"。
+- **根因**：`hoist::convert_fn_refs` 把裸 `Ident` 无条件转 `ClosureNew`，无遮蔽检查。
+- **修复**：加局部绑定名集合，命中则不转。
+
+### 53. dyn Trait 容器（list[dyn T]）
+- **现象**：`list[dyn Trait]` 的 push 未装箱、for 迭代拿到裸指针、dyn 方法调用 ABI 不匹配。
+- **修复**：sema 调用点细化 list 元素类型；mono 对 push/insert 自动装箱；codegen/jit 的 dyn data 用 ptr、for 元素 inttoptr。
 ---
 
 ## 统计
 
-- 真实缺陷修复：**46 个**
-- 测试：**626 → 820**（单元 25→143、双后端一致性 101→155、前端批量 500→522）
-- fuzz/深挖用例：约 3500+，全部 `panic=0` 且双端一致
+- 真实缺陷修复：**53 个**
+- 测试：**626 → 825**（单元 25→143、双后端一致性 101→160、前端批量 500→522）
+- fuzz/深挖用例：约 4000+，全部 `panic=0` 且双端一致
 - 文档：`0.0.1d` 全量更新 + 文档示例逐条核对
 
