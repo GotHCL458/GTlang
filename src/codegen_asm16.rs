@@ -268,6 +268,9 @@ fn gen_expr(a: &mut Asm16, sc: &mut Scope, e: &Expr) -> Result<(), String> {
             push_ax(a);
             gen_expr(a, sc, idx)?;       // AX = 下标
             a.b(0x89); a.b(0xC3);        // mov bx, ax（BX = 下标）
+            // 数组元素 2 字节：下标 ×2（字符串按字节，不乘）
+            let is_arr = matches!(base.ty, Ty::Array(..) | Ty::List(..));
+            if is_arr { a.b(0xD1); a.b(0xE3); } // shl bx, 1
             pop_ax(a);                   // AX = 基址
             a.b(0x01); a.b(0xD8);        // add ax, bx（字节偏移）
             a.b(0x89); a.b(0xC3);        // mov bx, ax（BX = 基址+偏移）
@@ -275,13 +278,17 @@ fn gen_expr(a: &mut Asm16, sc: &mut Scope, e: &Expr) -> Result<(), String> {
             a.b(0x0F); a.b(0xB6); a.b(0xC0); // movzx ax, al
         }
         ExprKind::ArrayLit(items) => {
-            // 数组：在栈上按 2 字节/元素分配，返回首元素地址（AX）
-            let base = alloc(sc);
+            // 数组：在栈上为每个元素分配 2 字节（连续，向下增长）
+            let mut offs = Vec::new();
+            for _ in items.iter() { offs.push(alloc(sc)); }
+            let n = items.len();
             for (i, it) in items.iter().enumerate() {
                 gen_expr(a, sc, it)?;
-                store_ax(a, base - (i as i64) * 2);
+                // 倒序存放：a[0] 放在最低地址（offs 最后一个）
+                store_ax(a, offs[n - 1 - i]);
             }
-            // AX = [bp+base] 的地址
+            // AX = 首元素地址（最低地址 = 最后一个 alloc）
+            let base = offs[n - 1];
             a.b(0x8D); a.b(0x46); a.b(base as u8); // lea ax, [bp+base]
         }
         ExprKind::Ident(n) => {
