@@ -276,6 +276,8 @@ pub enum Stmt {
     FieldAssign { obj: String, field: String, op: Option<BinOp>, value: Expr, line: usize },
     /// 裸表达式语句（位于块尾时即为该块的值）
     Expr(Expr),
+    /// `defer expr`：当前函数返回时执行（LIFO）
+    Defer(Expr, usize),
     If { cond: Expr, then: Block, els: Option<Block>, line: usize },
     While { cond: Expr, body: Block, line: usize },
     /// `do { body } while cond`
@@ -314,6 +316,7 @@ impl Stmt {
     pub fn each_block<'a>(&'a self, f: &mut impl FnMut(&'a Block)) {
         match self {
             Stmt::If { then, els, .. } => { f(then); if let Some(e) = els { f(e); } }
+            Stmt::Defer(_, _) => {}
             Stmt::While { body, .. } => f(body),
             Stmt::DoWhile { body, .. } => f(body),
             Stmt::ForRange { body, els, .. } => { f(body); if let Some(e) = els { f(e); } }

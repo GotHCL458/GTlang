@@ -1,0 +1,5 @@
+fn main() {
+    defer put(1)
+    put(2)
+    put(10)
+}

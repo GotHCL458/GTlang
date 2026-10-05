@@ -79,6 +79,7 @@ pub fn generate(prog: &Program, an: &Analysis, file: &str) -> Result<String, Str
         labeled: Vec::new(),
         label_targets: HashMap::new(),
         boot_entries: Vec::new(),
+        defer_stack: Vec::new(),
     };
     // 先做范围分析（用 &Program，与后续遍历同一 AST，地址一致）
     cg.range_analysis = Some(crate::range::analyze(prog));
@@ -197,6 +198,8 @@ struct Codegen<'a> {
     pub(crate) err_stack: Vec<(String, String)>,
     /// `boot.boot.load("模块", "入口")` 编译期登记的引导入口符号（模块.入口 → 扁平符号）。
     pub(crate) boot_entries: Vec<crate::gtlib::boot::BootEntry>,
+    /// `defer` 栈（当前函数的 defer 表达式，函数返回前逆序求值）
+    pub(crate) defer_stack: Vec<Expr>,
 }
 
 impl<'a> Codegen<'a> {
@@ -393,6 +396,7 @@ impl<'a> Codegen<'a> {
         self.var_cache.clear();
         self.perm_ptrs.clear();
         self.perm_cache.clear();
+        self.defer_stack.clear();
 
         // 找出"从不被重新赋值、且不在循环体内声明"的变量：它们可以跨基本块
         // 保持 SSA 值，从而在每个分支里省掉一次 load。
@@ -449,11 +453,15 @@ impl<'a> Codegen<'a> {
             }
             self.block(&f.body)?;
             if !self.terminated {
+                let defers: Vec<Expr> = self.defer_stack.drain(..).rev().collect();
+                for d in &defers { let _ = self.expr(d); }
                 self.body.push_str("  ret i32 0\n");
             }
         } else if info.ret == Ty::Void {
             self.block(&f.body)?;
             if !self.terminated {
+                let defers: Vec<Expr> = self.defer_stack.drain(..).rev().collect();
+                for d in &defers { let _ = self.expr(d); }
                 self.body.push_str("  ret void\n");
             }
         } else {

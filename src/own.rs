@@ -162,6 +162,7 @@ impl<'a> Ctx<'a> {
                 self.use_expr(e, st, depth);
             }
             Stmt::Asm { .. } => {}
+            Stmt::Defer(e, _) => self.use_expr(e, st, depth),
             Stmt::Go { args, .. } => for a in args.iter() { self.use_expr(a, st, depth); },
             Stmt::Try { body, catches, fin, .. } => {
                 let after = self.check_block(body, st, depth);
@@ -482,6 +483,7 @@ fn collect_used(s: &Stmt, out: &mut Vec<String>) {
         Stmt::Block(inner) => for st in inner { collect_used(st, out); }
         Stmt::Throw(e, _) => collect_used_expr(e, out),
         Stmt::Asm { .. } => {}
+        Stmt::Defer(e, _) => collect_used_expr(e, out),
         Stmt::Try { body, catches, fin, .. } => {
             for st in body { collect_used(st, out); }
             for ca in catches {
@@ -538,6 +540,7 @@ fn stmt_line(s: &Stmt) -> usize {
         Stmt::Try { line, .. } => *line,
         Stmt::Throw(_, line) => *line,
         Stmt::Asm { line, .. } => *line,
+        Stmt::Defer(_, line) => *line,
     }
 }
 

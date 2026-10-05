@@ -453,8 +453,30 @@ impl Parser {
                 if name == "match" {
                     return self.match_expr(line);
                 }
+                if name == "do" && matches!(&self.peek_at(1).tok, Tok::Punct(p) if p == "{") {
+                    self.bump(); // do
+                    let body = self.block()?;
+                    return Ok(Expr::new(ExprKind::If {
+                        cond: Box::new(Expr::new(ExprKind::Bool(true), line)),
+                        then: body,
+                        els: None,
+                    }, line));
+                }
                 if is_keyword(&name) {
                     return Err(crate::lb!(line, "keyword '{}' cannot be used as an expression", "关键字 '{}' 不能作为表达式", name));
+                }
+                // 箭头函数语法糖：`x => expr`（等价 `|x| expr`）
+                if matches!(&self.peek_at(1).tok, Tok::Punct(p) if p == "=>") {
+                    self.bump(); // x
+                    self.bump(); // =>
+                    let body = self.expr(0)?;
+                    return Ok(Expr::new(ExprKind::Closure {
+                        params: vec![name],
+                        param_tys: vec![None],
+                        ret_ty: None,
+                        body: Box::new(body),
+                        line,
+                    }, line));
                 }
                 self.bump();
                 // 结构体字面量：`Name { field: v, ... }`

@@ -1,0 +1,5 @@
+fn main() {
+    x := do { 10 + 20 }
+    put(x)
+    put(10)
+}

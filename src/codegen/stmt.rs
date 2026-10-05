@@ -53,6 +53,7 @@ impl<'a> Codegen<'a> {
             return Ok(());
         }
         match s {
+            Stmt::Defer(e, _) => { self.defer_stack.push(e.clone()); }
             Stmt::Let { name, value, .. } => {
                 let v = self.expr(value)?;
                 let ty = if v.ty == Ty::Unknown { Ty::I64 } else { v.ty.clone() };

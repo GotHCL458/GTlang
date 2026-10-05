@@ -318,6 +318,7 @@ pub(crate) fn check_stmt(ctx: &mut Ctx, s: &mut Stmt, errors: &mut Vec<String>) 
         }
         Stmt::Block(b) => { for s in b.iter_mut() { check_stmt(ctx, s, errors); } }
         Stmt::Asm { .. } => {}
+        Stmt::Defer(e, _) => { let _ = ctx.infer(e); }
         // go f(args)：检查函数存在 + 推断实参
         Stmt::Go { func, args, line } => {
             if !ctx.fns.contains_key(func) && !crate::types::is_builtin_name(func) {

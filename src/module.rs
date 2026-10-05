@@ -606,6 +606,7 @@ fn rewrite_block(b: &mut Block, own: &HashMap<String, String>, visible: &HashMap
             Stmt::Const { value, .. } => rewrite_expr(value, own, visible),
             Stmt::Throw(e, _) => rewrite_expr(e, own, visible),
             Stmt::Asm { .. } => {}
+            Stmt::Defer(e, _) => rewrite_expr(e, own, visible),
             Stmt::Go { args, .. } => for a in args.iter_mut() { rewrite_expr(a, own, visible); },
             Stmt::Labeled { inner, .. } => { let mut blk: Block = vec![(**inner).clone()]; rewrite_block(&mut blk, own, visible); *inner = Box::new(blk.into_iter().next().unwrap()); }
             Stmt::Try { body, catches, fin, .. } => {

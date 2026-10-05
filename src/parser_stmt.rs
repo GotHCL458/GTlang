@@ -217,6 +217,13 @@ impl Parser {
             return Ok(Stmt::Throw(e, line));
         }
 
+        // `defer expr`：当前函数返回时执行（LIFO）
+        if self.at_ident("defer") {
+            self.bump();
+            let e = self.expr(0)?;
+            return Ok(Stmt::Defer(e, line));
+        }
+
         // `try { ... } expt ... fily { ... }`
         if self.at_ident("try") {
             let (body, catches, fin) = self.try_parts()?;

@@ -498,6 +498,7 @@ fn rewrite_calls_block(b: &mut Block, scope: &HashMap<String, String>) {
             Stmt::Const { value, .. } => rewrite_calls_expr(value, scope),
             Stmt::Throw(e, _) => rewrite_calls_expr(e, scope),
             Stmt::Asm { .. } => {}
+            Stmt::Defer(e, _) => rewrite_calls_expr(e, scope),
             Stmt::Go { args, .. } => for a in args.iter_mut() { rewrite_calls_expr(a, scope); },
             Stmt::Labeled { inner, .. } => { let mut blk: Block = vec![(**inner).clone()]; rewrite_calls_block(&mut blk, scope); *inner = Box::new(blk.into_iter().next().unwrap()); }
             Stmt::Try { body, catches, fin, .. } => {

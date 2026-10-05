@@ -6,6 +6,7 @@ impl FnState {
     pub(crate) fn gen_stmt(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, s: &Stmt) -> Result<(), String> {
         if self.terminated { return Ok(()); }
         match s {
+            Stmt::Defer(e, _) => { self.defer_stack.push(e.clone()); }
             Stmt::Labeled { inner, .. } => {
                 let inner_blk: Block = vec![(**inner).clone()];
                 self.gen_block(jit, b, &inner_blk)?;
@@ -361,6 +362,9 @@ impl FnState {
                 b.switch_to_block(exit); self.terminated = false;
             }
             Stmt::Return(Some(e), _) => {
+                // 先执行 defer（逆序）
+                let defers: Vec<Expr> = self.defer_stack.drain(..).rev().collect();
+                for d in &defers { let _ = self.gen_expr(jit, b, d); }
                 // impl Trait 返回位置：具体类型自动装箱为 dyn Trait
                 if let Ty::Dyn(tr) = self.cur_ret.clone() {
                     if matches!(e.ty, Ty::Struct(_) | Ty::Enum(_)) {
@@ -377,7 +381,11 @@ impl FnState {
                 let v = self.convert(b, &v, &want);
                 b.ins().return_(&[v]); self.terminated = true;
             }
-            Stmt::Return(None, _) => { b.ins().return_(&[]); self.terminated = true; }
+            Stmt::Return(None, _) => {
+                let defers: Vec<Expr> = self.defer_stack.drain(..).rev().collect();
+                for d in &defers { let _ = self.gen_expr(jit, b, d); }
+                b.ins().return_(&[]); self.terminated = true;
+            }
             Stmt::Break(_, _) => { if let Some((brk, _)) = self.loops.last() { let t = *brk; b.ins().jump(t, &[]); self.terminated = true; } }
             Stmt::Continue(_, _) => { if let Some((_, cont)) = self.loops.last() { let t = *cont; b.ins().jump(t, &[]); self.terminated = true; } }
             Stmt::Block(inner) => { self.gen_block(jit, b, inner)?; }
