@@ -1,0 +1,11 @@
+extern "C" {
+    fn boot_serial_init()
+    fn boot_serial_puts(s: str)
+    fn boot_hlt()
+}
+
+fn main() {
+    boot_serial_init()
+    boot_serial_puts("extern C works\n")
+    boot_hlt()
+}

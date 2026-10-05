@@ -143,9 +143,38 @@ impl Parser {
             return Ok(Stmt::LocalFn(f));
         }
 
-        // 内联汇编已移除
+        // 内联汇编：`asm { 指令; 指令 }`（分号/换行分隔，每段一条）
         if self.at_ident("asm") {
-            return Err(crate::lb!(self.line(), "inline asm has been removed", "内联汇编已移除"));
+            self.bump();
+            self.expect_punct("{")?;
+            let mut lines: Vec<String> = Vec::new();
+            let mut cur = String::new();
+            while !self.at_punct("}") && !self.at_eof() {
+                if self.at_punct(";") {
+                    let t = cur.trim();
+                    if !t.is_empty() { lines.push(t.to_string()); }
+                    cur.clear();
+                    self.bump();
+                    continue;
+                }
+                let piece = match &self.cur().tok {
+                    Tok::Ident(s) => s.clone(),
+                    Tok::Int(n) => n.to_string(),
+                    Tok::Float(f) => f.to_string(),
+                    Tok::Str(s) | Tok::RawStr(s) => s.clone(),
+                    Tok::Punct(p) => p.clone(),
+                    Tok::Eof => break,
+                };
+                if !cur.is_empty() && !piece.starts_with('[') && !piece.starts_with(']') && !piece.starts_with(',') {
+                    cur.push(' ');
+                }
+                cur.push_str(&piece);
+                self.bump();
+            }
+            let t = cur.trim();
+            if !t.is_empty() { lines.push(t.to_string()); }
+            self.expect_punct("}")?;
+            return Ok(Stmt::Asm { lines, line });
         }
 
         // `throw e` / `raise e`

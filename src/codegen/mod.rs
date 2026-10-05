@@ -258,6 +258,23 @@ impl<'a> Codegen<'a> {
             );
         }
 
+        // extern "C" 声明：登记为外部符号（按 C ABI 调用）
+        for item in &prog.items {
+            if let Item::ExternC(fns) = item {
+                for ef in fns {
+                    let params: Vec<String> = ef.params.iter().map(|t| t.llvm().to_string()).collect();
+                    let sym = Self::llvm_sym(&ef.name);
+                    let d = if ef.ret == Ty::Void {
+                        format!("declare void @{}({})", sym, params.join(", "))
+                    } else {
+                        format!("declare {} @{}({})", ef.ret.llvm(), sym, params.join(", "))
+                    };
+                    self.declare(&d);
+                    self.fns.insert(ef.name.clone(), FnInfo { cname: sym, params: ef.params.clone(), ret: ef.ret.clone() });
+                }
+            }
+        }
+
         for item in &prog.items {
             if let Item::Fn(f) = item {
                 self.function(f)?;

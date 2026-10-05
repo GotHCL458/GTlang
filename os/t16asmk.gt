@@ -1,0 +1,12 @@
+extern "C" {
+    fn boot_serial_init()
+    fn boot_serial_puts(s: str)
+    fn boot_hlt()
+}
+
+fn main() {
+    boot_serial_init()
+    asm { nop }
+    boot_serial_puts("asm ok\n")
+    boot_hlt()
+}

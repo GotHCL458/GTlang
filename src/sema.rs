@@ -281,6 +281,18 @@ pub fn analyze(prog: &mut Program) -> Result<Analysis, Vec<String>> {
         );
     }
 
+    // ---------- 2c. 注册 extern "C" 声明的外部函数（按 C ABI 调用） ----------
+    for item in &prog.items {
+        if let Item::ExternC(fns) = item {
+            for ef in fns {
+                ctx.fns.insert(
+                    ef.name.clone(),
+                    FnSig { params: ef.params.clone(), ret: ef.ret.clone() },
+                );
+            }
+        }
+    }
+
     // ---------- 3. 从调用点推断无标注形参（迭代至稳定） ----------
     for _ in 0..4 {
         let mut changed = false;

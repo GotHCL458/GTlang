@@ -1,0 +1,5 @@
+fn main() {
+    asm { nop }
+    asm { movl $42, %eax }
+    put(1)
+}
