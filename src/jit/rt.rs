@@ -6,6 +6,234 @@ use super::*;
 // 供 JIT 代码调用的运行时（Rust 实现，直接注册为符号）
 // ============================================================
 
+
+// ============================================================
+// 宿主机 boot 模拟后端（boot_* 符号；裸机由 rt_bare.c 提供）
+// ============================================================
+
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Instant;
+
+static BOOT_T0: Mutex<Option<Instant>> = Mutex::new(None);
+static BOOT_MEM: AtomicUsize = AtomicUsize::new(0);
+static BOOT_HEAP: Mutex<Option<Vec<u8>>> = Mutex::new(None);
+
+fn boot_now_ms() -> u64 {
+    let mut g = BOOT_T0.lock().unwrap();
+    if g.is_none() { *g = Some(Instant::now()); }
+    g.as_ref().unwrap().elapsed().as_millis() as u64
+}
+
+// ---- serial（stdout）----
+pub(crate) extern "C" fn boot_serial_init() {}
+pub(crate) extern "C" fn boot_serial_putc(c: i64) {
+    let b = [c as u8];
+    let _ = std::io::Write::write_all(&mut std::io::stdout(), &b);
+    let _ = std::io::Write::flush(&mut std::io::stdout());
+}
+pub(crate) extern "C" fn boot_serial_puts(s: i64) {
+    if s == 0 { return; }
+    let cs = unsafe { std::ffi::CStr::from_ptr(s as *const i8) };
+    let _ = std::io::Write::write_all(&mut std::io::stdout(), cs.to_bytes());
+    let _ = std::io::Write::flush(&mut std::io::stdout());
+}
+pub(crate) extern "C" fn boot_serial_getc() -> i64 {
+    use std::io::Read;
+    let mut b = [0u8; 1];
+    match std::io::stdin().read(&mut b) { Ok(1) => b[0] as i64, _ => -1 }
+}
+pub(crate) extern "C" fn boot_serial_poll() -> i64 { -1 }
+
+// ---- screen（ANSI 清屏；putc/puts 复用 serial）----
+pub(crate) extern "C" fn boot_clear() { print!("\x1b[2J\x1b[H"); }
+pub(crate) extern "C" fn boot_putc_at(c: i64, x: i64, y: i64) {
+    print!("\x1b[{};{}H{}", y + 1, x + 1, c as u8 as char);
+}
+pub(crate) extern "C" fn boot_puts(s: i64) { boot_serial_puts(s); }
+pub(crate) extern "C" fn boot_vga_clear() { boot_clear(); }
+pub(crate) extern "C" fn boot_vga_set_color(_fg: i64, _bg: i64) {}
+pub(crate) extern "C" fn boot_vga_putc(c: i64) { boot_serial_putc(c); }
+pub(crate) extern "C" fn boot_vga_puts(s: i64) { boot_serial_puts(s); }
+
+// ---- keyboard（stdin 行缓冲）----
+static BOOT_KBD: Mutex<Vec<u8>> = Mutex::new(Vec::new());
+pub(crate) extern "C" fn boot_getkey() -> i64 { boot_serial_getc() }
+pub(crate) extern "C" fn boot_keyboard_handler() -> i64 {
+    let mut b = BOOT_KBD.lock().unwrap();
+    if b.is_empty() { -1 } else { b.remove(0) as i64 }
+}
+pub(crate) extern "C" fn boot_keyboard_modifiers() -> i64 { 0 }
+
+// ---- memory（Vec 堆）----
+pub(crate) extern "C" fn boot_mem_alloc(n: i64) -> i64 {
+    if n <= 0 { return 0; }
+    let mut g = BOOT_HEAP.lock().unwrap();
+    if g.is_none() { *g = Some(vec![0u8; 16 * 1024 * 1024]); }
+    let base = g.as_ref().unwrap().as_ptr() as i64;
+    let off = BOOT_MEM.fetch_add(n as usize, Ordering::SeqCst);
+    base + off as i64
+}
+pub(crate) extern "C" fn boot_mem_free(_p: i64) {}
+pub(crate) extern "C" fn boot_mem_size() -> i64 { 16 * 1024 * 1024 }
+pub(crate) extern "C" fn boot_mem_free_bytes() -> i64 {
+    (16 * 1024 * 1024) - BOOT_MEM.load(Ordering::SeqCst) as i64
+}
+pub(crate) extern "C" fn boot_paging_init(_p: i64) -> i64 { 0 }
+
+// ---- time ----
+pub(crate) extern "C" fn boot_time_ms() -> i64 { boot_now_ms() as i64 }
+pub(crate) extern "C" fn boot_sleep_ms(ms: i64) {
+    if ms > 0 { std::thread::sleep(std::time::Duration::from_millis(ms as u64)); }
+}
+pub(crate) extern "C" fn boot_rtc_read(out: i64) -> i64 {
+    if out != 0 {
+        let p = out as *mut u8;
+        unsafe { for i in 0..6 { *p.add(i) = 0; } }
+    }
+    0
+}
+
+// ---- system ----
+pub(crate) extern "C" fn boot_hlt() { std::process::exit(0); }
+pub(crate) extern "C" fn boot_exit() { std::process::exit(0); }
+pub(crate) extern "C" fn boot_reboot() { std::process::exit(0); }
+pub(crate) extern "C" fn boot_shutdown() { std::process::exit(0); }
+pub(crate) extern "C" fn boot_cpuid(_leaf: i64, out: i64) {
+    if out != 0 {
+        let p = out as *mut u32;
+        unsafe { for i in 0..4 { *p.add(i) = 0; } }
+    }
+}
+pub(crate) extern "C" fn boot_cpu_vendor(out: i64) -> i64 {
+    if out != 0 {
+        let p = out as *mut u8;
+        let v = b"GTLangHost  ";
+        unsafe { for i in 0..12 { *p.add(i) = v[i]; } }
+    }
+    0
+}
+
+// ---- disk（宿主机为空实现）----
+pub(crate) extern "C" fn boot_disk_read(_lba: i64, _n: i64, _buf: i64) -> i64 { -1 }
+pub(crate) extern "C" fn boot_disk_write(_lba: i64, _n: i64, _buf: i64) -> i64 { -1 }
+pub(crate) extern "C" fn boot_disk_partitions(out: i64) -> i64 {
+    if out != 0 {
+        let p = out as *mut u32;
+        unsafe { for i in 0..8 { *p.add(i) = 0; } }
+    }
+    0
+}
+
+// ---- port（宿主机为空实现）----
+pub(crate) extern "C" fn boot_inb(_p: i64) -> i64 { 0 }
+pub(crate) extern "C" fn boot_outb(_p: i64, _v: i64) {}
+pub(crate) extern "C" fn boot_inw(_p: i64) -> i64 { 0 }
+pub(crate) extern "C" fn boot_outw(_p: i64, _v: i64) {}
+
+// ---- interrupt（宿主机为空实现）----
+pub(crate) extern "C" fn boot_idt_init() {}
+pub(crate) extern "C" fn boot_irq_enable() {}
+pub(crate) extern "C" fn boot_irq_disable() {}
+pub(crate) extern "C" fn boot_pic_init() {}
+pub(crate) extern "C" fn boot_irq_register(_irq: i64, _fn: i64) -> i64 { 0 }
+
+// ---- task（宿主机：立即执行）----
+pub(crate) extern "C" fn boot_task_create(_entry: i64) -> i64 { -1 }
+pub(crate) extern "C" fn boot_task_yield() {}
+pub(crate) extern "C" fn boot_task_start() {}
+pub(crate) extern "C" fn boot_task_exit() {}
+
+
+// ---- fs_ram（内存文件系统，HashMap<name, Vec<u8>>）----
+static BOOT_FS: Mutex<Vec<(Vec<u8>, Vec<u8>)>> = Mutex::new(Vec::new());
+
+fn boot_cstr(s: i64) -> Vec<u8> {
+    if s == 0 { return Vec::new(); }
+    let cs = unsafe { std::ffi::CStr::from_ptr(s as *const i8) };
+    cs.to_bytes().to_vec()
+}
+
+pub(crate) extern "C" fn boot_fs_ram_create(name: i64) -> i64 {
+    let n = boot_cstr(name);
+    let mut fs = BOOT_FS.lock().unwrap();
+    if fs.iter().any(|(k, _)| *k == n) { return -1; }
+    fs.push((n, Vec::new()));
+    (fs.len() - 1) as i64
+}
+pub(crate) extern "C" fn boot_fs_ram_write(name: i64, data: i64, len: i64) -> i64 {
+    let n = boot_cstr(name);
+    if len < 0 { return -1; }
+    let bytes = if data == 0 || len == 0 { Vec::new() } else {
+        unsafe { std::slice::from_raw_parts(data as *const u8, len as usize) }.to_vec()
+    };
+    let mut fs = BOOT_FS.lock().unwrap();
+    match fs.iter_mut().find(|(k, _)| *k == n) {
+        Some((_, v)) => { *v = bytes; len }
+        None => { fs.push((n, bytes)); len }
+    }
+}
+pub(crate) extern "C" fn boot_fs_ram_read(name: i64, out: i64, cap: i64) -> i64 {
+    let n = boot_cstr(name);
+    let fs = BOOT_FS.lock().unwrap();
+    match fs.iter().find(|(k, _)| *k == n) {
+        Some((_, v)) => {
+            let m = std::cmp::min(v.len() as i64, cap) as usize;
+            if out != 0 { unsafe { std::ptr::copy_nonoverlapping(v.as_ptr(), out as *mut u8, m); } }
+            m as i64
+        }
+        None => -1,
+    }
+}
+pub(crate) extern "C" fn boot_fs_ram_size(name: i64) -> i64 {
+    let n = boot_cstr(name);
+    let fs = BOOT_FS.lock().unwrap();
+    fs.iter().find(|(k, _)| *k == n).map(|(_, v)| v.len() as i64).unwrap_or(-1)
+}
+pub(crate) extern "C" fn boot_fs_ram_delete(name: i64) -> i64 {
+    let n = boot_cstr(name);
+    let mut fs = BOOT_FS.lock().unwrap();
+    let before = fs.len();
+    fs.retain(|(k, _)| *k != n);
+    if fs.len() < before { 0 } else { -1 }
+}
+pub(crate) extern "C" fn boot_fs_ram_count() -> i64 { BOOT_FS.lock().unwrap().len() as i64 }
+pub(crate) extern "C" fn boot_fs_ram_list(out: i64, cap: i64) -> i64 {
+    let fs = BOOT_FS.lock().unwrap();
+    let mut used = 0usize;
+    for (k, _) in fs.iter() {
+        if out != 0 && used + k.len() + 1 <= cap as usize {
+            unsafe {
+                std::ptr::copy_nonoverlapping(k.as_ptr(), (out as *mut u8).add(used), k.len());
+                *(out as *mut u8).add(used + k.len()) = 0;
+            }
+            used += k.len() + 1;
+        }
+    }
+    fs.len() as i64
+}
+
+// ---- fs_fat8/fat16/fat32（宿主机为空实现）----
+pub(crate) extern "C" fn boot_fat8_find(_n: i64) -> i64 { -1 }
+pub(crate) extern "C" fn boot_fat8_read(_n: i64, _o: i64, _c: i64) -> i64 { -1 }
+pub(crate) extern "C" fn boot_fat8_list(_o: i64, _c: i64) -> i64 { 0 }
+pub(crate) extern "C" fn boot_fat8_write(_n: i64, _d: i64, _l: i64) -> i64 { -1 }
+pub(crate) extern "C" fn boot_fat8_delete(_n: i64) -> i64 { -1 }
+pub(crate) extern "C" fn boot_fat16_find(_n: i64) -> i64 { -1 }
+pub(crate) extern "C" fn boot_fat16_read(_n: i64, _o: i64, _c: i64) -> i64 { -1 }
+pub(crate) extern "C" fn boot_fat16_write(_n: i64, _d: i64, _l: i64) -> i64 { -1 }
+pub(crate) extern "C" fn boot_fat16_delete(_n: i64) -> i64 { -1 }
+pub(crate) extern "C" fn boot_fat16_list(_o: i64, _c: i64) -> i64 { 0 }
+pub(crate) extern "C" fn boot_fat32_find(_n: i64) -> i64 { -1 }
+pub(crate) extern "C" fn boot_fat32_read(_n: i64, _o: i64, _c: i64) -> i64 { -1 }
+pub(crate) extern "C" fn boot_fat32_write(_n: i64, _d: i64, _l: i64) -> i64 { -1 }
+pub(crate) extern "C" fn boot_fat32_delete(_n: i64) -> i64 { -1 }
+pub(crate) extern "C" fn boot_fat32_list(_o: i64, _c: i64) -> i64 { 0 }
+// ---- info ----
+pub(crate) extern "C" fn boot_version() -> i64 {
+    b"boot 0.0.1e (host)\0".as_ptr() as i64
+}
+pub(crate) extern "C" fn boot_arch() -> i64 { std::mem::size_of::<usize>() as i64 * 8 }
+
 /// 原样写出一段 UTF-8 字节
 pub(crate) extern "C" fn rt_write(ptr: i64, len: i64) {
     if ptr == 0 || len <= 0 {

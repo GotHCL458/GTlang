@@ -1197,3 +1197,179 @@ char *gt_str_concat(const char *a, const char *b) {
     out[la + lb] = '\0';
     return out;
 }
+/* ============================================================
+ * 宿主机 boot 模拟后端（boot_* 符号；裸机由 rt_bare.c 提供）
+ * ============================================================ */
+
+/* ---- serial ---- */
+void boot_serial_init(void) {}
+void boot_serial_putc(long long c) { fputc((int)(c & 0xFF), stdout); fflush(stdout); }
+void boot_serial_puts(const char *s) { if (s) { fputs(s, stdout); fflush(stdout); } }
+long long boot_serial_getc(void) { int c = fgetc(stdin); return c < 0 ? -1 : (long long)c; }
+long long boot_serial_poll(void) { return -1; }
+
+/* ---- screen ---- */
+void boot_clear(void) { printf("\x1b[2J\x1b[H"); fflush(stdout); }
+void boot_putc_at(long long c, long long x, long long y) { printf("\x1b[%lld;%lldH%c", y+1, x+1, (char)c); }
+void boot_puts(const char *s) { boot_serial_puts(s); }
+void boot_vga_clear(void) { boot_clear(); }
+void boot_vga_set_color(long long fg, long long bg) { (void)fg; (void)bg; }
+void boot_vga_putc(long long c) { boot_serial_putc(c); }
+void boot_vga_puts(const char *s) { boot_serial_puts(s); }
+
+/* ---- keyboard ---- */
+long long boot_getkey(void) { return boot_serial_getc(); }
+long long boot_keyboard_handler(void) { return -1; }
+long long boot_keyboard_modifiers(void) { return 0; }
+
+/* ---- memory ---- */
+static unsigned char *boot_heap = NULL;
+static size_t boot_heap_used = 0;
+long long boot_mem_alloc(long long n) {
+    if (n <= 0) return 0;
+    if (!boot_heap) boot_heap = (unsigned char *)gt_alloc(16 * 1024 * 1024);
+    if (!boot_heap) return 0;
+    unsigned char *p = boot_heap + boot_heap_used;
+    boot_heap_used += (size_t)n;
+    return (long long)p;
+}
+void boot_mem_free(long long p) { (void)p; }
+long long boot_mem_size(void) { return 16 * 1024 * 1024; }
+long long boot_mem_free_bytes(void) { return (long long)(16 * 1024 * 1024 - boot_heap_used); }
+long long boot_paging_init(long long p) { (void)p; return 0; }
+
+/* ---- time ---- */
+long long boot_time_ms(void) { return (long long)GetTickCount64(); }
+void boot_sleep_ms(long long ms) { if (ms > 0) Sleep((DWORD)ms); }
+long long boot_rtc_read(long long out) {
+    if (out) { unsigned char *p = (unsigned char *)out; for (int i = 0; i < 6; i++) p[i] = 0; }
+    return 0;
+}
+
+/* ---- system ---- */
+void boot_hlt(void) { exit(0); }
+void boot_exit(void) { exit(0); }
+void boot_reboot(void) { exit(0); }
+void boot_shutdown(void) { exit(0); }
+void boot_cpuid(long long leaf, long long out) {
+    (void)leaf;
+    if (out) { unsigned int *p = (unsigned int *)out; for (int i = 0; i < 4; i++) p[i] = 0; }
+}
+long long boot_cpu_vendor(long long out) {
+    if (out) { const char *v = "GTLangHost  "; memcpy((void *)out, v, 12); }
+    return 0;
+}
+
+/* ---- disk ---- */
+long long boot_disk_read(long long lba, long long n, long long buf) { (void)lba;(void)n;(void)buf; return -1; }
+long long boot_disk_write(long long lba, long long n, long long buf) { (void)lba;(void)n;(void)buf; return -1; }
+long long boot_disk_partitions(long long out) {
+    if (out) { unsigned int *p = (unsigned int *)out; for (int i = 0; i < 8; i++) p[i] = 0; }
+    return 0;
+}
+
+/* ---- port ---- */
+long long boot_inb(long long p) { (void)p; return 0; }
+void boot_outb(long long p, long long v) { (void)p; (void)v; }
+long long boot_inw(long long p) { (void)p; return 0; }
+void boot_outw(long long p, long long v) { (void)p; (void)v; }
+
+/* ---- interrupt ---- */
+void boot_idt_init(void) {}
+void boot_irq_enable(void) {}
+void boot_irq_disable(void) {}
+void boot_pic_init(void) {}
+long long boot_irq_register(long long irq, long long fn) { (void)irq;(void)fn; return 0; }
+
+/* ---- task ---- */
+long long boot_task_create(long long entry) { (void)entry; return -1; }
+void boot_task_yield(void) {}
+void boot_task_start(void) {}
+void boot_task_exit(void) {}
+
+/* ---- info ---- */
+const char *boot_version(void) { return "boot 0.0.1e (host)"; }
+long long boot_arch(void) { return (long long)(sizeof(void *) * 8); }
+
+/* ---- fs_ram（简单动态数组）---- */
+#define BOOT_FS_MAX 64
+static char *boot_fs_names[BOOT_FS_MAX];
+static unsigned char *boot_fs_data[BOOT_FS_MAX];
+static int boot_fs_size_[BOOT_FS_MAX];
+static int boot_fs_count_ = 0;
+static int boot_fs_find(const char *name) {
+    for (int i = 0; i < boot_fs_count_; i++) if (boot_fs_names[i] && strcmp(boot_fs_names[i], name) == 0) return i;
+    return -1;
+}
+long long boot_fs_ram_create(const char *name) {
+    if (boot_fs_find(name) >= 0) return -1;
+    if (boot_fs_count_ >= BOOT_FS_MAX) return -1;
+    int i = boot_fs_count_++;
+    boot_fs_names[i] = (char *)gt_alloc(strlen(name) + 1);
+    strcpy(boot_fs_names[i], name);
+    boot_fs_data[i] = NULL;
+    boot_fs_size_[i] = 0;
+    return i;
+}
+long long boot_fs_ram_write(const char *name, const char *data, long long n) {
+    int i = boot_fs_find(name);
+    if (i < 0) { long long r = boot_fs_ram_create(name); if (r < 0) return -1; i = (int)r; }
+    if (n < 0) n = 0;
+    boot_fs_data[i] = (unsigned char *)gt_alloc((size_t)n + 1);
+    if (data && n > 0) memcpy(boot_fs_data[i], data, (size_t)n);
+    boot_fs_data[i][n] = 0;
+    boot_fs_size_[i] = (int)n;
+    return n;
+}
+long long boot_fs_ram_read(const char *name, long long out, long long cap) {
+    int i = boot_fs_find(name);
+    if (i < 0) return -1;
+    long long n = boot_fs_size_[i];
+    if (n > cap) n = cap;
+    if (out && n > 0) memcpy((void *)out, boot_fs_data[i], (size_t)n);
+    return n;
+}
+long long boot_fs_ram_size(const char *name) { int i = boot_fs_find(name); return i < 0 ? -1 : boot_fs_size_[i]; }
+long long boot_fs_ram_delete(const char *name) {
+    int i = boot_fs_find(name);
+    if (i < 0) return -1;
+    free(boot_fs_names[i]); boot_fs_names[i] = NULL;
+    boot_fs_data[i] = NULL; boot_fs_size_[i] = 0;
+    return 0;
+}
+long long boot_fs_ram_count(void) {
+    int c = 0; for (int i = 0; i < boot_fs_count_; i++) if (boot_fs_names[i]) c++;
+    return c;
+}
+long long boot_fs_ram_list(long long out, long long cap) {
+    long long used = 0; int c = 0;
+    for (int i = 0; i < boot_fs_count_; i++) {
+        if (!boot_fs_names[i]) continue;
+        c++;
+        size_t l = strlen(boot_fs_names[i]);
+        if (out && used + (long long)l + 1 <= cap) {
+            memcpy((void *)(out + used), boot_fs_names[i], l);
+            ((char *)out)[used + l] = 0;
+            used += (long long)l + 1;
+        }
+    }
+    return c;
+}
+
+/* ---- fs_fat8/16/32（宿主机为空实现）---- */
+long long boot_fat8_find(const char *n) { (void)n; return -1; }
+long long boot_fat8_read(const char *n, long long o, long long c) { (void)n;(void)o;(void)c; return -1; }
+long long boot_fat8_list(long long o, long long c) { (void)o;(void)c; return 0; }
+long long boot_fat8_write(const char *n, const char *d, long long l) { (void)n;(void)d;(void)l; return -1; }
+long long boot_fat8_delete(const char *n) { (void)n; return -1; }
+long long boot_fat16_find(const char *n) { (void)n; return -1; }
+long long boot_fat16_read(const char *n, long long o, long long c) { (void)n;(void)o;(void)c; return -1; }
+long long boot_fat16_write(const char *n, const char *d, long long l) { (void)n;(void)d;(void)l; return -1; }
+long long boot_fat16_delete(const char *n) { (void)n; return -1; }
+long long boot_fat16_list(long long o, long long c) { (void)o;(void)c; return 0; }
+long long boot_fat32_find(const char *n) { (void)n; return -1; }
+long long boot_fat32_read(const char *n, long long o, long long c) { (void)n;(void)o;(void)c; return -1; }
+long long boot_fat32_write(const char *n, const char *d, long long l) { (void)n;(void)d;(void)l; return -1; }
+long long boot_fat32_delete(const char *n) { (void)n; return -1; }
+long long boot_fat32_list(long long o, long long c) { (void)o;(void)c; return 0; }
+

@@ -1,0 +1,12 @@
+import boot
+
+fn main() {
+    boot.serial_puts("host boot works\n")
+    boot.fs_ram.write("a.txt", "hello", 5)
+    put(boot.fs_ram.count())
+    put(10)
+    put(boot.fs_ram.size("a.txt"))
+    put(10)
+    put(boot.arch())
+    put(10)
+}
