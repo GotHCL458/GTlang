@@ -1,0 +1,53 @@
+// Test 59 — 并发通道压力测试 (Phase 2/3 新特性)
+// 验证：多线程并发通道 send/receive 不崩溃不丢数据
+
+示("=== Test 59: 并发通道压力测试 ===")
+
+// 单线程通道基本测试
+设 ch = 道(4)
+
+// 发送和接收
+ch.发(100)
+ch.发(200)
+
+设 v1 = ch.收()
+设 v2 = ch.收()
+
+若 v1 == 100 且 v2 == 200 { 示("PASS: 通道基本收发正确") } 否 { 示("FAIL: v1=" & v1.转字() & " v2=" & v2.转字()) }
+
+// 多收发
+设 ch2 = 道(8)
+设 i = 0
+当 i < 8 { ch2.发(i * 10) ; i = i + 1 }
+i = 0
+设 sum = 0
+当 i < 8 { sum = sum + ch2.收() ; i = i + 1 }
+若 sum == 280 { 示("PASS: 通道8次收发累加=" & sum.转字()) } 否 { 示("FAIL: sum=" & sum.转字()) }
+
+// 异步生产者-消费者
+设 ch3 = 道(3)
+设 produced = 假
+设 consumer_done = 假
+
+设 producer = 异步 {
+    ch3.发(1)
+    ch3.发(2)
+    ch3.发(3)
+    produced = 真
+}
+
+设 consumer = 异步 {
+    设 total = 0
+    设 j = 0
+    当 j < 3 {
+        total = total + ch3.收()
+        j = j + 1
+    }
+    consumer_done = 真
+}
+
+等待(producer)
+等待(consumer)
+若 produced 且 consumer_done { 示("PASS: 异步生产者-消费者完成") } 否 { 示("FAIL: produced=" & produced.转字() & " consumed=" & consumer_done.转字()) }
+
+示("=== Test 59 完成 ===")

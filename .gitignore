@@ -38,6 +38,9 @@ bench/*.s
 !README.md
 !doc/*.md
 
+# OS build artifacts
+/os/build/
+
 # Cuckoo Code (AI assistant)
 .cuckooCode/
 _cuckoo/

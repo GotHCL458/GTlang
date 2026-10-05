@@ -143,6 +143,8 @@ pub const MODULES: &[StdModule] = &[
             // 文件系统
             "boot_fs_create", "boot_fs_write", "boot_fs_read", "boot_fs_size", "boot_fs_delete", "boot_fs_count",
             "boot_fat16_find", "boot_fat16_read",
+            // 多任务
+            "boot_task_create", "boot_task_yield", "boot_task_start",
         ],
     },
     StdModule {

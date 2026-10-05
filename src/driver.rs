@@ -224,7 +224,7 @@ fn run_nasm(nasm: &Path, src: &Path, out: &Path) -> Result<(), String> {
 /// 2) 链接 kernel.o + rt_bare.o -> kernel.elf -> kernel.bin
 /// 3) 组装 stage1.asm / stage2.asm（用内置 16 位汇编器）
 /// 4) 拼成 1.44MB 软盘镜像（stage1 | stage2 | kernel）
-pub fn make_boot_image(kernel_o: &Path, _ll: &Path, opt: u8, arch: &str, keep_tmp: bool) -> Result<PathBuf, String> {
+pub fn make_boot_image(kernel_o: &Path, out: Option<&Path>, opt: u8, arch: &str, keep_tmp: bool) -> Result<PathBuf, String> {
     let boot_dir = find_boot_lib().ok_or_else(|| "未找到引导库（boot/ 目录）：需要 stage1.asm / stage2.asm / rt_bare.c / kernel.ld".to_string())?;
     let clang = find_clang().ok_or_else(|| "未找到 clang".to_string())?;
     let lld = find_lld().ok_or_else(|| "未找到 ld.lld".to_string())?;
@@ -239,37 +239,57 @@ pub fn make_boot_image(kernel_o: &Path, _ll: &Path, opt: u8, arch: &str, keep_tm
         .arg("-o").arg(&rt_o)
         .output().map_err(|e| format!("无法启动 clang：{}", e))?;
     if !o.status.success() { return Err(format!("裸机运行时编译失败：\n{}", String::from_utf8_lossy(&o.stderr).trim())); }
-    // 2) 链接
+    // 2) 链接（x86_64 额外链接 irq.S/task.S）
+    let mut extra_objs: Vec<PathBuf> = Vec::new();
+    if !arch.starts_with("x86_32") && !arch.starts_with("i386") {
+        for (src_name, out_name) in [("irq.S", "irq.o"), ("task.S", "task.o")] {
+            let src = boot_dir.join(src_name);
+            if !src.is_file() { continue; }
+            let oo = tmp.file(out_name);
+            let oc = Command::new(&clang)
+                .arg("-target").arg(triple)
+                .arg("-ffreestanding").arg("-nostdlib")
+                .arg("-c").arg(&src).arg("-o").arg(&oo)
+                .output().map_err(|e| format!("无法启动 clang：{}", e))?;
+            if !oc.status.success() { return Err(format!("{} 编译失败：\n{}", src_name, String::from_utf8_lossy(&oc.stderr).trim())); }
+            extra_objs.push(oo);
+        }
+    }
     let elf = tmp.file("kernel.elf");
-    let o = Command::new(&lld)
-        .arg("-T").arg(boot_dir.join("kernel.ld"))
-        .arg("-o").arg(&elf)
-        .arg(kernel_o).arg(&rt_o)
-        .output().map_err(|e| format!("无法启动 ld.lld：{}", e))?;
+    let mut lld_cmd = Command::new(&lld);
+    lld_cmd.arg("-T").arg(boot_dir.join("kernel.ld")).arg("-o").arg(&elf).arg(kernel_o).arg(&rt_o);
+    for e in &extra_objs { lld_cmd.arg(e); }
+    let o = lld_cmd.output().map_err(|e| format!("无法启动 ld.lld：{}", e))?;
     if !o.status.success() { return Err(format!("链接失败：\n{}", String::from_utf8_lossy(&o.stderr).trim())); }
     let kbin = tmp.file("kernel.bin");
     objcopy_bin(&elf, &kbin)?;
     // 3) 引导扇区：优先用 nasm（stage2 含 32/64 位代码）；无 nasm 时回退内置汇编器
+    // x86_32 用"只到保护模式的 stage2_32.asm"；x86_64 用长模式 stage2.asm
+    let s2_name = if arch.starts_with("x86_32") || arch.starts_with("i386") { "stage2_32.asm" } else { "stage2.asm" };
     let (s1, s2) = if let Some(nasm) = find_nasm() {
         let s1o = tmp.file("stage1.bin");
         let s2o = tmp.file("stage2.bin");
         run_nasm(&nasm, &boot_dir.join("stage1.asm"), &s1o)?;
-        run_nasm(&nasm, &boot_dir.join("stage2.asm"), &s2o)?;
+        run_nasm(&nasm, &boot_dir.join(s2_name), &s2o)?;
         (std::fs::read(&s1o).map_err(|e| e.to_string())?, std::fs::read(&s2o).map_err(|e| e.to_string())?)
     } else {
         let s1_src = std::fs::read_to_string(boot_dir.join("stage1.asm")).map_err(|e| format!("读 stage1.asm 失败：{}", e))?;
         let s1 = crate::asm16::assemble(&s1_src)?;
-        let s2_src = std::fs::read_to_string(boot_dir.join("stage2.asm")).map_err(|e| format!("读 stage2.asm 失败：{}", e))?;
+        let s2_src = std::fs::read_to_string(boot_dir.join(s2_name)).map_err(|e| format!("读 {} 失败：{}", s2_name, e))?;
         let s2 = crate::asm16::assemble(&s2_src)?;
         (s1, s2)
     };
     // 4) 拼镜像
-    let img = if keep_tmp { tmp.file("os.img") } else { std::env::temp_dir().join("gtc_boot.img") };
+    let img = match out {
+        Some(p) => p.to_path_buf(),
+        None if keep_tmp => tmp.file("os.img"),
+        None => std::env::temp_dir().join("gtc_boot.img"),
+    };
     let mut data: Vec<u8> = Vec::new();
     data.extend_from_slice(&s1);
     while data.len() < 512 { data.push(0); }
     data.extend_from_slice(&s2);
-    while data.len() < 512 + 512 * 128 { data.push(0); }
+    while data.len() < 512 + 512 * 512 { data.push(0); }
     let k = std::fs::read(&kbin).map_err(|e| format!("读 kernel.bin 失败：{}", e))?;
     data.extend_from_slice(&k);
     while data.len() < 1474560 { data.push(0); }
@@ -507,3 +527,4 @@ fn link(clang: &Path, rt: &RtInput, srcs: &[PathBuf], ll: &Path, out: &Path, opt
     }
     Err(format!("clang 编译失败：\n{}", last.trim()))
 }
+//  

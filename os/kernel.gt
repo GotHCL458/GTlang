@@ -2,19 +2,13 @@ import boot
 
 fn main() {
     boot_serial_init()
-    boot_serial_puts("[gtlang] fs test\n")
-    boot_fs_write("hello.txt", "Hello, GTLang FS!", 17)
-    boot_fs_write("a.txt", "AAA", 3)
-    boot_serial_puts("count=")
-    put(boot_fs_count())
+    boot_serial_puts("[gtlang] os demo\n")
+    boot_serial_puts("arch=")
+    put(boot_arch())
     put(10)
-    n := boot_fs_size("hello.txt")
-    boot_serial_puts("size=")
-    put(n)
-    put(10)
-    boot_fs_delete("a.txt")
-    boot_serial_puts("after delete count=")
-    put(boot_fs_count())
-    put(10)
+    boot_serial_puts("idle...\n")
+    i := 0
+    while i < 100000 { i = i + 1 }
+    boot_serial_puts("bye\n")
     boot_hlt()
 }

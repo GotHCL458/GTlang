@@ -1,0 +1,10 @@
+import boot
+
+fn main() {
+    boot_serial_init()
+    boot_serial_puts("A\n")
+    n := boot_fs_write("x.txt", "hi", 2)
+    boot_serial_puts("B\n")
+    put(n)
+    boot_hlt()
+}

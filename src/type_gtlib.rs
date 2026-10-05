@@ -210,6 +210,9 @@ pub fn gtlib_fn(name: &str) -> Option<StdFn> {
         "boot_fs_count" => f("boot_fs_count", Ty::I64, &[]),
         "boot_fat16_find" => f("boot_fat16_find", Ty::I64, &[Ty::Str]),
         "boot_fat16_read" => f("boot_fat16_read", Ty::I64, &[Ty::Str, Ty::I64, Ty::I64]),
+        "boot_task_create" => f("boot_task_create", Ty::I64, &[Ty::I64]),
+        "boot_task_yield" => f("boot_task_yield", Ty::Void, &[]),
+        "boot_task_start" => f("boot_task_start", Ty::Void, &[]),
         // ---- core ----
         "core_free" => f("py_free", Ty::Void, &[Ty::Str]),
         "core_version" => f("py_core_version", Ty::Str, &[]),
@@ -323,7 +326,7 @@ pub fn is_builtin_name(name: &str) -> bool {
     matches!(
         name,
         // 输出 / 长度 / 转换
-        "put" | "print" | "len" | "str" | "string" | "int" | "i64" | "f64" | "float" | "bool" | "read_line" | "readline" | "input" | "read_int" | "readint"
+        "put" | "print" | "len" | "str" | "string" | "int" | "i64" | "f64" | "float" | "bool" | "read_line" | "readline" | "input" | "read_int" | "readint" | "fn_addr"
         // 容器构造
         | "list" | "List" | "set" | "Set" | "map" | "Map" | "dict" | "range" | "assert" | "sleep" | "chan" | "chan_send" | "chan_recv"
         // list 操作
@@ -357,6 +360,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "boot_idt_init" | "boot_irq_enable" | "boot_irq_disable" | "boot_pic_init" | "boot_keyboard_handler"
         | "boot_fs_create" | "boot_fs_write" | "boot_fs_read" | "boot_fs_size" | "boot_fs_delete" | "boot_fs_count"
         | "boot_fat16_find" | "boot_fat16_read"
+        | "boot_task_create" | "boot_task_yield" | "boot_task_start"
         | "sha256" | "hmac_sha256" | "sha256_hexlen" | "sha512" | "sha1" | "md5" | "sha512_hexlen" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
         | "entropy_random_hex" | "entropy_random_int" | "entropy_random_bytes" | "entropy_uuid"
         | "session_create" | "session_get" | "session_destroy" | "session_gc" | "session_count"

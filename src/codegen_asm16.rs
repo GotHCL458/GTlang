@@ -371,6 +371,24 @@ fn gen_expr(a: &mut Asm16, sc: &mut Scope, e: &Expr) -> Result<(), String> {
             }
             a.label(&lend);
         }
+        ExprKind::EnumLit(_, variant, args) => {
+            // 枚举：栈上 [tag, payload...]（连续槽，向下增长）
+            let nargs = args.len();
+            let mut offs: Vec<i64> = Vec::new();
+            for _ in 0..(nargs + 1) { offs.push(alloc(sc)); }
+            // 存 tag（简化：变体名的哈希低位）
+            let mut h: u32 = 2166136261;
+            for b in variant.bytes() { h = (h ^ b as u32).wrapping_mul(16777619); }
+            let tag = (h % 256) as i64;
+            a.b(0xB8); a.w(tag);
+            store_ax(a, offs[nargs]);
+            for (i, arg) in args.iter().enumerate() {
+                gen_expr(a, sc, arg)?;
+                store_ax(a, offs[nargs - 1 - i]);
+            }
+            let base = offs[nargs];
+            a.b(0x8D); a.b(0x46); a.b(base as u8); // lea ax, [bp+base]
+        }
         ExprKind::StructLit(_, fields) => {
             // 结构体：按字段名哈希索引定位（与 Field 访问一致）
             let mut slots: Vec<(usize, i64)> = Vec::new();

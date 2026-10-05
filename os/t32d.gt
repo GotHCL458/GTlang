@@ -1,0 +1,7 @@
+import boot
+
+fn main() {
+    boot_serial_init()
+    put(123)
+    boot_hlt()
+}

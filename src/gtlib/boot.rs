@@ -111,6 +111,10 @@ pub const BOOT_FUNCS: &[BootFn] = &[
     BootFn { name: "boot_fs_count", symbol: "boot_fs_count", group: "fs" },
     BootFn { name: "boot_fat16_find", symbol: "boot_fat16_find", group: "fs" },
     BootFn { name: "boot_fat16_read", symbol: "boot_fat16_read", group: "fs" },
+    // task（协作式多任务）
+    BootFn { name: "boot_task_create", symbol: "boot_task_create", group: "task" },
+    BootFn { name: "boot_task_yield", symbol: "boot_task_yield", group: "task" },
+    BootFn { name: "boot_task_start", symbol: "boot_task_start", group: "task" },
 ];
 
 /// 该模块是否仅用于裸机目标（宿主机链接时不提供这些符号）。

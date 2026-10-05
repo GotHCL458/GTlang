@@ -1,0 +1,1227 @@
+package ast
+
+import (
+	"bytes"
+	"strconv"
+	"strings"
+	"xuantie/token"
+)
+
+type Node interface {
+	TokenLiteral() string
+	GetLine() int
+	String() string
+}
+
+type Statement interface {
+	Node
+	statementNode()
+}
+
+type Expression interface {
+	Node
+	expressionNode()
+}
+
+// Program 根节点
+type Program struct {
+	Statements []Statement
+	FilePath   string // 源文件路径
+}
+
+func (p *Program) TokenLiteral() string {
+	if len(p.Statements) > 0 {
+		return p.Statements[0].TokenLiteral()
+	}
+	return ""
+}
+func (p *Program) GetLine() int {
+	if len(p.Statements) > 0 {
+		return p.Statements[0].GetLine()
+	}
+	return 0
+}
+func (p *Program) String() string {
+	var out bytes.Buffer
+	for _, s := range p.Statements {
+		out.WriteString(s.String())
+	}
+	return out.String()
+}
+
+// PrintStatement 打印语句
+type PrintStatement struct {
+	Token token.Token // 可选项，方便调试
+	Value Expression
+}
+
+func (ps *PrintStatement) statementNode()       {}
+func (ps *PrintStatement) TokenLiteral() string { return ps.Token.Literal }
+func (ps *PrintStatement) GetLine() int         { return ps.Token.Line }
+func (ps *PrintStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("打印(")
+	if ps.Value != nil {
+		out.WriteString(ps.Value.String())
+	}
+	out.WriteString(")")
+	return out.String()
+}
+
+// VarStatement 变量/常量声明语句
+type VarStatement struct {
+	Token      token.Token // TOKEN_VAR or TOKEN_CONST
+	Name       *Identifier
+	DataType   string // 可选类型
+	Value      Expression
+	Visibility token.TokenType // TOKEN_PRIVATE, TOKEN_PUBLIC, TOKEN_PROTECTED
+}
+
+func (vs *VarStatement) statementNode()       {}
+func (vs *VarStatement) TokenLiteral() string { return vs.Token.Literal }
+func (vs *VarStatement) GetLine() int         { return vs.Token.Line }
+func (vs *VarStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString(vs.Token.Literal + " ")
+	out.WriteString(vs.Name.String())
+	if vs.DataType != "" {
+		out.WriteString(":" + vs.DataType)
+	}
+	if vs.Value != nil {
+		out.WriteString(" = ")
+		out.WriteString(vs.Value.String())
+	}
+	return out.String()
+}
+
+// AssignStatement 赋值语句
+type AssignStatement struct {
+	Token token.Token
+	Name  string
+	Value Expression
+}
+
+func (as *AssignStatement) statementNode()       {}
+func (as *AssignStatement) TokenLiteral() string { return as.Token.Literal }
+func (as *AssignStatement) GetLine() int         { return as.Token.Line }
+func (as *AssignStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString(as.Name)
+	out.WriteString(" = ")
+	if as.Value != nil {
+		out.WriteString(as.Value.String())
+	}
+	return out.String()
+}
+
+// ComplexAssignStatement 复杂赋值语句 (支持索引、成员等)
+type ComplexAssignStatement struct {
+	Token token.Token // '='
+	Left  Expression  // Identifier, IndexExpression, MemberCallExpression
+	Right Expression  // Value
+}
+
+func (cas *ComplexAssignStatement) statementNode()       {}
+func (cas *ComplexAssignStatement) TokenLiteral() string { return cas.Token.Literal }
+func (cas *ComplexAssignStatement) GetLine() int         { return cas.Token.Line }
+func (cas *ComplexAssignStatement) String() string {
+	return cas.Left.String() + " = " + cas.Right.String()
+}
+
+// MemberAssignStatement 成员赋值语句 (obj.member = value)
+type MemberAssignStatement struct {
+	Token  token.Token // '='
+	Object Expression  // The object being accessed (e.g., Identifier or Call)
+	Member *Identifier // The field being assigned
+	Value  Expression  // The new value
+}
+
+func (mas *MemberAssignStatement) statementNode()       {}
+func (mas *MemberAssignStatement) TokenLiteral() string { return mas.Token.Literal }
+func (mas *MemberAssignStatement) GetLine() int         { return mas.Token.Line }
+func (mas *MemberAssignStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString(mas.Object.String())
+	out.WriteString(".")
+	out.WriteString(mas.Member.String())
+	out.WriteString(" = ")
+	out.WriteString(mas.Value.String())
+	return out.String()
+}
+
+// IfStatement 条件语句
+type ElseIfBranch struct {
+	Condition Expression
+	Block     []Statement
+}
+
+type IfStatement struct {
+	Token     token.Token
+	Condition Expression
+	ThenBlock []Statement
+	ElseIfs   []*ElseIfBranch
+	ElseBlock []Statement
+}
+
+func (is *IfStatement) statementNode()       {}
+func (is *IfStatement) TokenLiteral() string { return is.Token.Literal }
+func (is *IfStatement) GetLine() int         { return is.Token.Line }
+func (is *IfStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("若 ")
+	if is.Condition != nil {
+		out.WriteString(is.Condition.String())
+	}
+	out.WriteString(" { ")
+	for _, stmt := range is.ThenBlock {
+		out.WriteString(stmt.String())
+		out.WriteString(" ")
+	}
+	out.WriteString("}")
+
+	for _, eif := range is.ElseIfs {
+		out.WriteString(" 抑 ")
+		out.WriteString(eif.Condition.String())
+		out.WriteString(" { ")
+		for _, stmt := range eif.Block {
+			out.WriteString(stmt.String())
+			out.WriteString(" ")
+		}
+		out.WriteString("}")
+	}
+
+	if len(is.ElseBlock) > 0 {
+		out.WriteString(" 否 { ")
+		for _, stmt := range is.ElseBlock {
+			out.WriteString(stmt.String())
+			out.WriteString(" ")
+		}
+		out.WriteString("}")
+	}
+	return out.String()
+}
+
+// LoopStatement 无限循环语句
+type LoopStatement struct {
+	Token token.Token // TOKEN_LOOP '循'
+	Block []Statement
+}
+
+func (ls *LoopStatement) statementNode()       {}
+func (ls *LoopStatement) TokenLiteral() string { return ls.Token.Literal }
+func (ls *LoopStatement) GetLine() int         { return ls.Token.Line }
+func (ls *LoopStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("循 { ")
+	for _, stmt := range ls.Block {
+		out.WriteString(stmt.String())
+		out.WriteString(" ")
+	}
+	out.WriteString("}")
+	return out.String()
+}
+
+// WhileStatement 循环语句
+type WhileStatement struct {
+	Token     token.Token
+	Condition Expression
+	Block     []Statement
+}
+
+func (ws *WhileStatement) statementNode()       {}
+func (ws *WhileStatement) TokenLiteral() string { return ws.Token.Literal }
+func (ws *WhileStatement) GetLine() int         { return ws.Token.Line }
+func (ws *WhileStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("当 ")
+	if ws.Condition != nil {
+		out.WriteString(ws.Condition.String())
+	}
+	out.WriteString(" { ")
+	for _, stmt := range ws.Block {
+		out.WriteString(stmt.String())
+		out.WriteString(" ")
+	}
+	out.WriteString("}")
+	return out.String()
+}
+
+// TryCatchStatement 尝试/捕捉语句
+type TryCatchStatement struct {
+	Token      token.Token // "尝试"
+	TryBlock   []Statement
+	CatchToken token.Token // "捕捉"
+	CatchVar   *Identifier // 捕捉到的异常变量名
+	CatchBlock []Statement
+}
+
+func (ts *TryCatchStatement) statementNode()       {}
+func (ts *TryCatchStatement) TokenLiteral() string { return ts.Token.Literal }
+func (ts *TryCatchStatement) GetLine() int         { return ts.Token.Line }
+func (ts *TryCatchStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("尝试 { ")
+	for _, s := range ts.TryBlock {
+		out.WriteString(s.String())
+	}
+	out.WriteString(" } 捕捉 (")
+	if ts.CatchVar != nil {
+		out.WriteString(ts.CatchVar.String())
+	}
+	out.WriteString(") { ")
+	for _, s := range ts.CatchBlock {
+		out.WriteString(s.String())
+	}
+	out.WriteString(" }")
+	return out.String()
+}
+
+// TypeLiteral 类型字面量（用于“是”判断）
+type TypeLiteral struct {
+	Token token.Token // "整", "字", "布尔", "小数", "数组", "字典", "空"
+	Value string
+}
+
+func (tl *TypeLiteral) expressionNode()      {}
+func (tl *TypeLiteral) TokenLiteral() string { return tl.Token.Literal }
+func (tl *TypeLiteral) GetLine() int         { return tl.Token.Line }
+func (tl *TypeLiteral) String() string       { return tl.Value }
+
+// GenericParam 泛型参数定义，包含约束
+type GenericParam struct {
+	Name       string // 参数名，如 T
+	Constraint string // 约束类型，如 会飞的
+}
+
+func (gp *GenericParam) String() string {
+	if gp.Constraint != "" {
+		return gp.Name + " 承 " + gp.Constraint
+	}
+	return gp.Name
+}
+
+// TypeDefinitionStatement 类型定义语句
+type TypeDefinitionStatement struct {
+	Token         token.Token // "型"
+	Name          *Identifier
+	GenericParams []*GenericParam // 泛型参数，如 <T 承 会飞的, U>
+	Parent        *Identifier     // 继承的父类名
+	Block         []Statement
+	Visibility    token.TokenType // TOKEN_PRIVATE, TOKEN_PUBLIC
+}
+
+func (tds *TypeDefinitionStatement) statementNode()       {}
+func (tds *TypeDefinitionStatement) TokenLiteral() string { return tds.Token.Literal }
+func (tds *TypeDefinitionStatement) GetLine() int         { return tds.Token.Line }
+func (tds *TypeDefinitionStatement) String() string {
+	var out bytes.Buffer
+	if tds.Visibility != "" {
+		out.WriteString(string(tds.Visibility) + " ")
+	}
+	out.WriteString("型 ")
+	out.WriteString(tds.Name.String())
+	if len(tds.GenericParams) > 0 {
+		out.WriteString("<")
+		params := []string{}
+		for _, p := range tds.GenericParams {
+			params = append(params, p.String())
+		}
+		out.WriteString(strings.Join(params, ", "))
+		out.WriteString(">")
+	}
+	if tds.Parent != nil {
+		out.WriteString(" 承 " + tds.Parent.String())
+	}
+	out.WriteString(" { ")
+	for _, stmt := range tds.Block {
+		out.WriteString(stmt.String())
+		out.WriteString(" ")
+	}
+	out.WriteString("}")
+	return out.String()
+}
+
+// NewExpression 实例化表达式
+type NewExpression struct {
+	Token         token.Token  // "造"
+	Type          Expression   // Identifier
+	TypeArguments []string     // 泛型实际类型
+	Data          Expression   // DictLiteral for initial values
+	Arguments     []Expression // Constructor arguments
+}
+
+func (ne *NewExpression) expressionNode()      {}
+func (ne *NewExpression) TokenLiteral() string { return ne.Token.Literal }
+func (ne *NewExpression) GetLine() int         { return ne.Token.Line }
+func (ne *NewExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("造 ")
+	out.WriteString(ne.Type.String())
+	if len(ne.TypeArguments) > 0 {
+		out.WriteString("<" + strings.Join(ne.TypeArguments, ", ") + ">")
+	}
+	if ne.Data != nil {
+		out.WriteString(ne.Data.String())
+	}
+	if len(ne.Arguments) > 0 {
+		out.WriteString("(")
+		args := []string{}
+		for _, a := range ne.Arguments {
+			args = append(args, a.String())
+		}
+		out.WriteString(strings.Join(args, ", "))
+		out.WriteString(")")
+	}
+	return out.String()
+}
+
+// SerializeExpression 序列化表达式
+type SerializeExpression struct {
+	Token token.Token // "化"
+	Value Expression
+}
+
+func (se *SerializeExpression) expressionNode()      {}
+func (se *SerializeExpression) TokenLiteral() string { return se.Token.Literal }
+func (se *SerializeExpression) GetLine() int         { return se.Token.Line }
+func (se *SerializeExpression) String() string {
+	return "化(" + se.Value.String() + ")"
+}
+
+// DeserializeExpression 反序列化表达式
+type DeserializeExpression struct {
+	Token token.Token // "解"
+	Value Expression
+}
+
+func (de *DeserializeExpression) expressionNode()      {}
+func (de *DeserializeExpression) TokenLiteral() string { return de.Token.Literal }
+func (de *DeserializeExpression) GetLine() int         { return de.Token.Line }
+func (de *DeserializeExpression) String() string {
+	return "解(" + de.Value.String() + ")"
+}
+
+// AsyncExpression 异步执行表达式
+type AsyncExpression struct {
+	Token token.Token // "异步"
+	Block []Statement
+}
+
+func (ae *AsyncExpression) expressionNode()      {}
+func (ae *AsyncExpression) TokenLiteral() string { return ae.Token.Literal }
+func (ae *AsyncExpression) GetLine() int         { return ae.Token.Line }
+func (ae *AsyncExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("异步 { ")
+	for _, s := range ae.Block {
+		out.WriteString(s.String())
+	}
+	out.WriteString(" }")
+	return out.String()
+}
+
+// ListenExpression 监听表达式
+type ListenExpression struct {
+	Token     token.Token // "听"
+	Address   Expression
+	Callback  Expression
+	Arguments []Expression // 其他可选参数
+}
+
+func (le *ListenExpression) expressionNode()      {}
+func (le *ListenExpression) TokenLiteral() string { return le.Token.Literal }
+func (le *ListenExpression) GetLine() int         { return le.Token.Line }
+func (le *ListenExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("听(")
+	out.WriteString(le.Address.String())
+	out.WriteString(", ")
+	out.WriteString(le.Callback.String())
+	out.WriteString(")")
+	return out.String()
+}
+
+// ConnectExpression 连接表达式
+type ConnectExpression struct {
+	Token     token.Token // "连"
+	Address   Expression
+	Arguments []Expression // 可选参数如超时
+}
+
+func (ce *ConnectExpression) expressionNode()      {}
+func (ce *ConnectExpression) TokenLiteral() string { return ce.Token.Literal }
+func (ce *ConnectExpression) GetLine() int         { return ce.Token.Line }
+func (ce *ConnectExpression) String() string {
+	return "连(" + ce.Address.String() + ")"
+}
+
+// RequestExpression 请求表达式
+type ConnectRequestExpression struct {
+	Token     token.Token // "求"
+	Url       Expression
+	Arguments []Expression // 可选参数如方法、头部、主体
+}
+
+func (re *ConnectRequestExpression) expressionNode()      {}
+func (re *ConnectRequestExpression) TokenLiteral() string { return re.Token.Literal }
+func (re *ConnectRequestExpression) GetLine() int         { return re.Token.Line }
+func (re *ConnectRequestExpression) String() string {
+	return "求(" + re.Url.String() + ")"
+}
+
+// ExecuteExpression 执行表达式
+type ExecuteExpression struct {
+	Token   token.Token // "执"
+	Command Expression
+}
+
+func (ee *ExecuteExpression) expressionNode()      {}
+func (ee *ExecuteExpression) TokenLiteral() string { return ee.Token.Literal }
+func (ee *ExecuteExpression) GetLine() int         { return ee.Token.Line }
+func (ee *ExecuteExpression) String() string {
+	return "执(" + ee.Command.String() + ")"
+}
+
+// InputExpression 输入表达式
+type InputExpression struct {
+	Token  token.Token // "输"
+	Prompt Expression
+}
+
+func (ie *InputExpression) expressionNode()      {}
+func (ie *InputExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *InputExpression) GetLine() int         { return ie.Token.Line }
+func (ie *InputExpression) String() string {
+	if ie.Prompt != nil {
+		return "输(" + ie.Prompt.String() + ")"
+	}
+	return "输()"
+}
+
+// ChannelExpression 通道表达式
+type ChannelExpression struct {
+	Token token.Token // "道"
+}
+
+func (ce *ChannelExpression) expressionNode()      {}
+func (ce *ChannelExpression) TokenLiteral() string { return ce.Token.Literal }
+func (ce *ChannelExpression) GetLine() int         { return ce.Token.Line }
+func (ce *ChannelExpression) String() string       { return "道" }
+
+// MatchStatement 模式匹配语句
+type MatchStatement struct {
+	Token token.Token // "匹配"
+	Value Expression
+	Cases []*MatchCase
+}
+
+func (ms *MatchStatement) statementNode()       {}
+func (ms *MatchStatement) TokenLiteral() string { return ms.Token.Literal }
+func (ms *MatchStatement) GetLine() int         { return ms.Token.Line }
+func (ms *MatchStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("匹配 " + ms.Value.String() + " { ")
+	for _, c := range ms.Cases {
+		out.WriteString(c.String())
+	}
+	out.WriteString("}")
+	return out.String()
+}
+
+type MatchCase struct {
+	Token   token.Token // "->"
+	Pattern Expression  // Literal, Identifier (for _), or IS expression
+	Body    []Statement
+}
+
+func (mc *MatchCase) String() string {
+	var out bytes.Buffer
+	out.WriteString(mc.Pattern.String() + " -> { ")
+	for _, s := range mc.Body {
+		out.WriteString(s.String())
+	}
+	out.WriteString(" } ")
+	return out.String()
+}
+
+// PostfixExpression 后缀表达式 (例如 x?)
+type PostfixExpression struct {
+	Token    token.Token // 后缀运算符, 例如 "?"
+	Operator string
+	Left     Expression
+}
+
+func (pe *PostfixExpression) expressionNode()      {}
+func (pe *PostfixExpression) TokenLiteral() string { return pe.Token.Literal }
+func (pe *PostfixExpression) GetLine() int         { return pe.Token.Line }
+func (pe *PostfixExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("(")
+	out.WriteString(pe.Left.String())
+	out.WriteString(pe.Operator)
+	out.WriteString(")")
+	return out.String()
+}
+
+// ParallelExpression 并行执行表达式
+type ParallelExpression struct {
+	Token  token.Token // "并行"
+	Blocks [][]Statement
+}
+
+func (pe *ParallelExpression) expressionNode()      {}
+func (pe *ParallelExpression) TokenLiteral() string { return pe.Token.Literal }
+func (pe *ParallelExpression) GetLine() int         { return pe.Token.Line }
+func (pe *ParallelExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("并行 { ")
+	for _, b := range pe.Blocks {
+		out.WriteString("{ ")
+		for _, s := range b {
+			out.WriteString(s.String())
+		}
+		out.WriteString(" } ")
+	}
+	out.WriteString(" }")
+	return out.String()
+}
+
+// AwaitExpression 等待异步结果表达式
+type AwaitExpression struct {
+	Token token.Token // "等待"
+	Value Expression
+}
+
+func (ae *AwaitExpression) expressionNode()      {}
+func (ae *AwaitExpression) TokenLiteral() string { return ae.Token.Literal }
+func (ae *AwaitExpression) GetLine() int         { return ae.Token.Line }
+func (ae *AwaitExpression) String() string {
+	return "等待(" + ae.Value.String() + ")"
+}
+
+// MemberCallExpression 链式成员调用
+type MemberCallExpression struct {
+	Token     token.Token // "."
+	Object    Expression
+	Member    *Identifier // 如 "接着" 或 "否则"
+	Arguments []Expression
+}
+
+func (mce *MemberCallExpression) expressionNode()      {}
+func (mce *MemberCallExpression) TokenLiteral() string { return mce.Token.Literal }
+func (mce *MemberCallExpression) GetLine() int         { return mce.Token.Line }
+func (mce *MemberCallExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString(mce.Object.String())
+	out.WriteString(".")
+	out.WriteString(mce.Member.String())
+	out.WriteString("(")
+	args := []string{}
+	for _, a := range mce.Arguments {
+		args = append(args, a.String())
+	}
+	out.WriteString(strings.Join(args, ", "))
+	out.WriteString(")")
+	return out.String()
+}
+
+// IndexExpression 索引访问表达式
+type IndexExpression struct {
+	Token token.Token // '['
+	Left  Expression
+	Index Expression
+}
+
+func (ie *IndexExpression) expressionNode()      {}
+func (ie *IndexExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *IndexExpression) GetLine() int         { return ie.Token.Line }
+func (ie *IndexExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("(")
+	out.WriteString(ie.Left.String())
+	out.WriteString("[")
+	out.WriteString(ie.Index.String())
+	out.WriteString("])")
+	return out.String()
+}
+
+// IntegerLiteral 整数字面量
+type IntegerLiteral struct {
+	Token token.Token
+	Value int64
+}
+
+func (il *IntegerLiteral) expressionNode()      {}
+func (il *IntegerLiteral) TokenLiteral() string { return il.Token.Literal }
+func (il *IntegerLiteral) GetLine() int         { return il.Token.Line }
+func (il *IntegerLiteral) String() string {
+	return strconv.FormatInt(il.Value, 10)
+}
+
+// FloatLiteral 浮点数字面量
+type FloatLiteral struct {
+	Token token.Token
+	Value float64
+}
+
+func (fl *FloatLiteral) expressionNode()      {}
+func (fl *FloatLiteral) TokenLiteral() string { return fl.Token.Literal }
+func (fl *FloatLiteral) GetLine() int         { return fl.Token.Line }
+func (fl *FloatLiteral) String() string {
+	return strconv.FormatFloat(fl.Value, 'g', -1, 64)
+}
+
+// TestStatement 测试语句
+type TestStatement struct {
+	Token token.Token // "测试"
+	Name  string      // 测试用例名称
+	Body  []Statement // 测试体
+}
+
+func (ts *TestStatement) statementNode()       {}
+func (ts *TestStatement) TokenLiteral() string { return ts.Token.Literal }
+func (ts *TestStatement) GetLine() int         { return ts.Token.Line }
+func (ts *TestStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("测试 \"" + ts.Name + "\" { ")
+	for _, s := range ts.Body {
+		out.WriteString(s.String())
+	}
+	out.WriteString(" }")
+	return out.String()
+}
+
+// StringLiteral 字符串字面量
+type StringLiteral struct {
+	Token token.Token
+	Value string
+}
+
+func (sl *StringLiteral) expressionNode()      {}
+func (sl *StringLiteral) TokenLiteral() string { return sl.Token.Literal }
+func (sl *StringLiteral) GetLine() int         { return sl.Token.Line }
+func (sl *StringLiteral) String() string {
+	return "\"" + sl.Value + "\""
+}
+
+// BooleanLiteral 布尔字面量
+type BooleanLiteral struct {
+	Token token.Token
+	Value bool
+}
+
+func (bl *BooleanLiteral) expressionNode()      {}
+func (bl *BooleanLiteral) TokenLiteral() string { return bl.Token.Literal }
+func (bl *BooleanLiteral) GetLine() int         { return bl.Token.Line }
+func (bl *BooleanLiteral) String() string {
+	if bl.Value {
+		return "真"
+	}
+	return "假"
+}
+
+// ArrayLiteral 数组字面量
+type ArrayLiteral struct {
+	Token    token.Token // '['
+	Elements []Expression
+}
+
+func (al *ArrayLiteral) expressionNode()      {}
+func (al *ArrayLiteral) TokenLiteral() string { return al.Token.Literal }
+func (al *ArrayLiteral) GetLine() int         { return al.Token.Line }
+func (al *ArrayLiteral) String() string {
+	var out bytes.Buffer
+	elements := []string{}
+	for _, e := range al.Elements {
+		elements = append(elements, e.String())
+	}
+	out.WriteString("[")
+	out.WriteString(strings.Join(elements, ", "))
+	out.WriteString("]")
+	return out.String()
+}
+
+// DictLiteral 字典字面量
+type DictLiteral struct {
+	Token token.Token // '{'
+	Pairs map[Expression]Expression
+}
+
+func (dl *DictLiteral) expressionNode()      {}
+func (dl *DictLiteral) TokenLiteral() string { return dl.Token.Literal }
+func (dl *DictLiteral) GetLine() int         { return dl.Token.Line }
+func (dl *DictLiteral) String() string {
+	var out bytes.Buffer
+	pairs := []string{}
+	for key, value := range dl.Pairs {
+		pairs = append(pairs, key.String()+":"+value.String())
+	}
+	out.WriteString("{")
+	out.WriteString(strings.Join(pairs, ", "))
+	out.WriteString("}")
+	return out.String()
+}
+
+// Identifier 标识符
+type Identifier struct {
+	Token token.Token
+	Value string
+}
+
+func (i *Identifier) expressionNode()      {}
+func (i *Identifier) TokenLiteral() string { return i.Token.Literal }
+func (i *Identifier) GetLine() int         { return i.Token.Line }
+func (i *Identifier) String() string {
+	return i.Value
+}
+
+// PrefixExpression 前缀表达式
+type PrefixExpression struct {
+	Token    token.Token
+	Operator string
+	Right    Expression
+}
+
+func (pe *PrefixExpression) expressionNode()      {}
+func (pe *PrefixExpression) TokenLiteral() string { return pe.Token.Literal }
+func (pe *PrefixExpression) GetLine() int         { return pe.Token.Line }
+func (pe *PrefixExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("(")
+	out.WriteString(pe.Operator)
+	if pe.Right != nil {
+		out.WriteString(pe.Right.String())
+	}
+	out.WriteString(")")
+	return out.String()
+}
+
+// InfixExpression 中缀表达式
+type InfixExpression struct {
+	Token    token.Token
+	Left     Expression
+	Operator string
+	Right    Expression
+}
+
+func (ie *InfixExpression) expressionNode()      {}
+func (ie *InfixExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *InfixExpression) GetLine() int         { return ie.Token.Line }
+func (ie *InfixExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("(")
+	if ie.Left != nil {
+		out.WriteString(ie.Left.String())
+	}
+	out.WriteString(" " + ie.Operator + " ")
+	if ie.Right != nil {
+		out.WriteString(ie.Right.String())
+	}
+	out.WriteString(")")
+	return out.String()
+}
+
+// TerminateStatement 终止语句
+type TerminateStatement struct {
+	Token      token.Token // "终"
+	StatusCode Expression  // 可选状态码
+}
+
+func (ts *TerminateStatement) statementNode()       {}
+func (ts *TerminateStatement) TokenLiteral() string { return ts.Token.Literal }
+func (ts *TerminateStatement) GetLine() int         { return ts.Token.Line }
+func (ts *TerminateStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("终 ")
+	if ts.StatusCode != nil {
+		out.WriteString(ts.StatusCode.String())
+	}
+	return out.String()
+}
+
+// Walk 深度优先遍历 AST
+func Walk(node Node, fn func(Node)) {
+	if node == nil {
+		return
+	}
+	fn(node)
+	switch n := node.(type) {
+	case *Program:
+		for _, s := range n.Statements {
+			Walk(s, fn)
+		}
+	case *ExpressionStatement:
+		Walk(n.Expression, fn)
+	case *InfixExpression:
+		Walk(n.Left, fn)
+		Walk(n.Right, fn)
+	case *PrefixExpression:
+		Walk(n.Right, fn)
+	case *CallExpression:
+		Walk(n.Function, fn)
+		for _, a := range n.Arguments {
+			Walk(a, fn)
+		}
+	case *MemberCallExpression:
+		Walk(n.Object, fn)
+		Walk(n.Member, fn)
+		for _, a := range n.Arguments {
+			Walk(a, fn)
+		}
+	case *ArrayLiteral:
+		for _, e := range n.Elements {
+			Walk(e, fn)
+		}
+	case *DictLiteral:
+		for k, v := range n.Pairs {
+			Walk(k, fn)
+			Walk(v, fn)
+		}
+	case *IfStatement:
+		Walk(n.Condition, fn)
+		for _, s := range n.ThenBlock {
+			Walk(s, fn)
+		}
+		for _, eif := range n.ElseIfs {
+			Walk(eif.Condition, fn)
+			for _, s := range eif.Block {
+				Walk(s, fn)
+			}
+		}
+		for _, s := range n.ElseBlock {
+			Walk(s, fn)
+		}
+	case *WhileStatement:
+		Walk(n.Condition, fn)
+		for _, s := range n.Block {
+			Walk(s, fn)
+		}
+	case *MatchStatement:
+		Walk(n.Value, fn)
+		for _, c := range n.Cases {
+			Walk(c.Pattern, fn)
+			for _, s := range c.Body {
+				Walk(s, fn)
+			}
+		}
+	case *FunctionLiteral:
+		for _, s := range n.Body {
+			Walk(s, fn)
+		}
+	}
+}
+
+// FunctionLiteral 函数定义
+// Parameter 函数参数
+type Parameter struct {
+	Name     *Identifier
+	DataType string // 可选类型
+}
+
+func (p *Parameter) String() string {
+	var out bytes.Buffer
+	out.WriteString(p.Name.String())
+	if p.DataType != "" {
+		out.WriteString(": " + p.DataType)
+	}
+	return out.String()
+}
+
+type FunctionLiteral struct {
+	Token         token.Token
+	GenericParams []*GenericParam // 泛型参数
+	Parameters    []*Parameter
+	ReturnType    string // 可选返回类型
+	Body          []Statement
+}
+
+func (fl *FunctionLiteral) expressionNode()      {}
+func (fl *FunctionLiteral) TokenLiteral() string { return fl.Token.Literal }
+func (fl *FunctionLiteral) GetLine() int         { return fl.Token.Line }
+func (fl *FunctionLiteral) String() string {
+	var out bytes.Buffer
+	params := []string{}
+	for _, p := range fl.Parameters {
+		params = append(params, p.String())
+	}
+	out.WriteString("函数")
+	if len(fl.GenericParams) > 0 {
+		out.WriteString("<")
+		gps := []string{}
+		for _, p := range fl.GenericParams {
+			gps = append(gps, p.String())
+		}
+		out.WriteString(strings.Join(gps, ", "))
+		out.WriteString(">")
+	}
+	out.WriteString("(")
+	out.WriteString(strings.Join(params, ", "))
+	out.WriteString(")")
+	if fl.ReturnType != "" {
+		out.WriteString(": " + fl.ReturnType)
+	}
+	out.WriteString(" { ")
+	for _, s := range fl.Body {
+		out.WriteString(s.String())
+	}
+	out.WriteString(" }")
+	return out.String()
+}
+
+// ExternalFunctionStatement 外部函数定义语句
+type ExternalFunctionStatement struct {
+	Token      token.Token // "外"
+	Name       *Identifier
+	Parameters []*Parameter
+	ReturnType string // 可选返回类型
+}
+
+func (efs *ExternalFunctionStatement) statementNode()       {}
+func (efs *ExternalFunctionStatement) TokenLiteral() string { return efs.Token.Literal }
+func (efs *ExternalFunctionStatement) GetLine() int         { return efs.Token.Line }
+func (efs *ExternalFunctionStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("外 函 ")
+	out.WriteString(efs.Name.String())
+	out.WriteString("(")
+	params := []string{}
+	for _, p := range efs.Parameters {
+		params = append(params, p.String())
+	}
+	out.WriteString(strings.Join(params, ", "))
+	out.WriteString(")")
+	if efs.ReturnType != "" {
+		out.WriteString(": " + efs.ReturnType)
+	}
+	return out.String()
+}
+
+// FunctionStatement 具名函数定义
+type FunctionStatement struct {
+	Token         token.Token
+	Name          *Identifier
+	GenericParams []*GenericParam // 泛型参数
+	Parameters    []*Parameter
+	ReturnType    string // 可选返回类型
+	Body          []Statement
+	Visibility    token.TokenType // TOKEN_PRIVATE, TOKEN_PUBLIC, TOKEN_PROTECTED
+	IsOverride    bool            // 是否是重写方法
+	DocComment    string          // 文档注释
+}
+
+func (fs *FunctionStatement) statementNode()       {}
+func (fs *FunctionStatement) TokenLiteral() string { return fs.Token.Literal }
+func (fs *FunctionStatement) GetLine() int         { return fs.Token.Line }
+func (fs *FunctionStatement) String() string {
+	var out bytes.Buffer
+	if fs.DocComment != "" {
+		out.WriteString(fs.DocComment + "\n")
+	}
+	params := []string{}
+	for _, p := range fs.Parameters {
+		params = append(params, p.String())
+	}
+	if fs.IsOverride {
+		out.WriteString("覆 ")
+	}
+	if fs.Visibility != "" {
+		out.WriteString(string(fs.Visibility) + " ")
+	}
+	out.WriteString("函 ")
+	out.WriteString(fs.Name.String())
+	if len(fs.GenericParams) > 0 {
+		out.WriteString("<")
+		gps := []string{}
+		for _, p := range fs.GenericParams {
+			gps = append(gps, p.String())
+		}
+		out.WriteString(strings.Join(gps, ", "))
+		out.WriteString(">")
+	}
+	out.WriteString("(")
+	out.WriteString(strings.Join(params, ", "))
+	out.WriteString(")")
+	if fs.ReturnType != "" {
+		out.WriteString(": " + fs.ReturnType)
+	}
+	out.WriteString(" { ")
+	for _, s := range fs.Body {
+		out.WriteString(s.String())
+	}
+	out.WriteString(" }")
+	return out.String()
+}
+
+// ExpressionStatement 表达式语句
+type ExpressionStatement struct {
+	Token      token.Token
+	Expression Expression
+}
+
+func (es *ExpressionStatement) statementNode()       {}
+func (es *ExpressionStatement) TokenLiteral() string { return es.Token.Literal }
+func (es *ExpressionStatement) GetLine() int         { return es.Token.Line }
+func (es *ExpressionStatement) String() string {
+	if es.Expression != nil {
+		return es.Expression.String()
+	}
+	return ""
+}
+
+// CallExpression 函数调用
+type CallExpression struct {
+	Token         token.Token // '('
+	Function      Expression  // Identifier or FunctionLiteral
+	TypeArguments []string    // 泛型实际类型，如 <整>
+	Arguments     []Expression
+}
+
+func (ce *CallExpression) expressionNode()      {}
+func (ce *CallExpression) TokenLiteral() string { return ce.Token.Literal }
+func (ce *CallExpression) GetLine() int         { return ce.Token.Line }
+func (ce *CallExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString(ce.Function.String())
+	if len(ce.TypeArguments) > 0 {
+		out.WriteString("<" + strings.Join(ce.TypeArguments, ", ") + ">")
+	}
+	out.WriteString("(")
+	args := []string{}
+	for _, a := range ce.Arguments {
+		args = append(args, a.String())
+	}
+	out.WriteString(strings.Join(args, ", "))
+	out.WriteString(")")
+	return out.String()
+}
+
+// ReturnStatement 返回语句
+type ReturnStatement struct {
+	Token       token.Token
+	ReturnValue Expression
+}
+
+func (rs *ReturnStatement) statementNode()       {}
+func (rs *ReturnStatement) TokenLiteral() string { return rs.Token.Literal }
+func (rs *ReturnStatement) GetLine() int         { return rs.Token.Line }
+func (rs *ReturnStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("返回 ")
+	if rs.ReturnValue != nil {
+		out.WriteString(rs.ReturnValue.String())
+	}
+	return out.String()
+}
+
+// ImportExpression 引用表达式
+type ImportExpression struct {
+	Token token.Token // "引用"
+	Path  string      // 路径字符串
+	Alias *Identifier // 可选别名，用于命名空间
+}
+
+func (ie *ImportExpression) expressionNode()      {}
+func (ie *ImportExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *ImportExpression) GetLine() int         { return ie.Token.Line }
+func (ie *ImportExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("引 \"" + ie.Path + "\"")
+	if ie.Alias != nil {
+		out.WriteString(" 予 " + ie.Alias.String())
+	}
+	return out.String()
+}
+
+// ForStatement 遍历语句
+type ForStatement struct {
+	Token     token.Token // "遍历"
+	Variables []*Identifier
+	Iterable  Expression
+	Block     []Statement
+}
+
+func (fs *ForStatement) statementNode()       {}
+func (fs *ForStatement) TokenLiteral() string { return fs.Token.Literal }
+func (fs *ForStatement) GetLine() int         { return fs.Token.Line }
+func (fs *ForStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("遍历 ")
+	vars := []string{}
+	for _, v := range fs.Variables {
+		vars = append(vars, v.String())
+	}
+	out.WriteString(strings.Join(vars, ", "))
+	out.WriteString(" 于 ")
+	out.WriteString(fs.Iterable.String())
+	out.WriteString(" { ")
+	for _, s := range fs.Block {
+		out.WriteString(s.String())
+	}
+	out.WriteString(" }")
+	return out.String()
+}
+
+// BreakStatement 跳出语句
+type BreakStatement struct {
+	Token token.Token // "跳出"
+}
+
+func (bs *BreakStatement) statementNode()       {}
+func (bs *BreakStatement) TokenLiteral() string { return bs.Token.Literal }
+func (bs *BreakStatement) GetLine() int         { return bs.Token.Line }
+func (bs *BreakStatement) String() string       { return "跳出" }
+
+// ContinueStatement 继续语句
+type ContinueStatement struct {
+	Token token.Token // "继续"
+}
+
+func (cs *ContinueStatement) statementNode()       {}
+func (cs *ContinueStatement) TokenLiteral() string { return cs.Token.Literal }
+func (cs *ContinueStatement) GetLine() int         { return cs.Token.Line }
+func (cs *ContinueStatement) String() string       { return "继续" }
+
+// MethodSignature 接口方法签名
+type MethodSignature struct {
+	Name       *Identifier
+	Parameters []*Parameter
+	ReturnType string
+}
+
+// InterfaceStatement 接口定义语句
+type InterfaceStatement struct {
+	Token      token.Token // '口'
+	Name       *Identifier
+	Methods    []*MethodSignature
+	Visibility token.TokenType // TOKEN_PRIVATE, TOKEN_PUBLIC
+}
+
+func (is *InterfaceStatement) statementNode()       {}
+func (is *InterfaceStatement) TokenLiteral() string { return is.Token.Literal }
+func (is *InterfaceStatement) GetLine() int         { return is.Token.Line }
+func (is *InterfaceStatement) String() string {
+	var out bytes.Buffer
+	if is.Visibility != "" {
+		out.WriteString(string(is.Visibility) + " ")
+	}
+	out.WriteString("口 ")
+	out.WriteString(is.Name.String())
+	out.WriteString(" { ")
+	for _, m := range is.Methods {
+		out.WriteString("函 ")
+		out.WriteString(m.Name.String())
+		out.WriteString("(")
+		params := []string{}
+		for _, p := range m.Parameters {
+			params = append(params, p.String())
+		}
+		out.WriteString(strings.Join(params, ", "))
+		out.WriteString(")")
+		if m.ReturnType != "" {
+			out.WriteString(": " + m.ReturnType)
+		}
+		out.WriteString(" ")
+	}
+	out.WriteString("}")
+	return out.String()
+}

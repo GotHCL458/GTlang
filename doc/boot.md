@@ -23,7 +23,7 @@ gtc --bare --boot kernel.gt -o kernel.img   REM 一键出可启动镜像
 qemu-system-x86_64 -drive format=raw,file=kernel.img -serial stdio
 ```
 
-## 函数（30 个 × 10 组）
+## 函数（38 个 × 11 组）
 
 ### serial（串口 COM1）
 | 函数 | 说明 |
@@ -87,6 +87,18 @@ qemu-system-x86_64 -drive format=raw,file=kernel.img -serial stdio
 | `boot_pic_init()` | 重映射 PIC |
 | `boot_keyboard_handler()` | 键盘环形缓冲取键 |
 
+### fs（内存文件系统 ramfs）
+| 函数 | 说明 |
+|---|---|
+| `boot_fs_create(name)` | 创建文件 |
+| `boot_fs_write(name, data, n)` | 写入 |
+| `boot_fs_read(name, buf, cap)` | 读出（返回字节数）|
+| `boot_fs_size(name)` | 文件大小 |
+| `boot_fs_delete(name)` | 删除 |
+| `boot_fs_count()` | 文件数 |
+| `boot_fat16_find(name83)` | FAT16 按 8.3 名找文件（返回起始簇）|
+| `boot_fat16_read(name83, buf, cap)` | FAT16 读文件 |
+
 ### info
 | 函数 | 说明 |
 |---|---|
@@ -100,6 +112,14 @@ qemu-system-x86_64 -drive format=raw,file=kernel.img -serial stdio
 | **x86_16** | `gtc --asm16gen k.gt` | `gtc --asm16 boot16.asm` + `run16.py` |
 | **x86_32** | `gtc --bare --target x86_32 k.gt` | stage1+stage2（保护模式）|
 | **x86_64** | `gtc --bare --target x86_64 k.gt` | stage1+stage2（长模式）|
+
+## `gtc --bare --boot`（一键可启动镜像）
+
+```bat
+gtc --bare --boot kernel.gt -o kernel.img                    REM x86_64（长模式）
+gtc --bare --boot --target x86_32 kernel.gt -o k32.img       REM x86_32（保护模式）
+gtc --asm16gen kernel.gt -o k16.bin                          REM x86_16
+```
 
 宿主机（Windows/Linux）**不提供**这些符号；仅裸机目标链接引导库。
 

@@ -2,16 +2,27 @@
 BITS 16
 ORG 0x7E00
 
-KERNEL_SECS equ 64
+KERNEL_SECS equ 512   ; 256KB
 
 stage2_start:
     mov si, msg2
     call puts
     mov dl, [0x7DF0]
+    ; 分块读内核（每次 64 扇区）
+    mov word [dap_k + 2], 64
+    mov di, KERNEL_SECS / 64
+.krd:
     mov si, dap_k
     mov ah, 0x42
     int 0x13
     jc err2
+    add word [dap_k + 4], 32768
+    adc word [dap_k + 6], 0
+    add word [dap_k + 6], 0x800
+    add word [dap_k + 8], 64
+    adc word [dap_k + 10], 0
+    dec di
+    jnz .krd
     mov si, msg_load2
     call puts
 
@@ -130,7 +141,7 @@ dap_k:
     dw KERNEL_SECS
     dw 0x0000
     dw 0x1000
-    dq 129
+    dq 513
 
 msg2 db '[stage2] setup', 13, 10, 0
 msg_load2 db '[stage2] kernel loaded', 13, 10, 0

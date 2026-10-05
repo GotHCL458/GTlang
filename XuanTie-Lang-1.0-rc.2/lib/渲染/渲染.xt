@@ -1,0 +1,660 @@
+// 渲染.xt — 玄铁渲染库 v1.2.3
+// 基于 raylib，通过 C 桥接层提供 2D/3D 图形渲染能力
+//
+// 用法:
+//   引 "渲染" 予 R
+//   R.初始化窗口(800, 600, "我的游戏")
+//   当 非 R.窗口应关闭?() {
+//       R.开始绘图()
+//       R.清背景(245, 245, 245, 255)
+//       R.绘文字("Hello 玄铁!", 190, 280, 20, 255, 0, 0, 255)
+//       R.结束绘图()
+//   }
+//   R.关闭窗口()
+
+// ============================================================
+// 外部函数声明 — 窗口管理
+// ============================================================
+外 函 XT_InitWindow(w: 整, h: 整, title: 字): 空
+外 函 XT_WindowShouldClose(): 布尔
+外 函 XT_CloseWindow(): 空
+外 函 XT_IsWindowReady(): 布尔
+外 函 XT_SetTargetFPS(fps: 整): 空
+外 函 XT_GetFPS(): 整
+外 函 XT_GetFrameTime(): 小数
+外 函 XT_GetScreenWidth(): 整
+外 函 XT_GetScreenHeight(): 整
+外 函 XT_SetWindowTitle(title: 字): 空
+外 函 XT_SetWindowResizable(on: 整): 空
+外 函 XT_SetWindowUndecorated(on: 整): 空
+外 函 XT_SetWindowFullscreen(on: 整): 空
+外 函 XT_IsWindowFullscreen(): 布尔
+外 函 XT_SetWindowSize(w: 整, h: 整): 空
+外 函 XT_SetEscExit(on: 整): 空
+
+// ============================================================
+// 绘图帧控制
+// ============================================================
+外 函 XT_BeginDrawing(): 空
+外 函 XT_EndDrawing(): 空
+外 函 XT_PollInputEvents(): 空
+外 函 XT_SetMouseCursor(c: 整): 空
+外 函 XT_WindowMinimize(): 空
+外 函 XT_WindowMaximize(): 空
+外 函 XT_WindowRestore(): 空
+外 函 XT_WindowIsMaximized(): 整
+外 函 XT_WindowClose(): 空
+外 函 XT_WindowDrag(): 空
+外 函 XT_ClearBackground(r: 整, g: 整, b: 整, a: 整): 空
+
+// ============================================================
+// 形状绘制
+// ============================================================
+外 函 XT_DrawPixel(x: 整, y: 整, r: 整, g: 整, b: 整, a: 整): 空
+外 函 XT_DrawLine(x1: 整, y1: 整, x2: 整, y2: 整, r: 整, g: 整, b: 整, a: 整): 空
+外 函 XT_DrawRectangle(x: 整, y: 整, w: 整, h: 整, r: 整, g: 整, b: 整, a: 整): 空
+外 函 XT_DrawRectangleRec(x: 整, y: 整, w: 整, h: 整, r: 整, g: 整, b: 整, a: 整): 空
+外 函 XT_DrawRectangleLines(x: 整, y: 整, w: 整, h: 整, r: 整, g: 整, b: 整, a: 整): 空
+外 函 XT_DrawRectangleRounded(x: 整, y: 整, w: 整, h: 整, roundPct: 整, r: 整, g: 整, b: 整, a: 整): 空
+外 函 XT_DrawRectangleRoundedLines(x: 整, y: 整, w: 整, h: 整, roundPct: 整, lineThick: 整, r: 整, g: 整, b: 整, a: 整): 空
+外 函 XT_DrawCircle(cx: 整, cy: 整, radius: 整, r: 整, g: 整, b: 整, a: 整): 空
+外 函 XT_DrawCircleLines(cx: 整, cy: 整, radius: 整, r: 整, g: 整, b: 整, a: 整): 空
+外 函 XT_DrawEllipse(cx: 整, cy: 整, rh: 整, rv: 整, r: 整, g: 整, b: 整, a: 整): 空
+外 函 XT_DrawTriangle(x1: 整, y1: 整, x2: 整, y2: 整, x3: 整, y3: 整, r: 整, g: 整, b: 整, a: 整): 空
+外 函 XT_DrawPoly(cx: 整, cy: 整, sides: 整, radius: 整, rotation: 整, r: 整, g: 整, b: 整, a: 整): 空
+
+// ============================================================
+// 文字绘制
+// ============================================================
+外 函 XT_DrawText(text: 字, x: 整, y: 整, fontSize: 整, r: 整, g: 整, b: 整, a: 整): 空
+外 函 XT_MeasureText(text: 字, fontSize: 整): 整
+外 函 XT_DrawFPS(x: 整, y: 整): 空
+
+// === 字体（支持中文） ===
+外 函 XT_LoadFont(filename: 字, fontSize: 整): 整
+外 函 XT_LoadFontEx(filename: 字, fontSize: 整, refText: 字): 整
+外 函 XT_FontGDI_Create(face: 字, size: 整): 整
+外 函 XT_SaveScreenshot(path: 字): 空
+外 函 XT_BeginScissor(x: 整, y: 整, w: 整, h: 整): 空
+外 函 XT_EndScissor(): 空
+外 函 xt_string_from_codepoint(cp: 整): 字
+外 函 XT_GetClipboard(): 字
+外 函 XT_SetClipboard(text: 字): 空
+外 函 XT_SetIMEPos(x: 整, y: 整): 空
+外 函 XT_IME_Hook(): 整
+外 函 XT_IME_GetComp(): 字
+外 函 XT_IME_Enable(on: 整): 整
+外 函 XT_UnloadFont(fontPtr: 整): 空
+外 函 XT_DrawTextEx(fontPtr: 整, text: 字, x: 整, y: 整, fontSize: 整, spacing: 整, r: 整, g: 整, b: 整, a: 整): 空
+外 函 XT_MeasureTextEx(fontPtr: 整, text: 字, fontSize: 整, spacing: 整): 整
+
+// ============================================================
+// 纹理与图像
+// ============================================================
+外 函 XT_LoadTexture(filename: 字): 整        // 返回纹理句柄 (i64)
+外 函 XT_UnloadTexture(texPtr: 整): 空
+外 函 XT_DrawTexture(texPtr: 整, x: 整, y: 整, tr: 整, tg: 整, tb: 整, ta: 整): 空
+外 函 XT_DrawTextureEx(texPtr: 整, x: 整, y: 整, rotation: 整, scale: 整, tr: 整, tg: 整, tb: 整, ta: 整): 空
+外 函 XT_TextureW(texPtr: 整): 整
+外 函 XT_TextureH(texPtr: 整): 整
+外 函 XT_DrawTextureQuad(texPtr: 整, x: 整, y: 整, w: 整, h: 整, tr: 整, tg: 整, tb: 整, ta: 整): 空
+外 函 XT_LoadTextureSVG(filename: 字, w: 整, h: 整): 整
+外 函 XT_GenGradientTexture(w: 整, h: 整, r1: 整, g1: 整, b1: 整, a1: 整, r2: 整, g2: 整, b2: 整, a2: 整, dir: 整, radius: 整, feather: 整): 整
+外 函 XT_DrawRectFP(x: 整, y: 整, w: 整, h: 整, r: 整, g: 整, b: 整, a: 整): 空
+外 函 XT_DrawRectLinesFP(x: 整, y: 整, w: 整, h: 整, lineThick: 整, r: 整, g: 整, b: 整, a: 整): 空
+外 函 XT_DrawRoundedRectFP(x: 整, y: 整, w: 整, h: 整, roundPct: 整, r: 整, g: 整, b: 整, a: 整): 空
+外 函 XT_DrawRoundedRectLinesFP(x: 整, y: 整, w: 整, h: 整, roundPct: 整, lineThick: 整, r: 整, g: 整, b: 整, a: 整): 空
+外 函 XT_DrawTextureQuadFP(texPtr: 整, x: 整, y: 整, w: 整, h: 整, tr: 整, tg: 整, tb: 整, ta: 整): 空
+外 函 XT_DrawTextExFP(fontPtr: 整, text: 字, x: 整, y: 整, scale1000: 整, fontSize: 整, spacing: 整, r: 整, g: 整, b: 整, a: 整): 空
+
+// ============================================================
+// 输入
+// ============================================================
+外 函 XT_IsKeyDown(key: 整): 布尔
+外 函 XT_IsKeyPressed(key: 整): 布尔
+外 函 XT_GetKeyPressed(): 整
+外 函 XT_GetCharPressed(): 整
+外 函 XT_IsMouseButtonDown(button: 整): 布尔
+外 函 XT_IsMouseButtonPressed(button: 整): 布尔
+外 函 XT_GetMouseX(): 整
+外 函 XT_GetMouseY(): 整
+外 函 XT_GetMouseWheelMove(): 整
+
+// ============================================================
+// 随机与计时
+// ============================================================
+外 函 XT_GetRandomValue(min: 整, max: 整): 整
+外 函 XT_GetTime(): 小数
+外 函 XT_WaitTime(seconds: 小数): 空
+
+// ============================================================
+// 音频
+// ============================================================
+外 函 XT_InitAudioDevice(): 空
+外 函 XT_CloseAudioDevice(): 空
+外 函 XT_LoadSound(filename: 字): 整
+外 函 XT_UnloadSound(sndPtr: 整): 空
+外 函 XT_PlaySound(sndPtr: 整): 空
+外 函 XT_LoadMusicStream(filename: 字): 整
+外 函 XT_PlayMusicStream(musicPtr: 整): 空
+外 函 XT_UpdateMusicStream(musicPtr: 整): 空
+外 函 XT_StopMusicStream(musicPtr: 整): 空
+外 函 XT_UnloadMusicStream(musicPtr: 整): 空
+
+// ============================================================
+// 高层封装 API（面向用户）
+// ============================================================
+
+// 初始化窗口并设置目标帧率
+公 函 初始化窗口(宽, 高, 标题) {
+    XT_InitWindow(宽, 高, 标题)
+    XT_SetTargetFPS(60)
+}
+
+// 关闭窗口并释放资源
+公 函 关闭窗口() {
+    XT_CloseWindow()
+}
+
+// 窗口是否请求关闭
+公 函 窗口应关闭?() {
+    返 XT_WindowShouldClose()
+}
+
+// 窗口初始化完成返回真
+公 函 窗口就绪?() {
+    返 XT_IsWindowReady()
+}
+
+// 调整帧率上限(如 30、60、120)
+公 函 设置目标帧率(fps) {
+    XT_SetTargetFPS(fps)
+}
+
+// 返回当前实际 FPS
+公 函 取帧率() {
+    返 XT_GetFPS()
+}
+
+// 返回上帧耗时(秒,小数)
+公 函 取帧时间() {
+    返 XT_GetFrameTime()
+}
+
+// 运行时修改窗口标题(支持 Unicode 中文)
+公 函 设置窗口标题(标题) {
+    XT_SetWindowTitle(标题)
+}
+
+// 窗口可调整大小开关(运行时可随时切)
+公 函 设窗口可调整(开) {
+    若 开 { XT_SetWindowResizable(1) } 否 { XT_SetWindowResizable(0) }
+}
+
+// 无边框开关:去掉标题栏与边框(运行时可随时切;无边框后需自行实现拖动/关闭)
+公 函 设窗口无边框(开) {
+    若 开 { XT_SetWindowUndecorated(1) } 否 { XT_SetWindowUndecorated(0) }
+}
+
+// 全屏开关(运行时可随时切;退出全屏后窗口回到原尺寸位置)
+公 函 设窗口全屏(开) {
+    若 开 { XT_SetWindowFullscreen(1) } 否 { XT_SetWindowFullscreen(0) }
+}
+
+// 当前是否全屏
+公 函 窗口全屏?() {
+    返 XT_IsWindowFullscreen()
+}
+
+// 运行时设置窗口尺寸
+公 函 设窗口尺寸(宽, 高) {
+    XT_SetWindowSize(宽, 高)
+}
+
+// ESC 关闭开关:开(默认)=按 ESC 请求关窗;关=ESC 不再退程序(游戏全屏等场景用)
+公 函 设ESC关闭(开) {
+    若 开 { XT_SetEscExit(1) } 否 { XT_SetEscExit(0) }
+}
+
+// 开始一帧绘图
+公 函 开始绘图() {
+    XT_BeginDrawing()
+}
+
+// 结束一帧绘图
+公 函 结束绘图() {
+    XT_EndDrawing()
+}
+
+// 泵输入事件(不交换缓冲):仅"按需重绘"的空闲轮询周期需要;
+// 正常渲染帧由 结束绘图 内部自动泵,手动循环无需调用
+公 函 轮询事件() {
+    XT_PollInputEvents()
+}
+
+// 设置鼠标样式(UI 库悬浮输入栏自动变 I 形;手写循环可用 鼠标I形 等常量)
+公 函 设鼠标样式(样式) {
+    XT_SetMouseCursor(样式)
+}
+
+// ---- 窗口控制三件套(无边框自绘标题栏用) ----
+// 最小化到任务栏(可调整窗口)
+公 函 最小化窗口() { XT_WindowMinimize() }
+
+// 最大化(可调整窗口;已最大化时 raylib 内部幂等)
+公 函 最大化窗口() { XT_WindowMaximize() }
+
+// 从最小化/最大化还原
+公 函 还原窗口() { XT_WindowRestore() }
+
+// 当前是否最大化(最大化/窗口化切换钮据此换图标)
+公 函 窗口最大化了?() { 返 XT_WindowIsMaximized() == 1 }
+
+// 请求关闭窗口(优雅关闭:投递 WM_CLOSE,主循环下一轮按正常路径退出——不帧中销毁上下文)
+公 函 请求关闭窗口() { XT_WindowClose() }
+
+// 标题栏拖拽移动(无边框自绘标题栏用):在自绘标题栏的 触发:"按下" 回调里调用,
+// Windows 模态移动循环接管,手感与原生标题栏拖拽一致
+公 函 拖拽窗口() { XT_WindowDrag() }
+
+// 用 RGBA 颜色清屏
+公 函 清背景(r, g, b, a) {
+    XT_ClearBackground(r, g, b, a)
+}
+
+// 绘制像素点
+公 函 绘像素(x, y, r, g, b, a) {
+    XT_DrawPixel(x, y, r, g, b, a)
+}
+
+// 绘制直线
+公 函 绘直线(x1, y1, x2, y2, r, g, b, a) {
+    XT_DrawLine(x1, y1, x2, y2, r, g, b, a)
+}
+
+// 绘制实心矩形
+公 函 绘矩形(x, y, 宽, 高, r, g, b, a) {
+    XT_DrawRectangle(x, y, 宽, 高, r, g, b, a)
+}
+
+// 绘制空心矩形
+公 函 绘矩形线(x, y, 宽, 高, r, g, b, a) {
+    XT_DrawRectangleLines(x, y, 宽, 高, r, g, b, a)
+}
+
+// 绘制圆角矩形(圆角百分=0-100,对应圆角程度0.0-1.0)
+公 函 绘圆角矩形(x, y, 宽, 高, 圆角百分, r, g, b, a) {
+    XT_DrawRectangleRounded(x, y, 宽, 高, 圆角百分, r, g, b, a)
+}
+
+// 绘制圆角矩形描边(线宽单位:像素)
+公 函 绘圆角矩形线(x, y, 宽, 高, 圆角百分, 线宽, r, g, b, a) {
+    XT_DrawRectangleRoundedLines(x, y, 宽, 高, 圆角百分, 线宽, r, g, b, a)
+}
+
+// 绘制实心圆
+公 函 绘圆(cx, cy, 半径, r, g, b, a) {
+    XT_DrawCircle(cx, cy, 半径, r, g, b, a)
+}
+
+// 绘制空心圆
+公 函 绘圆线(cx, cy, 半径, r, g, b, a) {
+    XT_DrawCircleLines(cx, cy, 半径, r, g, b, a)
+}
+
+// 绘制实心椭圆
+公 函 绘椭圆(cx, cy, 水平半径, 垂直半径, r, g, b, a) {
+    XT_DrawEllipse(cx, cy, 水平半径, 垂直半径, r, g, b, a)
+}
+
+// 实心三角形
+公 函 绘三角(x1, y1, x2, y2, x3, y3, r, g, b, a) {
+    XT_DrawTriangle(x1, y1, x2, y2, x3, y3, r, g, b, a)
+}
+
+// 正多边形(旋转角单位:度)
+公 函 绘多边形(cx, cy, 边数, 半径, 旋转角, r, g, b, a) {
+    XT_DrawPoly(cx, cy, 边数, 半径, 旋转角, r, g, b, a)
+}
+
+// 绘制文字
+公 函 绘文字(文本, x, y, 字号, r, g, b, a) {
+    XT_DrawText(文本, x, y, 字号, r, g, b, a)
+}
+
+// 测量文字宽度
+公 函 量文字(文本, 字号) {
+    返 XT_MeasureText(文本, 字号)
+}
+
+// 绘制 FPS
+公 函 绘帧率(x, y) {
+    XT_DrawFPS(x, y)
+}
+
+// 加载字体（支持中文，需指定系统字体路径）
+公 函 加载字体(文件, 字号) {
+    返 XT_LoadFont(文件, 字号)
+}
+
+// 加载系统字体(GDI 光栅化,Windows 系统级视觉效果:灰阶抗锯齿、生僻字系统回落;
+// 按需栅格化+图集缓存,无需 ttf 文件。字体名如 "微软雅黑"/"宋体")
+// 返回句柄同样适用于 绘字体文字/量字体文字/释字体
+公 函 加载系统字体(字体名, 字号) {
+    返 XT_FontGDI_Create(字体名, 字号)
+}
+
+// 截图导出 PNG(当前帧缓冲,须在一帧 结束绘图 之后调用;渲染调试/自动验收用)
+公 函 截图(路径) {
+    XT_SaveScreenshot(路径)
+}
+
+// 裁剪绘制区域(UI 输入栏等需限制内容于控件边界内的场景):成对使用,勿跨帧
+公 函 裁剪开始(x, y, 宽, 高) {
+    XT_BeginScissor(x, y, 宽, 高)
+}
+公 函 裁剪结束() {
+    XT_EndScissor()
+}
+
+// Unicode 码点 → 单字符字符串(配合 获字符() 做文本输入;中文 IME 上屏字符可用)
+公 函 字自码点(码点) {
+    返 xt_string_from_codepoint(码点)
+}
+
+// 系统剪贴板读写(输入栏 Ctrl+C/V 用)
+公 函 取剪贴板() {
+    返 XT_GetClipboard()
+}
+公 函 设剪贴板(文本) {
+    XT_SetClipboard(文本)
+}
+
+// IME 候选框定位(输入栏获焦/光标移动时调用,让中文输入法候选窗跟随光标而非停在屏幕左上)
+公 函 设输入法位置(x, y) {
+    XT_SetIMEPos(x, y)
+}
+
+// IME 内联组合钩子(窗口初始化后调用一次,幂等):拦 WM_IME_COMPOSITION 读组合中串,
+// 使拼音串可直接显示在输入栏内(内联组合)。结果字符上屏路径不变。
+公 函 安装输入法钩子() {
+    返 XT_IME_Hook()
+}
+// 当前组合中的拼音串(无组合时返空串;输入栏自绘用)
+公 函 取组合串() {
+    返 XT_IME_GetComp()
+}
+
+// IME 组合启用/禁用:无输入栏焦点时禁用(组合与候选窗整体不产生);
+// UI 库每帧按焦点自动调用,手写循环一般无需调用
+公 函 设输入法启用(开) {
+    若 开 { XT_IME_Enable(1) } 否 { XT_IME_Enable(0) }
+}
+
+// 加载字体并依据参考文本精准提取所需字符码点（缺字无忧，纹理精简）
+公 函 加载字体精准(文件, 字号, 参考文本) {
+    返 XT_LoadFontEx(文件, 字号, 参考文本)
+}
+
+// 释放字体
+公 函 释字体(字体句柄) {
+    XT_UnloadFont(字体句柄)
+}
+
+// 用指定字体绘制文字（支持中文）
+公 函 绘字体文字(字体句柄, 文本, x, y, 字号, 间距, r, g, b, a) {
+    XT_DrawTextEx(字体句柄, 文本, x, y, 字号, 间距, r, g, b, a)
+}
+
+// 用指定字体测量文字宽度（布局精确尺寸用）
+公 函 量字体文字(字体句柄, 文本, 字号, 间距) {
+    返 XT_MeasureTextEx(字体句柄, 文本, 字号, 间距)
+}
+
+// 加载纹理
+公 函 加载纹理(文件) {
+    返 XT_LoadTexture(文件)
+}
+
+// 释放纹理
+公 函 释纹理(纹理句柄) {
+    XT_UnloadTexture(纹理句柄)
+}
+
+// 绘制纹理
+公 函 绘纹理(纹理句柄, x, y, tr, tg, tb, ta) {
+    XT_DrawTexture(纹理句柄, x, y, tr, tg, tb, ta)
+}
+
+// 带旋转(度)和缩放倍率的纹理绘制
+公 函 绘纹理Ex(纹理句柄, x, y, 旋转角, 缩放, tr, tg, tb, ta) {
+    XT_DrawTextureEx(纹理句柄, x, y, 旋转角, 缩放, tr, tg, tb, ta)
+}
+
+// 纹理宽高查询(v1.2.0)
+公 函 量纹理宽(纹理句柄) {
+    返 XT_TextureW(纹理句柄)
+}
+公 函 量纹理高(纹理句柄) {
+    返 XT_TextureH(纹理句柄)
+}
+
+// 整图缩放到指定 w×h 矩形绘制(v1.2.0,图标适配用)
+公 函 绘纹理区(纹理句柄, x, y, 宽, 高, tr, tg, tb, ta) {
+    XT_DrawTextureQuad(纹理句柄, x, y, 宽, 高, tr, tg, tb, ta)
+}
+
+// 加载 SVG 并光栅化为纹理(v1.2.0);宽/高传 0 取 SVG 固有尺寸,否则等比适配进 宽×高
+公 函 加载SVG纹理(文件, 宽, 高) {
+    返 XT_LoadTextureSVG(文件, 宽, 高)
+}
+
+// 圆角渐变纹理生成(v1.2.0):双色线性渐变 + 圆角 SDF 抗锯齿 + 边缘羽化。
+// 方向: 0=横向 1=竖向;羽化: 边缘过渡像素(1=仅抗锯齿);圆角: 像素(0=直角)。
+// 桥内带 8 槽参数缓存,每帧同参调用不重复生成;纯色渐变(色1=色2)即圆角羽化纯色块。
+公 函 生成渐变纹理(宽, 高, r1, g1, b1, a1, r2, g2, b2, a2, 方向, 圆角, 羽化) {
+    返 XT_GenGradientTexture(宽, 高, r1, g1, b1, a1, r2, g2, b2, a2, 方向, 圆角, 羽化)
+}
+
+// ---- 千分定点绘制(坐标 ×1000 定点整数,桥内转 float 亚像素渲染;微交互/动画用)----
+公 函 绘矩形精(x千, y千, 宽千, 高千, r, g, b, a) {
+    XT_DrawRectFP(x千, y千, 宽千, 高千, r, g, b, a)
+}
+公 函 绘矩形线精(x千, y千, 宽千, 高千, 线宽, r, g, b, a) {
+    XT_DrawRectLinesFP(x千, y千, 宽千, 高千, 线宽, r, g, b, a)
+}
+公 函 绘圆角矩形精(x千, y千, 宽千, 高千, 圆角百分, r, g, b, a) {
+    XT_DrawRoundedRectFP(x千, y千, 宽千, 高千, 圆角百分, r, g, b, a)
+}
+公 函 绘圆角矩形线精(x千, y千, 宽千, 高千, 圆角百分, 线宽, r, g, b, a) {
+    XT_DrawRoundedRectLinesFP(x千, y千, 宽千, 高千, 圆角百分, 线宽, r, g, b, a)
+}
+公 函 绘纹理区精(纹理句柄, x千, y千, 宽千, 高千, tr, tg, tb, ta) {
+    XT_DrawTextureQuadFP(纹理句柄, x千, y千, 宽千, 高千, tr, tg, tb, ta)
+}
+公 函 绘字体文字精(字体句柄, 文本, x千, y千, 缩放千, 字号, 间距, r, g, b, a) {
+    XT_DrawTextExFP(字体句柄, 文本, x千, y千, 缩放千, 字号, 间距, r, g, b, a)
+}
+
+// 按键是否按下
+公 函 键按下?(键码) {
+    返 XT_IsKeyDown(键码)
+}
+
+// 按键是否刚按下（单次触发）
+公 函 键刚按下?(键码) {
+    返 XT_IsKeyPressed(键码)
+}
+
+// 获取刚按下的键
+公 函 取按键() {
+    返 XT_GetKeyPressed()
+}
+
+// 获取刚输入的字符(Unicode码点,文本输入框用;中文IME上屏字符可收到,无候选框跟随)
+// 返回0表示队列空——调用方每帧循环取到0为止
+公 函 获字符() {
+    返 XT_GetCharPressed()
+}
+
+// 鼠标按钮是否按下
+公 函 鼠标按下?(按钮) {
+    返 XT_IsMouseButtonDown(按钮)
+}
+
+// 鼠标按钮是否刚按下
+公 函 鼠标刚按下?(按钮) {
+    返 XT_IsMouseButtonPressed(按钮)
+}
+
+// 获取鼠标 X 坐标
+公 函 鼠X() {
+    返 XT_GetMouseX()
+}
+
+// 获取鼠标 Y 坐标
+公 函 鼠Y() {
+    返 XT_GetMouseY()
+}
+
+// 滚轮增量(整,正=向上,负=向下)
+公 函 取鼠标滚轮() {
+    返 XT_GetMouseWheelMove()
+}
+
+// 获取随机整数（包含 min 和 max）
+公 函 取随机数(min, max) {
+    返 XT_GetRandomValue(min, max)
+}
+
+// 程序启动至今的秒数(小数)
+公 函 取运行时间() {
+    返 XT_GetTime()
+}
+
+// 暂停指定秒数(小数)(临时名:手册作「等待」,但 等待 是语言关键字,待拍板)
+公 函 暂停(秒数) {
+    XT_WaitTime(秒数)
+}
+
+// 获取屏幕宽度
+公 函 取屏幕宽() {
+    返 XT_GetScreenWidth()
+}
+
+// 获取屏幕高度
+公 函 取屏幕高() {
+    返 XT_GetScreenHeight()
+}
+
+// ============================================================
+// 音频
+// ============================================================
+
+// 初始化音频设备(使用任何音频 API 前调用)
+公 函 初始化音频() {
+    XT_InitAudioDevice()
+}
+
+// 关闭音频设备
+公 函 关闭音频() {
+    XT_CloseAudioDevice()
+}
+
+// 短音效:整段加载到内存(适合 <5 秒)
+公 函 加载音效(文件) {
+    返 XT_LoadSound(文件)
+}
+
+// 播放一次音效
+公 函 播音效(音效句柄) {
+    XT_PlaySound(音效句柄)
+}
+
+// 释放音效内存
+公 函 释音效(音效句柄) {
+    XT_UnloadSound(音效句柄)
+}
+
+// 打开音乐流(流式解码,背景音乐用)
+公 函 加载音乐流(文件) {
+    返 XT_LoadMusicStream(文件)
+}
+
+// 开始播放音乐流
+公 函 播音乐流(音乐句柄) {
+    XT_PlayMusicStream(音乐句柄)
+}
+
+// 每帧调用一次,解码下一段数据
+公 函 更新音乐流(音乐句柄) {
+    XT_UpdateMusicStream(音乐句柄)
+}
+
+// 停止播放
+公 函 停音乐流(音乐句柄) {
+    XT_StopMusicStream(音乐句柄)
+}
+
+// 关闭流并释放
+公 函 释音乐流(音乐句柄) {
+    XT_UnloadMusicStream(音乐句柄)
+}
+
+// ============================================================
+// 常用颜色常量（RGBA）
+// ============================================================
+
+// 调用方式: 渲染.白 / 渲染.黑 / 渲染.红 等
+公 常 白 = {"r": 255, "g": 255, "b": 255, "a": 255}
+公 常 黑 = {"r": 0, "g": 0, "b": 0, "a": 255}
+公 常 红 = {"r": 255, "g": 0, "b": 0, "a": 255}
+公 常 绿 = {"r": 0, "g": 255, "b": 0, "a": 255}
+公 常 蓝 = {"r": 0, "g": 0, "b": 255, "a": 255}
+公 常 黄 = {"r": 255, "g": 255, "b": 0, "a": 255}
+公 常 青 = {"r": 0, "g": 255, "b": 255, "a": 255}
+公 常 紫 = {"r": 255, "g": 0, "b": 255, "a": 255}
+公 常 橙 = {"r": 255, "g": 165, "b": 0, "a": 255}
+公 常 灰 = {"r": 128, "g": 128, "b": 128, "a": 255}
+公 常 深灰 = {"r": 64, "g": 64, "b": 64, "a": 255}
+公 常 浅灰 = {"r": 200, "g": 200, "b": 200, "a": 255}
+公 常 透明 = {"r": 0, "g": 0, "b": 0, "a": 0}
+
+// ============================================================
+// 键盘常用常量
+// ============================================================
+公 常 键右 = 262
+公 常 键左 = 263
+公 常 键下 = 264
+公 常 键上 = 265
+公 常 键空格 = 32
+公 常 键ESC = 256
+公 常 键回车 = 257
+公 常 键退格 = 259
+公 常 键A = 65
+公 常 键B = 66
+公 常 键C = 67
+公 常 键E = 69
+公 常 键W = 87
+公 常 键S = 83
+公 常 键D = 68
+公 常 键R = 82
+公 常 键F = 70
+公 常 键左Shift = 340
+公 常 键右Shift = 344
+公 常 键Ctrl = 341
+公 常 键右Ctrl = 345
+公 常 键V = 86
+公 常 键X = 88
+
+// 鼠标按钮
+公 常 鼠左键 = 0
+公 常 鼠右键 = 1
+公 常 鼠中键 = 2
+
+// 鼠标样式(设鼠标样式 用,与 raylib 标准光标枚举同值)
+公 常 鼠标默认 = 0
+公 常 鼠标箭头 = 1
+公 常 鼠标I形 = 2
+公 常 鼠标十字 = 3
+公 常 鼠标手型 = 4

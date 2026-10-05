@@ -105,8 +105,10 @@ static const char kbd_map[128] = {
     0,'\\','z','x','c','v','b','n','m',',','.','/', 0, '*', 0, ' ',
 };
 
+#if defined(__x86_64__)
 extern void irq0_stub(void);
 extern void irq1_stub(void);
+#endif
 
 static volatile unsigned long long pit_ticks = 0;
 
@@ -151,17 +153,10 @@ void boot_pit_init(long long hz);
 void boot_idt_init(void) {
     /* 先清零 */
     for (int i = 0; i < 256; i++) set_gate(i, 0);
+#if defined(__x86_64__)
     set_gate(0x20, (unsigned long)irq0_stub);
     set_gate(0x21, (unsigned long)irq1_stub);
-    boot_pit_init(1000);
-    set_gate(0x20, (unsigned long)irq0_stub);
-    set_gate(0x21, (unsigned long)irq1_stub);
-    boot_pit_init(1000);
-    set_gate(0x20, (unsigned long)irq0_stub);
-    set_gate(0x21, (unsigned long)irq1_stub);
-    boot_pit_init(1000);
-    set_gate(0x20, (unsigned long)irq0_stub);
-    set_gate(0x21, (unsigned long)irq1_stub);
+#endif
     boot_pit_init(1000);
     idtp.limit = sizeof(idt) - 1;
     idtp.base = (unsigned long)&idt;
@@ -211,7 +206,8 @@ long long boot_mem_size(void) { return 1 << 20; }
 
 /* ---- time（PIT IRQ0 驱动）---- */
 void boot_pit_init(long long hz) {
-    unsigned long long div = 1193182ULL / (unsigned long long)(hz > 0 ? hz : 1000);
+    unsigned int d = (unsigned int)(hz > 0 ? hz : 1000);
+    unsigned int div = 1193182u / d;
     outb(0x43, 0x36);
     outb(0x40, (unsigned char)(div & 0xFF));
     outb(0x40, (unsigned char)((div >> 8) & 0xFF));
@@ -296,7 +292,7 @@ long long boot_fs_create(const char *name) {
             fs_files[i].used = 1;
             fs_files[i].size = 0;
             int j = 0;
-            while (name[j] && j < FS_NAME_MAX - 1) { fs_files[i].name[j] = name[j]; j++; }
+            while (name[j] && j < FS_NAME_MAX - 1) { fs_files[i].name[j] = name[j]; j++; if (j > 64) break; }
             fs_files[i].name[j] = 0;
             return i;
         }
@@ -309,7 +305,7 @@ static long long fs_find(const char *name) {
     for (int i = 0; i < FS_MAX_FILES; i++) {
         if (!fs_files[i].used) continue;
         int j = 0; int ok = 1;
-        while (1) {
+        while (j < FS_NAME_MAX) {
             if (fs_files[i].name[j] != name[j]) { ok = 0; break; }
             if (fs_files[i].name[j] == 0) break;
             j++;
@@ -323,6 +319,7 @@ long long boot_fs_write(const char *name, const char *data, long long n) {
     long long i = fs_find(name);
     if (i < 0) i = boot_fs_create(name);
     if (i < 0) return -1;
+    if (n < 0) n = 0;
     if (n > FS_DATA_MAX) n = FS_DATA_MAX;
     for (long long k = 0; k < n; k++) fs_files[i].data[k] = (unsigned char)data[k];
     fs_files[i].size = (int)n;
@@ -421,6 +418,62 @@ long long boot_fat16_read(const char *name83, char *out, long long cap) {
     return -1;
 }
 
+
+/* ===== 简单协作式多任务（轮转调度）===== */
+#define TASK_MAX 8
+#define TASK_STACK 8192
+
+struct task {
+    unsigned long rsp;       /* 保存的栈指针 */
+    unsigned long stack[TASK_STACK / 8];
+    int used;
+    int state;               /* 0=free 1=ready 2=running 3=done */
+};
+static struct task tasks[TASK_MAX];
+static int cur_task = -1;
+static unsigned long dummy_rsp = 0;
+
+#if defined(__x86_64__)
+extern void task_switch(unsigned long *old_rsp, unsigned long new_rsp);
+#endif
+
+long long boot_task_create(void (*entry)(void)) {
+    for (int i = 0; i < TASK_MAX; i++) {
+        if (tasks[i].used) continue;
+        tasks[i].used = 1;
+        tasks[i].state = 1;
+        unsigned long *sp = &tasks[i].stack[TASK_STACK / 8 - 1];
+        *sp = (unsigned long)entry;   /* 返回地址 = 入口 */
+        tasks[i].rsp = (unsigned long)sp;
+        return i;
+    }
+    return -1;
+}
+
+void boot_task_yield(void) {
+    int n = TASK_MAX;
+    for (int k = 1; k <= n; k++) {
+        int i = (cur_task + k + n) % n;
+        if (tasks[i].used && tasks[i].state == 1) {
+            int prev = cur_task;
+            cur_task = i;
+            tasks[i].state = 2;
+#if defined(__x86_64__)
+            if (prev >= 0) { tasks[prev].state = 1; task_switch(&tasks[prev].rsp, tasks[i].rsp); }
+            else { task_switch(&dummy_rsp, tasks[i].rsp); }
+#else
+            (void)prev;   /* 32 位暂无 task_switch 实现 */
+#endif
+            return;
+        }
+    }
+}
+
+void boot_task_start(void) {
+    cur_task = -1;
+    boot_task_yield();
+}
+
 /* ---- info ---- */
 const char *boot_version(void) { return "boot 0.0.1d"; }
 long long boot_arch(void) {
@@ -434,10 +487,18 @@ long long boot_arch(void) {
 }
 
 
+extern char __bss_start[];
+extern char __bss_end[];
+__attribute__((noinline, optimize("O0"))) static void clear_bss(void) {
+    unsigned long *p = (unsigned long *)__bss_start;
+    unsigned long *e = (unsigned long *)__bss_end;
+    while (p < e) { *p++ = 0; }
+}
+
 extern i64 main(void);
 __attribute__((section(".text.entry"), naked)) void kernel_entry(void) {
     __asm__ volatile("call kernel_entry_c");
     __asm__ volatile("1: jmp 1b");
 }
-void kernel_entry_c(void) { gt_rt_init(); (void)main(); while (1) {} }
+void kernel_entry_c(void) { clear_bss(); gt_rt_init(); (void)main(); while (1) {} }
 

@@ -9,7 +9,7 @@ def run(binpath, timeout=6):
     with open(img, 'wb') as f:
         f.write(data)
         f.write(b'\x00' * (1474560 - len(data)))
-    cmd = [QEMU, '-drive', 'format=raw,file=' + img, '-serial', 'stdio',
+    cmd = [QEMU, '-drive', 'if=ide,format=raw,file=' + img, '-serial', 'stdio',
            '-display', 'none', '-no-reboot', '-m', '32', '-boot', 'a']
     try:
         p = subprocess.run(cmd, capture_output=True, timeout=timeout)

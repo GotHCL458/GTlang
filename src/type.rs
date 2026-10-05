@@ -497,6 +497,11 @@ fn builtin_check(name: &str, args: &[Ty]) -> Result<Ty, String> {
             if !args.is_empty() { return Err("chan() takes no arguments".into()); }
             Ok(Ty::I64)
         }
+        // fn_addr(f)：取顶层函数 f 的地址（裸机多任务入口用）
+        "fn_addr" => {
+            arity(1)?;
+            Ok(Ty::I64)
+        }
         "chan_send" => {
             arity(2)?;
             Ok(Ty::Void)

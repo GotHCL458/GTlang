@@ -1,0 +1,395 @@
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"xuantie/ast"
+	"xuantie/compiler"
+	"xuantie/evaluator"
+	"xuantie/lexer"
+	"xuantie/object"
+	"xuantie/parser"
+)
+
+var version = "0.17.5"
+
+const (
+	colorReset = "\033[0m"
+	colorRed   = "\033[31m"
+	colorBold  = "\033[1m"
+)
+
+func isPowerShell() bool {
+	return runtime.GOOS == "windows" || os.Getenv("PSModulePath") != ""
+}
+
+func printHelp() {
+	fmt.Println("用法:")
+	fmt.Println("  xuantie <源文件>          解释执行脚本")
+	fmt.Println("  xuantie zao <源文件>      编译为独立可执行文件 (或用 build/造)")
+	fmt.Println("  xuantie tie <源文件>      使用 LLVM 编译为原生二进制文件 (里程碑特性)")
+	fmt.Println("")
+	fmt.Println("选项:")
+	fmt.Println("  --pt <os>      目标操作系统 (windows, linux, darwin)")
+	fmt.Println("  --jg <arch>    目标指令集架构 (amd64, arm64, 386)")
+	fmt.Println("  -V, --version  打印版本号")
+	fmt.Println("  -h, --help, -? 打印此帮助信息")
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func hasImport(prog *ast.Program, target string) bool {
+	for _, stmt := range prog.Statements {
+		if es, ok := stmt.(*ast.ExpressionStatement); ok {
+			if ie, ok := es.Expression.(*ast.ImportExpression); ok {
+				if strings.Contains(ie.Path, target) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// findCCompiler 探测可用的 C 编译器(LLVM IR → 目标文件):clang → gcc → cc。
+// 无 clang 环境(如仅装 gcc 的 Linux)回退 gcc/cc,避免 "exec: clang not found" 直接失败。
+func findCCompiler() string {
+	for _, name := range []string{"clang", "gcc", "cc"} {
+		if p, err := exec.LookPath(name); err == nil {
+			return p
+		}
+	}
+	return "clang"
+}
+
+func main() {
+	enableVirtualTerminalProcessing()
+	useColor := isPowerShell()
+
+	if len(os.Args) < 2 {
+		printHelp()
+		return
+	}
+
+	isBuild := false
+	isNative := false
+	filename := ""
+	targetOS := ""
+	targetArch := ""
+
+	for i := 1; i < len(os.Args); i++ {
+		arg := os.Args[i]
+		switch arg {
+		case "build", "zao", "造":
+			isBuild = true
+		case "tie", "铁":
+			isNative = true
+		case "--平台", "--pt":
+			if i+1 < len(os.Args) {
+				targetOS = os.Args[i+1]
+				i++
+			}
+		case "--架构", "--jg":
+			if i+1 < len(os.Args) {
+				targetArch = os.Args[i+1]
+				i++
+			}
+		case "-V", "--version":
+			fmt.Printf("玄铁(XuanTie) %s\n", version)
+			return
+		case "-h", "--help", "-?":
+			printHelp()
+			return
+		default:
+			if filename == "" {
+				filename = arg
+			}
+		}
+	}
+
+	if filename == "" {
+		fmt.Println("未指定源文件")
+		return
+	}
+
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		if useColor {
+			fmt.Printf("%s%s读取文件失败:%s %s找不到文件或无法打开 (%s)%s\n", colorBold, colorRed, colorReset, colorRed, filename, colorReset)
+		} else {
+			fmt.Printf("读取文件失败: 找不到文件或无法打开 (%s)\n", filename)
+		}
+		return
+	}
+
+	l := lexer.New(string(data))
+	p := parser.New(l)
+	program := p.ParseProgram()
+	program.FilePath = filename
+
+	if len(p.Errors()) > 0 {
+		if useColor {
+			fmt.Printf("%s%s解析错误:%s\n", colorBold, colorRed, colorReset)
+		} else {
+			fmt.Println("解析错误:")
+		}
+		lines := strings.Split(string(data), "\n")
+		for _, msg := range p.Errors() {
+			if useColor {
+				fmt.Fprintf(os.Stderr, "\t%s%s%s\n", colorRed, msg, colorReset)
+			} else {
+				fmt.Fprintf(os.Stderr, "\t%s\n", msg)
+			}
+			var line, col int
+			n, _ := fmt.Sscanf(msg, "[行:%d, 列:%d]", &line, &col)
+			if n == 2 && line > 0 && line <= len(lines) {
+				errorLine := strings.ReplaceAll(lines[line-1], "\t", "    ")
+				fmt.Fprintf(os.Stderr, "\t%s\n", errorLine)
+				if useColor {
+					fmt.Fprintf(os.Stderr, "\t%s%s^%s\n", strings.Repeat(" ", col-1), colorRed, colorReset)
+				} else {
+					fmt.Fprintf(os.Stderr, "\t%s^\n", strings.Repeat(" ", col-1))
+				}
+			}
+		}
+		return
+	}
+
+	if isNative {
+		if targetOS == "" {
+			targetOS = runtime.GOOS
+		}
+		if targetArch == "" {
+			targetArch = runtime.GOARCH
+		}
+		fmt.Printf("正在使用 LLVM 编译 %s -> 原生二进制文件 (平台: %s, 架构: %s) ...\n", filename, targetOS, targetArch)
+		c := compiler.NewLLVMCompiler(program)
+		c.TargetOS = targetOS
+		c.TargetArch = targetArch
+		llvmIR := c.Compile()
+
+		if len(c.Errors()) > 0 {
+			if useColor {
+				fmt.Printf("%s%s编译错误:%s\n", colorBold, colorRed, colorReset)
+			} else {
+				fmt.Println("编译错误:")
+			}
+			for _, msg := range c.Errors() {
+				if useColor {
+					fmt.Printf("\t%s%s%s\n", colorRed, msg, colorReset)
+				} else {
+					fmt.Printf("\t%s\n", msg)
+				}
+			}
+			return
+		}
+
+		irFile := strings.TrimSuffix(filename, ".xt") + ".ll"
+		err := ioutil.WriteFile(irFile, []byte(llvmIR), 0644)
+		if err != nil {
+			fmt.Printf("创建 LLVM IR 文件失败: %v\n", err)
+			return
+		}
+
+		exePath, _ := os.Executable()
+		projectDir := filepath.Dir(exePath)
+		runtimeDir := filepath.Join(projectDir, "runtime")
+		if strings.Contains(exePath, "go-build") {
+			runtimeDir = "runtime"
+		} else if !fileExists(filepath.Join(runtimeDir, "xt_runtime.c")) {
+			// 向上逐级查找仓库 runtime/(常见布局: build/xtc → 上级是仓库根)
+			up := filepath.Dir(projectDir)
+			for i := 0; i < 6 && up != "" && up != "/" && up != "."; i++ {
+				cand := filepath.Join(up, "runtime")
+				if fileExists(filepath.Join(cand, "xt_runtime.c")) {
+					runtimeDir = cand
+					break
+				}
+				parent := filepath.Dir(up)
+				if parent == up {
+					break
+				}
+				up = parent
+			}
+		}
+		rtC := filepath.Join(runtimeDir, "xt_runtime.c")
+
+		renderBridgeC := filepath.Join(projectDir, "lib", "渲染", "渲染桥.c")
+		localRaylib := filepath.Join(projectDir, "lib", "渲染")
+		raylibDir := os.Getenv("RAYLIB_DIR")
+		if fileExists(filepath.Join(localRaylib, "libraylib.a")) {
+			raylibDir = localRaylib
+		} else if raylibDir == "" {
+			raylibDir = "C:/raylib/raylib/src"
+		}
+		raylibA := filepath.Join(raylibDir, "libraylib.a")
+		raylibInclude := raylibDir
+		useRender := hasImport(program, "渲染") && fileExists(renderBridgeC) && fileExists(raylibA)
+
+		objFile := strings.TrimSuffix(filename, ".xt") + ".o"
+		cc := findCCompiler()
+		clangArgs := []string{"-target", c.TargetTriple(), "-c", irFile, "-o", objFile, "-Og"}
+		if out, err := exec.Command(cc, clangArgs...).CombinedOutput(); err != nil {
+			fmt.Printf("LLVM 编译为对象文件失败: %v\n", err)
+			fmt.Printf("错误详情: %s\n", string(out))
+			// 编译失败必须显式非零退出:旧行为只 return(退出码 0),
+			// 下游门禁/脚本按退出码判定时会误判为"编译成功但没产物",掩盖真实原因
+			os.Exit(1)
+		}
+
+		var bridgeObj string
+		if useRender {
+			bridgeObj = strings.TrimSuffix(filename, ".xt") + "_bridge.o"
+			bridgeArgs := []string{"-target", c.TargetTriple(), "-c", renderBridgeC,
+				"-o", bridgeObj, "-I", raylibInclude, "-Og"}
+			if out, err := exec.Command(cc, bridgeArgs...).CombinedOutput(); err != nil {
+				fmt.Printf("渲染桥编译失败: %v\n", err)
+				fmt.Printf("错误详情: %s\n", string(out))
+				os.Exit(1)
+			}
+		}
+
+		outputName := strings.TrimSuffix(filepath.Base(filename), ".xt")
+		if targetOS == "windows" {
+			outputName += ".exe"
+		}
+
+		gccExe := "gcc"
+		if targetOS == "windows" && targetArch == "arm64" {
+			// llvm-mingw aarch64 包装:argv[0] 决定 clang 目标,复制改名成 gcc.exe 会丢目标信息
+			localAarch64Gcc := "tools/mingw/bin/aarch64-w64-mingw32-gcc.exe"
+			if fileExists(localAarch64Gcc) {
+				gccExe = localAarch64Gcc
+			}
+		} else {
+			// 优先用 TDM-GCC（w64devkit GCC 15.2.0 在此系统上产生无效 exe）
+			tdmGcc := "C:/TDM-GCC-64/bin/gcc.exe"
+			if fileExists(tdmGcc) {
+				gccExe = tdmGcc
+			}
+		}
+		threadpoolC := filepath.Join(runtimeDir, "xt_threadpool.c")
+		netC := filepath.Join(runtimeDir, "xt_net.c")
+		tlsC := filepath.Join(runtimeDir, "xt_tls.c")
+		gccArgs := []string{objFile, rtC, threadpoolC, netC, tlsC, "-o", outputName}
+		if targetOS == "windows" {
+			// Windows: TLS(Schannel 实现在 xt_tls.c) + WinSock + 安全库
+			gccArgs = append(gccArgs, "-lshell32", "-lws2_32", "-lsecur32")
+		}
+		if targetOS == "linux" {
+			gccArgs = append(gccArgs, "-lpthread", "-ldl", "-lm")
+		}
+		if useRender {
+			gccArgs = append(gccArgs, bridgeObj, raylibA)
+			switch targetOS {
+			case "windows":
+				gccArgs = append(gccArgs, "-lopengl32", "-lgdi32", "-lwinmm", "-limm32")
+			case "darwin":
+				gccArgs = append(gccArgs, "-framework", "Cocoa", "-framework", "OpenGL", "-framework", "IOKit", "-framework", "CoreVideo")
+			case "linux":
+				gccArgs = append(gccArgs, "-lGL", "-lm", "-lpthread", "-ldl", "-lrt", "-lX11")
+			}
+		}
+		gccCmd := exec.Command(gccExe, gccArgs...)
+		out, err := gccCmd.CombinedOutput()
+		fmt.Printf("生成的 LLVM IR 已保存至: %s\n", irFile)
+
+		if err != nil {
+			fmt.Printf("MinGW 链接失败 (请确保已安装 GCC/MinGW): %v\n", err)
+			fmt.Printf("错误详情: %s\n", string(out))
+			// 链接失败同样必须非零退出(与上方 clang 失败同理,旧行为 return 出 0)
+			os.Exit(1)
+		}
+
+		os.Remove(objFile)
+		if bridgeObj != "" {
+			os.Remove(bridgeObj)
+		}
+
+		fmt.Printf("原生编译完成: %s\n", outputName)
+		return
+	}
+
+	if isBuild {
+		c := compiler.New(program)
+		c.TargetWindows = (targetOS == "" && runtime.GOOS == "windows") || targetOS == "windows"
+		goCode := c.Compile()
+
+		if len(c.Errors()) > 0 {
+			if useColor {
+				fmt.Printf("%s%s编译转译错误:%s\n", colorBold, colorRed, colorReset)
+			} else {
+				fmt.Println("编译转译错误:")
+			}
+			for _, msg := range c.Errors() {
+				if useColor {
+					fmt.Printf("\t%s%s%s\n", colorRed, msg, colorReset)
+				} else {
+					fmt.Printf("\t%s\n", msg)
+				}
+			}
+			return
+		}
+
+		tmpDir := os.TempDir()
+		tmpFile := filepath.Join(tmpDir, fmt.Sprintf("xt_boot_%d.go", os.Getpid()))
+		err := ioutil.WriteFile(tmpFile, []byte(goCode), 0644)
+		if err != nil {
+			fmt.Printf("创建临时编译文件失败: %v\n", err)
+			return
+		}
+		defer os.Remove(tmpFile)
+
+		outputName := strings.TrimSuffix(filepath.Base(filename), ".xt")
+		actualOS := runtime.GOOS
+		if targetOS != "" {
+			actualOS = targetOS
+		}
+		if actualOS == "windows" {
+			outputName += ".exe"
+		}
+
+		fmt.Printf("正在编译 %s -> %s (平台: %s, 架构: %s) ...\n", filename, outputName, actualOS, targetArch)
+		cmd := exec.Command("go", "build", "-a", "-o", outputName, tmpFile)
+		cmd.Env = os.Environ()
+		if targetOS != "" {
+			cmd.Env = append(cmd.Env, "GOOS="+targetOS)
+		}
+		if targetArch != "" {
+			cmd.Env = append(cmd.Env, "GOARCH="+targetArch)
+		}
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		if err != nil {
+			fmt.Printf("编译失败: %v\n", err)
+			return
+		}
+		fmt.Printf("编译完成: %s\n", outputName)
+		return
+	}
+
+	env := make(map[string]object.Object)
+	evaluator.RegisterStdLib(env)
+
+	absPath, _ := filepath.Abs(filename)
+	env["__FILE__"] = &object.String{Value: absPath}
+	env["__DIR__"] = &object.String{Value: filepath.Dir(absPath)}
+
+	result := evaluator.Eval(program, env)
+	if result != nil && result.Type() == object.ERROR_OBJ {
+		if useColor {
+			fmt.Fprintf(os.Stderr, "%s%s运行时错误:%s %s\n", colorBold, colorRed, colorReset, result.Inspect())
+		} else {
+			fmt.Fprintf(os.Stderr, "运行时错误: %s\n", result.Inspect())
+		}
+	}
+}

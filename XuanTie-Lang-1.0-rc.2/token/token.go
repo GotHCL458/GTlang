@@ -1,0 +1,127 @@
+package token
+
+type TokenType string
+
+const (
+	TOKEN_ILLEGAL TokenType = "ILLEGAL"
+	TOKEN_EOF     TokenType = "EOF"
+
+	TOKEN_IDENT  TokenType = "IDENT"
+	TOKEN_NUMBER TokenType = "NUMBER"
+	TOKEN_FLOAT  TokenType = "FLOAT"
+	TOKEN_STRING TokenType = "STRING"
+	TOKEN_BOOL   TokenType = "BOOL"
+
+	TOKEN_ASSIGN    TokenType = "="
+	TOKEN_PLUS      TokenType = "+"
+	TOKEN_MINUS     TokenType = "-"
+	TOKEN_MUL       TokenType = "*"
+	TOKEN_DIV       TokenType = "/"
+	TOKEN_MOD       TokenType = "%"
+	TOKEN_LT        TokenType = "<"
+	TOKEN_GT        TokenType = ">"
+	TOKEN_LE        TokenType = "<="
+	TOKEN_GE        TokenType = ">="
+	TOKEN_EQ        TokenType = "=="
+	TOKEN_NEQ       TokenType = "!="
+	TOKEN_LPAREN    TokenType = "("
+	TOKEN_RPAREN    TokenType = ")"
+	TOKEN_COMMA     TokenType = ","
+	TOKEN_SEMICOLON TokenType = ";"
+	TOKEN_LBRACE    TokenType = "{"
+	TOKEN_RBRACE    TokenType = "}"
+	TOKEN_LBRACKET  TokenType = "["
+	TOKEN_RBRACKET  TokenType = "]"
+	TOKEN_COLON     TokenType = ":"
+	TOKEN_AMPERSAND TokenType = "&"
+	TOKEN_DOT       TokenType = "."
+	TOKEN_RANGE     TokenType = ".."
+	TOKEN_PIPE      TokenType = "|"
+	TOKEN_QUESTION  TokenType = "?"
+	TOKEN_DOLLAR    TokenType = "$"
+	TOKEN_ARROW     TokenType = "->"
+
+	TOKEN_PRINT     TokenType = "示"
+	TOKEN_VAR       TokenType = "设"
+	TOKEN_CONST     TokenType = "常"
+	TOKEN_IF        TokenType = "若"
+	TOKEN_ELSE_IF   TokenType = "抑"
+	TOKEN_ELSE      TokenType = "否"
+	TOKEN_WHILE     TokenType = "当"
+	TOKEN_LOOP      TokenType = "循"
+	TOKEN_FOR       TokenType = "遍历"
+	TOKEN_IN        TokenType = "于"
+	TOKEN_BREAK     TokenType = "断"
+	TOKEN_CONTINUE  TokenType = "续"
+	TOKEN_FUNCTION  TokenType = "函"
+	TOKEN_RETURN    TokenType = "返"
+	TOKEN_TRUE      TokenType = "真"
+	TOKEN_FALSE     TokenType = "假"
+	TOKEN_NULL      TokenType = "空"
+	TOKEN_MATCH     TokenType = "匹配"
+	TOKEN_TERMINATE TokenType = "终"
+
+	TOKEN_TRY         TokenType = "尝试"
+	TOKEN_CATCH       TokenType = "捕捉"
+	TOKEN_THEN        TokenType = "接着"
+	TOKEN_SUCCESS     TokenType = "成功"
+	TOKEN_FAILURE     TokenType = "失败"
+	TOKEN_ASYNC       TokenType = "异步"
+	TOKEN_AWAIT       TokenType = "等待"
+	TOKEN_PARALLEL    TokenType = "并行"
+	TOKEN_IMPORT      TokenType = "引"
+	TOKEN_SERIALIZE   TokenType = "化"
+	TOKEN_DESERIALIZE TokenType = "解"
+	TOKEN_TYPE_DEF    TokenType = "型"
+	TOKEN_INTERFACE   TokenType = "口"
+	TOKEN_EXTERNAL    TokenType = "外"
+	TOKEN_WEAK        TokenType = "弱"
+	TOKEN_NEW         TokenType = "造"
+	TOKEN_INHERIT     TokenType = "承"
+	TOKEN_CONNECT     TokenType = "连"
+	TOKEN_LISTEN      TokenType = "听"
+	TOKEN_REQUEST     TokenType = "求"
+	TOKEN_EXECUTE     TokenType = "执"
+	TOKEN_INPUT       TokenType = "输"
+	TOKEN_CHANNEL     TokenType = "道"
+	TOKEN_GIVE        TokenType = "予"
+	TOKEN_PRIVATE     TokenType = "私"
+	TOKEN_PUBLIC      TokenType = "公"
+	TOKEN_PROTECTED   TokenType = "护"
+	TOKEN_OVERRIDE    TokenType = "覆"
+	TOKEN_TEST        TokenType = "测试"
+
+	TOKEN_AND TokenType = "且"
+	TOKEN_OR  TokenType = "或"
+	TOKEN_NOT TokenType = "非"
+	TOKEN_IS  TokenType = "是"
+
+	// 位运算
+	TOKEN_BIT_AND TokenType = "位与"
+	TOKEN_BIT_OR  TokenType = "位或"
+	TOKEN_BIT_XOR TokenType = "异或"
+	TOKEN_LSHIFT  TokenType = "左移"
+	TOKEN_RSHIFT  TokenType = "右移"
+	TOKEN_BIT_NOT TokenType = "取反"
+
+	// 类型关键字
+	TOKEN_RESULT_TYPE TokenType = "结果"
+	TOKEN_STRING_TYPE TokenType = "字"
+	TOKEN_INT_TYPE    TokenType = "整"
+	TOKEN_FLOAT_TYPE  TokenType = "小数"
+	TOKEN_BYTES_TYPE  TokenType = "字节"
+	TOKEN_TASK_TYPE   TokenType = "任务"
+	TOKEN_BOOL_TYPE   TokenType = "布尔"
+	TOKEN_ARRAY_TYPE  TokenType = "数组"
+	TOKEN_DICT_TYPE   TokenType = "字典"
+
+	TOKEN_THIS TokenType = "此"
+)
+
+type Token struct {
+	Type           TokenType
+	Literal        string
+	Line           int
+	Column         int
+	HasSpaceBefore bool
+}

@@ -4,6 +4,19 @@ use super::*;
 
 impl<'a> Codegen<'a> {
     pub(crate) fn call(&mut self, name: &str, args: &[Expr], line: usize, call_ty: &Ty) -> Result<Val, String> {
+        // fn_addr(f)：取顶层函数 f 的地址（i64），裸机多任务入口用
+        if name == "fn_addr" {
+            // 实参可能是：函数名（被 hoist 成 ClosureNew）或 闭包值。
+            // 从闭包对象 [fn_ptr, env] 取 fn_ptr。
+            let v = self.expr(&args[0])?;
+            if v.ty == Ty::I64 {
+                return Ok(v);
+            }
+            let p = self.as_ptr(&v);
+            let r = self.new_reg();
+            self.body.push_str(&format!("  {} = load i64, ptr {}\n", r, p));
+            return Ok(Val::new(&Ty::I64, r));
+        }
         // `s.方法(args)`：s 是 dyn Trait 对象 → 从 vtable 取址 + 间接调用
         if let Some(dot) = name.find('.') {
             let recv = &name[..dot];

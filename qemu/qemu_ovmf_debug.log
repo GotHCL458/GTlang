@@ -1,0 +1,2277 @@
+SecCoreStartupWithStack(0xFFFCC000, 0x820000)
+Register PPI Notify: DCD0BE23-9586-40F4-B643-06522CED4EDE
+Install PPI: 8C8CE578-8A3D-4F1C-9935-896185C32DD3
+Install PPI: 5473C07A-3DCB-4DCA-BD6F-1E9689E7349A
+The 0th FV start address is 0x00000820000, size is 0x000E0000, handle is 0x820000
+Register PPI Notify: 49EDB1C1-BF21-4761-BB12-EB0031AABB39
+Register PPI Notify: EA7CA24B-DED5-4DAD-A389-BF827E8F9B38
+Install PPI: B9E0ABFE-5979-4914-977F-6DEE78C278A6
+Install PPI: DBE23AA9-A345-4B97-85B6-B226F1617389
+Install PPI: 138F9CF4-F0E7-4721-8F49-F5FFECF42D40
+DiscoverPeimsAndOrderWithApriori(): Found 0xD PEI FFS files in the 0th FV
+Loading PEIM 9B3ADA4F-AE56-4C24-8DEA-F03B7558AE50
+Loading PEIM at 0x0000082B980 EntryPoint=0x0000082EA27 PcdPeim.efi
+Install PPI: 06E81C58-4AD7-44BC-8390-F10265F72480
+Install PPI: 01F34D25-4DE2-23AD-3FF3-36353FF323F1
+Install PPI: 4D8B155B-C059-4C8F-8926-06FD4331DB8A
+Install PPI: A60C6B59-E459-425D-9C69-0BCC9CB27D81
+Register PPI Notify: 605EA650-C65C-42E1-BA80-91A52AB618C6
+Loading PEIM A3610442-E69F-4DF3-82CA-2360C4031A23
+Loading PEIM at 0x00000830740 EntryPoint=0x00000831AA2 ReportStatusCodeRouterPei.efi
+Install PPI: 0065D394-9951-4144-82A3-0AFC8579C251
+Install PPI: 229832D3-7A30-4B36-B827-F40CB7D45436
+Loading PEIM 9D225237-FA01-464C-A949-BAABC02D31D0
+Loading PEIM at 0x00000832840 EntryPoint=0x00000833A1B StatusCodeHandlerPei.efi
+Loading PEIM 222C386D-5ABC-4FB4-B124-FBB82488ACF4
+Loading PEIM at 0x00000834840 EntryPoint=0x0000083C488 PlatformPei.efi
+Platform PEIM Loaded
+CMOS:
+00: 05 00 10 00 15 00 01 13 09 26 26 02 10 80 00 00
+10: 00 00 00 00 06 80 02 FF FF 00 00 00 00 00 00 00
+20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+30: FF FF 20 00 00 7F 00 20 40 00 00 00 00 23 00 00
+40: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+50: 00 00 00 00 00 00 00 00 00 00 00 00 80 00 00 03
+60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+QemuFwCfgProbe: Supported 1, DMA 1
+Select Item: 0x19
+Select Item: 0x2C
+Install PPI: 7408D748-FC8C-4EE6-9288-C4BEC092A410
+Select Item: 0x19
+Select Item: 0x19
+Select Item: 0x26
+PlatformGetFirstNonAddressCB: FirstNonAddress=0x180000000
+Select Item: 0x19
+Select Item: 0x19
+PlatformAddressWidthFromCpuid: Signature: 'AuthenticAMD', PhysBits: 40, GuestPhysBits: 0, QemuQuirk: On, la57: Off, Valid: Yes
+PlatformDynamicMmioWindow: using dynamic mmio window
+PlatformDynamicMmioWindow:   Addr Space 0x10000000000 (1024 GB)
+PlatformDynamicMmioWindow:   MMIO Space 0x2000000000 (128 GB)
+Select Item: 0x19
+Select Item: 0x26
+PlatformReservationConflictCB: move mmio: 0xE000000000 => C000000000
+PlatformDynamicMmioWindow:   Pci64 Base 0xC000000000
+PlatformDynamicMmioWindow:   Pci64 Size 0x2000000000
+AddressWidthInitialization: Pci64Base=0xC000000000 Pci64Size=0x2000000000
+Select Item: 0x5
+PlatformMaxCpuCountInitialization: BootCpuCount=4 MaxCpuCount=4
+Select Item: 0x19
+Select Item: 0x26
+PlatformGetLowMemoryCB: LowMemory=0x80000000
+GetPeiMemoryCap: page tables:   4112 KB (1/1/2/1024 pages for levels 5/4/3/2)
+GetPeiMemoryCap: ap stacks:      128 KB (4 cpus)
+GetPeiMemoryCap: memory cap:   69776 KB
+PublishPeiMemory: PhysMemAddressWidth=40 PeiMemoryCap=69776 KB
+PeiInstallPeiMemory MemoryBegin 0x7BBDC000, MemoryLength 0x4424000
+Select Item: 0x19
+Select Item: 0x26
+PlatformQemuInitializeRam called
+Select Item: 0x19
+Select Item: 0x26
+Select Item: 0x19
+Select Item: 0x26
+PlatformAddHobCB: Reserved [0xFD00000000, 0x10000000000)
+PlatformAddHobCB: HighMemory [0x100000000, 0x180000000)
+Reserved variable store memory: 0x7FF7C000; size: 528kb
+Platform PEI Firmware Volume Initialization
+Install PPI: 49EDB1C1-BF21-4761-BB12-EB0031AABB39
+Notify: PPI Guid: 49EDB1C1-BF21-4761-BB12-EB0031AABB39, Peim notify entry point: 825292
+The 1th FV start address is 0x00000900000, size is 0x00E80000, handle is 0x900000
+Select Item: 0x19
+Select Item: 0x26
+Select Item: 0x19
+Register PPI Notify: EE16160A-E8BE-47A6-820A-C6900DB0250A
+Select Item: 0x19
+Select Item: 0x19
+Temp Stack : BaseAddress=0x818800 Length=0x7800
+Temp Heap  : BaseAddress=0x811000 Length=0x7800
+Total temporary memory:    61440 bytes.
+  temporary memory stack ever used:       30368 bytes.
+  temporary memory heap used for HobList: 7552 bytes.
+  temporary memory heap occupied by memory pages: 0 bytes.
+Memory Allocation 0x00000004 0x806000 - 0x806FFF
+Memory Allocation 0x00000004 0x80B000 - 0x80BFFF
+Memory Allocation 0x00000006 0x7FF7C000 - 0x7FFFFFFF
+Memory Allocation 0x00000004 0x820000 - 0x8FFFFF
+Memory Allocation 0x00000004 0x900000 - 0x177FFFF
+Memory Allocation 0x00000000 0xE0000000 - 0xEFFFFFFF
+Old Stack size 30720, New stack size 131072
+Stack Hob: BaseAddress=0x7BBDC000 Length=0x20000
+Heap Offset = 0x7B3EB000 Stack Offset = 0x7B3DC000
+TemporaryRamMigration(0x811000, 0x7BBF4800, 0xF000)
+Loading PEIM 52C05B14-0B98-496C-BC3B-04B50211D680
+Loading PEIM at 0x0007FF70000 EntryPoint=0x0007FF77BAC PeiCore.efi
+Reinstall PPI: 8C8CE578-8A3D-4F1C-9935-896185C32DD3
+Reinstall PPI: 5473C07A-3DCB-4DCA-BD6F-1E9689E7349A
+Reinstall PPI: B9E0ABFE-5979-4914-977F-6DEE78C278A6
+Install PPI: F894643D-C449-42D1-8EA8-85BDD8C65BDE
+Loading PEIM 9B3ADA4F-AE56-4C24-8DEA-F03B7558AE50
+Loading PEIM at 0x0007FF6B000 EntryPoint=0x0007FF6E0A7 PcdPeim.efi
+Reinstall PPI: 06E81C58-4AD7-44BC-8390-F10265F72480
+Reinstall PPI: 4D8B155B-C059-4C8F-8926-06FD4331DB8A
+Reinstall PPI: 01F34D25-4DE2-23AD-3FF3-36353FF323F1
+Reinstall PPI: A60C6B59-E459-425D-9C69-0BCC9CB27D81
+Loading PEIM 86D70125-BAA3-4296-A62F-602BEBBB9081
+Loading PEIM at 0x0007FF66000 EntryPoint=0x0007FF69189 DxeIpl.efi
+Install PPI: 1A36E4E7-FAB6-476A-8E75-695A0576FDD7
+Install PPI: 0AE8CE5D-E448-4437-A8D7-EBF5F194F731
+Loading PEIM 89E549B0-7CFE-449D-9BA3-10D8B2312D71
+Loading PEIM at 0x0007FF61000 EntryPoint=0x0007FF63C17 S3Resume2Pei.efi
+Install PPI: 6D582DBC-DB85-4514-8FCC-5ADF6227B147
+Loading PEIM EDADEB9D-DDBA-48BD-9D22-C1C169C8C5C6
+Loading PEIM at 0x0007FF50000 EntryPoint=0x0007FF55669 CpuMpPei.efi
+Register PPI Notify: F894643D-C449-42D1-8EA8-85BDD8C65BDE
+Notify: PPI Guid: F894643D-C449-42D1-8EA8-85BDD8C65BDE, Peim notify entry point: 7FF581E5
+AP Loop Mode is 1
+AP Vector: non-16-bit = 7FF26000/44A
+WakeupBufferStart = 9F000, WakeupBufferSize = 1000
+AP Vector: 16-bit = 9F000/39, ExchangeInfo = 9F039/A4
+CpuMpPei: 5-Level Paging = 0
+APIC MODE is 1
+MpInitLib: Find 4 processors in system.
+GetMicrocodePatchInfoFromHob: Microcode patch cache HOB is not found.
+CpuMpPei: 5-Level Paging = 0
+CPU[0000]: Microcode revision = 00000000, expected = 00000000
+CPU[0001]: Microcode revision = 00000000, expected = 00000000
+CPU[0002]: Microcode revision = 00000000, expected = 00000000
+CPU[0003]: Microcode revision = 00000000, expected = 00000000
+AP Page Table Buffer Size = 4000
+Register PPI Notify: 8F9D4825-797D-48FC-8471-845025792EF6
+Register PPI Notify: 96F5296D-05F7-4F3C-8467-E456890E0CB5
+Does not find any stored CPU BIST information from PPI!
+  APICID - 0x00000000, BIST - 0x00000000
+  APICID - 0x00000001, BIST - 0x00000000
+  APICID - 0x00000002, BIST - 0x00000000
+  APICID - 0x00000003, BIST - 0x00000000
+Install PPI: 9E9F374B-8F16-4230-9824-5846EE766A97
+Install PPI: 5CB9CB3D-31A4-480C-9498-29D269BACFBA
+Install PPI: EE16160A-E8BE-47A6-820A-C6900DB0250A
+Notify: PPI Guid: EE16160A-E8BE-47A6-820A-C6900DB0250A, Peim notify entry point: 837374
+PlatformPei: ClearCacheOnMpServicesAvailable
+CpuMpPei: 5-Level Paging = 0
+Creating MpInformation2 HOB...
+  Processor[0000]: ProcessorId = 0x0, StatusFlag = 0x7, CoreType = 0x0
+    Location = Package:0 Core:0 Thread:0
+    Location2 = Package:0 Die:0 Tile:0 Module:0 Core:0 Thread:0
+  Processor[0001]: ProcessorId = 0x1, StatusFlag = 0x6, CoreType = 0x0
+    Location = Package:0 Core:1 Thread:0
+    Location2 = Package:0 Die:0 Tile:0 Module:0 Core:1 Thread:0
+  Processor[0002]: ProcessorId = 0x2, StatusFlag = 0x6, CoreType = 0x0
+    Location = Package:0 Core:2 Thread:0
+    Location2 = Package:0 Die:0 Tile:0 Module:0 Core:2 Thread:0
+  Processor[0003]: ProcessorId = 0x3, StatusFlag = 0x6, CoreType = 0x0
+    Location = Package:0 Core:3 Thread:0
+    Location2 = Package:0 Die:0 Tile:0 Module:0 Core:3 Thread:0
+Creating MpInformation2 HOB...
+Loading PEIM F12F698A-E506-4A1B-B32E-6920E55DA1C4
+Loading PEIM at 0x0007FF1D000 EntryPoint=0x0007FF1E36D TpmMmioSevDecryptPei.efi
+TpmMmioSevDecryptPeimEntryPoint
+Install PPI: 35C84FF2-7BFE-453D-845F-683A492CF7B7
+Loading PEIM 8AD3148F-945F-46B4-8ACD-71469EA73945
+Loading PEIM at 0x0007FF19000 EntryPoint=0x0007FF1A611 Tcg2ConfigPei.efi
+Tcg2ConfigPeimEntryPoint
+Tcg2ConfigPeimEntryPoint: no TPM detected
+Install PPI: A030D115-54DD-447B-9064-F206883D7CCC
+Install PPI: 7F4158D3-074D-456D-8CB2-01F9C8F79DAA
+Loading PEIM 2BE1E4A6-6505-43B3-9FFC-A3C8330E0432
+Loading PEIM at 0x0007FF14000 EntryPoint=0x0007FF1697F TcgPei.efi
+No TPM12 instance required!
+Loading PEIM A0C98B77-CBA5-4BB8-993B-4AF6CE33ECE4
+Loading PEIM at 0x0007FF08000 EntryPoint=0x0007FF102F1 Tcg2Pei.efi
+No TPM2 instance required!
+Loading PEIM 47727552-A54B-4A84-8CC1-BFF23E239636
+Loading PEIM at 0x0007FF04000 EntryPoint=0x0007FF0657B Tcg2PlatformPei.efi
+DiscoverPeimsAndOrderWithApriori(): Found 0x0 PEI FFS files in the 1th FV
+DXE IPL Entry
+Loading PEIM D6A2CB7F-6A18-4E2F-B43B-9920A733700A
+Loading PEIM at 0x0007FED6000 EntryPoint=0x0007FEEB12C DxeCore.efi
+Loading DXE CORE at 0x0007FED6000 EntryPoint=0x0007FEEB12C
+AddressBits=40 5LevelPaging=0 1GPage=0
+Pml5=1 Pml4=2 Pdp=512 TotalPage=1027
+Install PPI: 605EA650-C65C-42E1-BA80-91A52AB618C6
+Notify: PPI Guid: 605EA650-C65C-42E1-BA80-91A52AB618C6, Peim notify entry point: 82D731
+CoreInitializeMemoryServices:
+  BaseAddress - 0x7BC00000 Length - 0x3C00000 MinimalMemorySizeNeeded - 0x322000
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7FEFA308
+ProtectUefiImageCommon - 0x7FEFA308
+  - 0x000000007FED6000 - 0x000000000002E000
+DxeMain: MemoryBaseAddress=0x7BC00000 MemoryLength=0x3C00000
+HOBLIST address in DXE = 0x7F4E7018
+Memory Allocation 0x00000004 0x806000 - 0x806FFF
+Memory Allocation 0x00000004 0x80B000 - 0x80BFFF
+Memory Allocation 0x00000006 0x7FF7C000 - 0x7FFFFFFF
+Memory Allocation 0x00000004 0x820000 - 0x8FFFFF
+Memory Allocation 0x00000004 0x900000 - 0x177FFFF
+Memory Allocation 0x00000000 0xE0000000 - 0xEFFFFFFF
+Memory Allocation 0x00000004 0x7FEB6000 - 0x7FED5FFF
+Memory Allocation 0x00000003 0x7FF70000 - 0x7FF7BFFF
+Memory Allocation 0x00000003 0x7FF6B000 - 0x7FF6FFFF
+Memory Allocation 0x00000003 0x7FF66000 - 0x7FF6AFFF
+Memory Allocation 0x00000003 0x7FF61000 - 0x7FF65FFF
+Memory Allocation 0x00000003 0x7FF50000 - 0x7FF60FFF
+Memory Allocation 0x00000004 0x7FF27000 - 0x7FF4FFFF
+Memory Allocation 0x00000003 0x7FF26000 - 0x7FF26FFF
+Memory Allocation 0x0000000A 0x7FF24000 - 0x7FF25FFF
+Memory Allocation 0x00000000 0x7FF20000 - 0x7FF23FFF
+Memory Allocation 0x00000003 0x7FF1D000 - 0x7FF1FFFF
+Memory Allocation 0x00000003 0x7FF19000 - 0x7FF1CFFF
+Memory Allocation 0x00000003 0x7FF14000 - 0x7FF18FFF
+Memory Allocation 0x00000003 0x7FF08000 - 0x7FF13FFF
+Memory Allocation 0x00000003 0x7FF04000 - 0x7FF07FFF
+Memory Allocation 0x00000003 0x7FED6000 - 0x7FF03FFF
+Memory Allocation 0x00000003 0x7FED6000 - 0x7FF03FFF
+Memory Allocation 0x00000004 0x7FEB6000 - 0x7FED5FFF
+Memory Allocation 0x00000004 0x7F800000 - 0x7FDFFFFF
+Memory Allocation 0x00000007 0x7FE00000 - 0x7FEB5FFF
+Memory Allocation 0x00000004 0x7BBDC000 - 0x7BBFBFFF
+FV Hob            0x900000 - 0x177FFFF
+InstallProtocolInterface: D8117CFE-94A6-11D4-9A3A-0090273FC14D 7FEFB580
+InstallProtocolInterface: 8F644FA9-E850-4DB1-9CE2-0B44698E8DA4 7F4E37B0
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7F4E3A98
+InstallProtocolInterface: 220E73B6-6BDB-4413-8405-B974B108619A 7F4E3230
+InstallProtocolInterface: EE4E5898-3914-4259-9D6E-DC7BD79403CF 7FEFB498
+Loading driver 9B680FCE-AD6B-4F3A-B60B-F59899003443
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EFC81C0
+Loading driver at 0x0007EFAC000 EntryPoint=0x0007EFB3B73 DevicePathDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EFC8418
+ProtectUefiImageCommon - 0x7EFC81C0
+  - 0x000000007EFAC000 - 0x000000000000B280
+InstallProtocolInterface: 0379BE4E-D706-437D-B037-EDB82FB772A4 7EFB6580
+InstallProtocolInterface: 8B843E20-8132-4852-90CC-551A4E4A7F1C 7EFB6560
+InstallProtocolInterface: 05C99A21-C70F-4AD2-8A5F-35DF3343F51E 7EFB6540
+Loading driver 80CF7257-87AB-47F9-A3FE-D50B76D89541
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EFC3BC0
+Loading driver at 0x0007EFA6000 EntryPoint=0x0007EFA9861 PcdDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EFC3A98
+ProtectUefiImageCommon - 0x7EFC3BC0
+  - 0x000000007EFA6000 - 0x0000000000005C80
+InstallProtocolInterface: 11B34006-D85B-4D0A-A290-D5A571310EF7 7EFAB940
+InstallProtocolInterface: 13A3F0F6-264A-3EF0-F2E0-DEC512342F34 7EFAB8A0
+InstallProtocolInterface: 5BE40F57-FA68-4610-BBBF-E9C5FCDAD365 7EFAB870
+InstallProtocolInterface: FD0F4478-0EFD-461D-BA2D-E58C45FD5F5E 7EFAB850
+Loading driver 2EC9DA37-EE35-4DE9-86C5-6D9A81DC38A7
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EFC24C0
+Loading driver at 0x0007EFB8000 EntryPoint=0x0007EFBAAFB AmdSevDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EFC2A98
+ProtectUefiImageCommon - 0x7EFC24C0
+  - 0x000000007EFB8000 - 0x0000000000004DC0
+Error: Image at 0007EFB8000 start failed: Unsupported
+Loading driver E750224E-7BCE-40AF-B5BB-47E3611EB5C2
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EFC24C0
+Loading driver at 0x0007EFB8000 EntryPoint=0x0007EFBA0FC TdxDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EFC2798
+ProtectUefiImageCommon - 0x7EFC24C0
+  - 0x000000007EFB8000 - 0x0000000000004D00
+InstallProtocolInterface: BB00A5CA-08CE-462F-A537-43C74A825CA4 0
+Loading driver 733CBAC2-B23F-4B92-BC8E-FB01CE5907B7
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EFC1B40
+Loading driver at 0x0007F6E4000 EntryPoint=0x0007F6E7054 FvbServicesRuntimeDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EFC1A18
+ProtectUefiImageCommon - 0x7EFC1B40
+  - 0x000000007F6E4000 - 0x0000000000009000
+QEMU Flash: Failed to find probe location
+QEMU flash was not detected. Writable FVB is not being installed.
+Error: Image at 0007F6E4000 start failed: Write Protected
+Loading driver D93CE3D8-A7EB-4730-8C8E-CC466A9ECC3C
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EFC1B40
+Loading driver at 0x0007F6E7000 EntryPoint=0x0007F6E9899 ReportStatusCodeRouterRuntimeDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EFC1A98
+ProtectUefiImageCommon - 0x7EFC1B40
+  - 0x000000007F6E7000 - 0x0000000000006000
+InstallProtocolInterface: 86212936-0E76-41C8-A03A-2AF2FC1C39E2 7F6EB060
+InstallProtocolInterface: D2B2B828-0826-48A7-B3DF-983C006024F0 7F6EB040
+Loading driver B601F8C4-43B7-4784-95B1-F4226CB40CEE
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EFC12C0
+Loading driver at 0x0007F6E1000 EntryPoint=0x0007F6E3584 RuntimeDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EFBEB18
+ProtectUefiImageCommon - 0x7EFC12C0
+  - 0x000000007F6E1000 - 0x0000000000006000
+InstallProtocolInterface: B7DFB4E1-052F-449F-87BE-9818FC91B733 7F6E5080
+Loading driver F80697E9-7FD6-4665-8646-88E33EF71DFC
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EFBE1C0
+Loading driver at 0x0007EF98000 EntryPoint=0x0007EF9C35E SecurityStubDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EFBE918
+ProtectUefiImageCommon - 0x7EFBE1C0
+  - 0x000000007EF98000 - 0x00000000000067C0
+InstallProtocolInterface: 94AB2F58-1438-4EF1-9152-18941A3A0E68 7EF9E538
+InstallProtocolInterface: A46423E3-4617-49F1-B9FF-D1BFA9115839 7EF9E530
+InstallProtocolInterface: 15853D7C-3DDF-43E0-A1CB-EBF85B8F872C 7EF9E510
+Loading driver 13AC6DD0-73D0-11D4-B06B-00AA00BD6DE7
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EFBD1C0
+Loading driver at 0x0007EF91000 EntryPoint=0x0007EF955AC EbcDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EFBDB98
+ProtectUefiImageCommon - 0x7EFBD1C0
+  - 0x000000007EF91000 - 0x0000000000006180
+InstallProtocolInterface: 13AC6DD1-73D0-11D4-B06B-00AA00BD6DE7 7EFBD498
+InstallProtocolInterface: 96F46153-97A7-4793-ACC1-FA19BF78EA97 7EF96BA0
+InstallProtocolInterface: 2755590C-6F3C-42FA-9EA4-A3BA543CDA25 7EFBD618
+InstallProtocolInterface: AAEACCFD-F27B-4C17-B610-75CA1F2DFB52 7EFA5B18
+Loading driver A19B1FE7-C1BC-49F8-875F-54A5D542443F
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EFA50C0
+Loading driver at 0x0007EF9F000 EntryPoint=0x0007EFA0BE8 CpuIo2Dxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EFA5A18
+ProtectUefiImageCommon - 0x7EFA50C0
+  - 0x000000007EF9F000 - 0x0000000000002A40
+InstallProtocolInterface: AD61F191-AE5F-4C0E-B9FA-E869D288C64F 7EFA18C0
+Loading driver 1A1E4886-9517-440E-9FDE-3BE44CEE2136
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EFA54C0
+Loading driver at 0x0007EB57000 EntryPoint=0x0007EB621C6 CpuDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EFA5798
+ProtectUefiImageCommon - 0x7EFA54C0
+  - 0x000000007EB57000 - 0x000000000001C780
+Paging: added 512 pages to page table pool
+CurrentPagingContext:
+  MachineType   - 0x8664
+  PageTableBase - 0x7F801000
+  Attributes    - 0xC0000002
+InstallProtocolInterface: 26BACCB1-6F42-11D4-BCE7-0080C73C8881 7EB6CA80
+MemoryProtectionCpuArchProtocolNotify:
+ProtectUefiImageCommon - 0x7FEFA308
+  - 0x000000007FED6000 - 0x000000000002E000
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+ProtectUefiImageCommon - 0x7EFC81C0
+  - 0x000000007EFAC000 - 0x000000000000B280
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+ProtectUefiImageCommon - 0x7EFC3BC0
+  - 0x000000007EFA6000 - 0x0000000000005C80
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+ProtectUefiImageCommon - 0x7EFC24C0
+  - 0x000000007EFB8000 - 0x0000000000004D00
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+ProtectUefiImageCommon - 0x7EFC1B40
+  - 0x000000007F6E7000 - 0x0000000000006000
+SetUefiImageMemoryAttributes - 0x000000007F6E7000 - 0x0000000000001000 (0x0000000000004000)
+SetUefiImageMemoryAttributes - 0x000000007F6E8000 - 0x0000000000003000 (0x0000000000020000)
+SetUefiImageMemoryAttributes - 0x000000007F6EB000 - 0x0000000000002000 (0x0000000000004000)
+ProtectUefiImageCommon - 0x7EFC12C0
+  - 0x000000007F6E1000 - 0x0000000000006000
+SetUefiImageMemoryAttributes - 0x000000007F6E1000 - 0x0000000000001000 (0x0000000000004000)
+SetUefiImageMemoryAttributes - 0x000000007F6E2000 - 0x0000000000003000 (0x0000000000020000)
+SetUefiImageMemoryAttributes - 0x000000007F6E5000 - 0x0000000000002000 (0x0000000000004000)
+ProtectUefiImageCommon - 0x7EFBE1C0
+  - 0x000000007EF98000 - 0x00000000000067C0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+ProtectUefiImageCommon - 0x7EFBD1C0
+  - 0x000000007EF91000 - 0x0000000000006180
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+ProtectUefiImageCommon - 0x7EFA50C0
+  - 0x000000007EF9F000 - 0x0000000000002A40
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+ProtectUefiImageCommon - 0x7EFA54C0
+  - 0x000000007EB57000 - 0x000000000001C780
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+ConvertPages: failed to find range A0000 - FFFFF
+ConvertPages: failed to find range 80000000 - DFFFFFFF
+ConvertPages: failed to find range E0000000 - EFFFFFFF
+ConvertPages: failed to find range FEC00000 - FEC00FFF
+Failed to update capability: [8] 00000000FED00000 - 00000000FED003FF (C700000000000001 -> C700000000026001)
+ConvertPages: failed to find range FED1C000 - FED1FFFF
+ConvertPages: failed to find range FEE00000 - FEEFFFFF
+ConvertPages: failed to find range FD00000000 - FFFFFFFFFF
+MpInitLibInitialize: ProcessorIndex=0 CpuCount=4
+AP Loop Mode is 1
+AP Vector: non-16-bit = 7EB8F000/44A
+FirstMpHandOff->WaitLoopExecutionMode: 0000, sizeof (VOID *): 0008
+GetMicrocodePatchInfoFromHob: MicrocodeBase = 0x0, MicrocodeSize = 0x0
+WakeupBufferStart = 87000, WakeupBufferSize = DD
+AP Vector: 16-bit = 87000/39, ExchangeInfo = 87039/A4
+CpuDxe: 5-Level Paging = 0
+CPU[0000]: Microcode revision = 00000000, expected = 00000000
+CPU[0001]: Microcode revision = 00000000, expected = 00000000
+CPU[0002]: Microcode revision = 00000000, expected = 00000000
+CPU[0003]: Microcode revision = 00000000, expected = 00000000
+AP Page Table Buffer Size = 4000
+Detect CPU count: 4
+InstallProtocolInterface: 3FDDA605-A76E-4F46-AD29-12F4531B3D08 7EB6C900
+Loading driver F6697AC4-A776-4EE1-B643-1FEFF2B615BB
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB90B40
+Loading driver at 0x0007EB89000 EntryPoint=0x0007EB8A162 IncompatiblePciDeviceSupportDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB90E98
+ProtectUefiImageCommon - 0x7EB90B40
+  - 0x000000007EB89000 - 0x0000000000002040
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: EB23F55A-7863-4AC2-8D3D-956535DE0375 7EB8AF30
+Loading driver 11A6EDF6-A9BE-426D-A6CC-B22FE51D9224
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB90240
+Loading driver at 0x0007EB7D000 EntryPoint=0x0007EB807A5 PciHotPlugInitDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB90518
+ProtectUefiImageCommon - 0x7EB90240
+  - 0x000000007EB7D000 - 0x0000000000005280
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: AA0E8BC1-DABC-46B0-A844-37B8169B2BEA 7EB82150
+Loading driver 4B28E4C7-FF36-4E10-93CF-A82159E777C5
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB8ECC0
+Loading driver at 0x0007F6DA000 EntryPoint=0x0007F6DCB40 ResetSystemRuntimeDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB8E998
+ProtectUefiImageCommon - 0x7EB8ECC0
+  - 0x000000007F6DA000 - 0x0000000000007000
+SetUefiImageMemoryAttributes - 0x000000007F6DA000 - 0x0000000000001000 (0x0000000000004008)
+SetUefiImageMemoryAttributes - 0x000000007F6DB000 - 0x0000000000004000 (0x0000000000020008)
+SetUefiImageMemoryAttributes - 0x000000007F6DF000 - 0x0000000000002000 (0x0000000000004008)
+InstallProtocolInterface: 27CFAC88-46CC-11D4-9A38-0090273FC14D 0
+InstallProtocolInterface: 9DA34AE0-EAF9-4BBF-8EC3-FD60226C44BE 7F6DF108
+InstallProtocolInterface: 695D7835-8D47-4C11-AB22-FA8ACCE7AE7A 7F6DF148
+InstallProtocolInterface: 2DF6BA0B-7092-440D-BD04-FB091EC3F3C1 7F6DF0C8
+Loading driver C8339973-A563-4561-B858-D8476F9DEFC4
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB8DB40
+Loading driver at 0x0007EB83000 EntryPoint=0x0007EB842D3 Metronome.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB8DE98
+ProtectUefiImageCommon - 0x7EB8DB40
+  - 0x000000007EB83000 - 0x0000000000002800
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 26BACCB2-6F42-11D4-BCE7-0080C73C8881 7EB85670
+Loading driver 348C4D62-BFBD-4882-9ECE-C80BB1C4783B
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB8D140
+Loading driver at 0x0007EAF3000 EntryPoint=0x0007EB0AC02 HiiDatabase.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB8D698
+ProtectUefiImageCommon - 0x7EB8D140
+  - 0x000000007EAF3000 - 0x000000000001C780
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: E9CA4775-8657-47FC-97E7-7ED65A084324 7EB0F328
+InstallProtocolInterface: 0FD96974-23AA-4CDC-B9CB-98D17750322A 7EB0F3A0
+InstallProtocolInterface: EF9FC172-A1B2-4693-B327-6D32FC416042 7EB0F3C8
+InstallProtocolInterface: 587E72D7-CC50-4F79-8209-CA291FC1A10F 7EB0F420
+InstallProtocolInterface: 0A8BADD5-03B8-4D19-B128-7B8F0EDAA596 7EB0F450
+InstallProtocolInterface: 31A6406A-6BDF-4E46-B2A2-EBAA89C40920 7EB0F348
+InstallProtocolInterface: 1A1241E6-8F19-41A9-BC0E-E8EF39E06546 7EB0F370
+Loading driver 9622E42C-8E38-4A08-9E8F-54F784652F6B
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB8C1C0
+Loading driver at 0x0007EB25000 EntryPoint=0x0007EB291AC AcpiTableDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB8C998
+ProtectUefiImageCommon - 0x7EB8C1C0
+  - 0x000000007EB25000 - 0x0000000000007B40
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+Fail to locate AcpiSiliconHob!!
+InstallProtocolInterface: FFE06BDD-6107-46A6-7BB2-5A9C7EC5275C 7EB880A0
+InstallProtocolInterface: EB97088E-CFDF-49C6-BE4B-D906A5B20E86 7EB880B0
+Loading driver BDCE85BB-FBAA-4F4E-9264-501A2C249581
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB88CC0
+Loading driver at 0x0007EB1E000 EntryPoint=0x0007EB21EA1 S3SaveStateDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB88B18
+ProtectUefiImageCommon - 0x7EB88CC0
+  - 0x000000007EB1E000 - 0x0000000000006340
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+S3SaveStateDxe: Skip S3BootScript because ACPI S3 disabled.
+Error: Image at 0007EB1E000 start failed: Unsupported
+Loading driver A210F973-229D-4F4D-AA37-9895E6C9EABA
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB88CC0
+Loading driver at 0x0007EB77000 EntryPoint=0x0007EB78306 DpcDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB88B98
+ProtectUefiImageCommon - 0x7EB88CC0
+  - 0x000000007EB77000 - 0x0000000000002200
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 480F8AE9-0C46-4AA9-BC89-DB9FBA619806 7EB78E80
+Loading driver 8657015B-EA43-440D-949A-AF3BE365C0FC
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB882C0
+Loading driver at 0x0007EB17000 EntryPoint=0x0007EB1B15F IoMmuDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB88918
+ProtectUefiImageCommon - 0x7EB882C0
+  - 0x000000007EB17000 - 0x0000000000006B00
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: F8775D50-8ABD-4ADF-92AC-853E51F6C8DC 0
+Loading driver 60740CF3-D428-4500-80E6-04A5798241ED
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB87CC0
+Loading driver at 0x0007EB13000 EntryPoint=0x0007EB15145 VirtHstiDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB87B98
+ProtectUefiImageCommon - 0x7EB87CC0
+  - 0x000000007EB13000 - 0x0000000000003FC0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: E5DD1403-D622-C24E-8488-C71B17F5E802 7EB87230
+Loading driver 22DC2B60-FE40-42AC-B01F-3AB1FAD9AAD8
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB86040
+Loading driver at 0x0007F6D4000 EntryPoint=0x0007F6D6536 EmuVariableFvbRuntimeDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB86F18
+ProtectUefiImageCommon - 0x7EB86040
+  - 0x000000007F6D4000 - 0x0000000000006000
+SetUefiImageMemoryAttributes - 0x000000007F6D4000 - 0x0000000000001000 (0x0000000000004008)
+SetUefiImageMemoryAttributes - 0x000000007F6D5000 - 0x0000000000003000 (0x0000000000020008)
+SetUefiImageMemoryAttributes - 0x000000007F6D8000 - 0x0000000000002000 (0x0000000000004008)
+EMU Variable FVB Started
+EMU Variable FVB: Using pre-reserved block at 7FF7C000
+EMU Variable FVB: Basic FV headers were invalid
+Installing FVB for EMU Variable support
+InstallProtocolInterface: 8F644FA9-E850-4DB1-9CE2-0B44698E8DA4 7F6D8140
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7F6D8108
+Loading driver CBD2E4D5-7068-4FF5-B462-9822B4AD8D60
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB863C0
+Loading driver at 0x0007F6C4000 EntryPoint=0x0007F6CD47E VariableRuntimeDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB86898
+ProtectUefiImageCommon - 0x7EB863C0
+  - 0x000000007F6C4000 - 0x0000000000010000
+SetUefiImageMemoryAttributes - 0x000000007F6C4000 - 0x0000000000001000 (0x0000000000004008)
+SetUefiImageMemoryAttributes - 0x000000007F6C5000 - 0x000000000000D000 (0x0000000000020008)
+SetUefiImageMemoryAttributes - 0x000000007F6D2000 - 0x0000000000002000 (0x0000000000004008)
+VarCheckLibRegisterSetVariableCheckHandler - 0x7F6C883F Success
+Variable driver common space: 0x3FF9C 0x3FF9C 0x3FF9C
+Variable driver will work with auth variable format!
+InstallProtocolInterface: CD3D0A05-9E24-437C-A891-1EE053DB7638 7F6D2800
+InstallProtocolInterface: AF23B340-97B4-4685-8D4F-A3F28169B21D 7F6D27D0
+InstallProtocolInterface: 1E5668E2-8481-11D4-BCF1-0080C73C8881 0
+VarCheckLibRegisterSetVariableCheckHandler - 0x7F6C8651 Success
+InstallProtocolInterface: 81D1675C-86F6-48DF-BD95-9A6E4F0925C3 7F6D2760
+Loading driver A5683620-7998-4BB2-A377-1C1E31E1E215
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB7C240
+Loading driver at 0x0007EA2C000 EntryPoint=0x0007EA2EC7F TcgDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB7C598
+ProtectUefiImageCommon - 0x7EB7C240
+  - 0x000000007EA2C000 - 0x0000000000005040
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+No TPM12 instance required!
+Error: Image at 0007EA2C000 start failed: Unsupported
+Loading driver B981A835-6EE8-4F4C-AE0B-210AA0BFBF01
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB7C240
+Loading driver at 0x0007EA2E000 EntryPoint=0x0007EA2FA1B RngDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB7B018
+ProtectUefiImageCommon - 0x7EB7C240
+  - 0x000000007EA2E000 - 0x0000000000003740
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+Error: Image at 0007EA2E000 start failed: 00000001
+Loading driver 6C2004EF-4E0E-4BE4-B14C-340EB4AA5891
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB7C240
+Loading driver at 0x0007F6BF000 EntryPoint=0x0007F6C109D StatusCodeHandlerRuntimeDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB7BB18
+ProtectUefiImageCommon - 0x7EB7C240
+  - 0x000000007F6BF000 - 0x0000000000005000
+SetUefiImageMemoryAttributes - 0x000000007F6BF000 - 0x0000000000001000 (0x0000000000004008)
+SetUefiImageMemoryAttributes - 0x000000007F6C0000 - 0x0000000000003000 (0x0000000000020008)
+SetUefiImageMemoryAttributes - 0x000000007F6C3000 - 0x0000000000001000 (0x0000000000004008)
+Loading driver 52FE8196-F9DE-4D07-B22F-51F77A0E7C41
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB7B1C0
+Loading driver at 0x0007EA2E000 EntryPoint=0x0007EA2FA0A LocalApicTimerDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB7B998
+ProtectUefiImageCommon - 0x7EB7B1C0
+  - 0x000000007EA2E000 - 0x0000000000003140
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 26BACCB3-6F42-11D4-BCE7-0080C73C8881 7EA30F20
+Loading driver 128FB770-5E79-4176-9E51-9BB268A17DD1
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB7A040
+Loading driver at 0x0007EA18000 EntryPoint=0x0007EA1F096 PciHostBridgeDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB7B598
+ProtectUefiImageCommon - 0x7EB7A040
+  - 0x000000007EA18000 - 0x000000000000A0C0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+Select Item: 0x0
+FW CFG Signature: 0x554D4551
+Select Item: 0x1
+FW CFG Revision: 0x3
+QemuFwCfg interface (DMA) is supported.
+Select Item: 0x19
+Select Item: 0x19
+PciHostBridgeUtilityInitRootBridge: populated root bus 0, with room for 255 subordinate bus(es)
+RootBridge: PciRoot(0x0)
+  Support/Attr: 70069 / 70069
+    DmaAbove4G: No
+NoExtConfSpace: No
+     AllocAttr: 3 (CombineMemPMem Mem64Decode)
+           Bus: 0 - FF Translation=0
+            Io: 6000 - FFFF Translation=0
+           Mem: 80000000 - DFFFFFFF Translation=0
+    MemAbove4G: C000000000 - DFFFFFFFFF Translation=0
+          PMem: FFFFFFFFFFFFFFFF - 0 Translation=0
+   PMemAbove4G: FFFFFFFFFFFFFFFF - 0 Translation=0
+CpuDxe: 5-Level Paging = 0
+InstallProtocolInterface: CF8034BE-6768-4D8B-B739-7CCE683A9FBE 7EB7AA40
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7EB7AB18
+InstallProtocolInterface: 2F707EBB-4A1A-11D4-9A38-0090273FC14D 7EB7A570
+Loading driver EBF342FE-B1D3-4EF8-957C-8048606FF671
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB760C0
+Loading driver at 0x0007E7CE000 EntryPoint=0x0007E7DDBA3 SetupBrowser.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB76418
+ProtectUefiImageCommon - 0x7EB760C0
+  - 0x000000007E7CE000 - 0x00000000000183C0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: B9D4C360-BCFB-4F9B-9298-53C136982258 7E7E5EB0
+InstallProtocolInterface: A770C357-B693-4E6D-A6CF-D21C728E550B 7E7E5EE0
+InstallProtocolInterface: 1F73B18D-4630-43C1-A1DE-6F80855D7DA4 7E7E5EC0
+Loading driver F9D88642-0737-49BC-81B5-6889CD57D9EA
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB75BC0
+Loading driver at 0x0007EA28000 EntryPoint=0x0007EA2B3F3 SmbiosDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB75F18
+ProtectUefiImageCommon - 0x7EB75BC0
+  - 0x000000007EA28000 - 0x0000000000005E40
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+Select Item: 0x0
+FW CFG Signature: 0x554D4551
+Select Item: 0x1
+FW CFG Revision: 0x3
+QemuFwCfg interface (DMA) is supported.
+Select Item: 0x19
+Select Item: 0x19
+Select Item: 0x27
+DetectSmbiosVersion: SMBIOS version from QEMU: 0x0208
+InstallProtocolInterface: 03583FF6-CB36-4940-947E-B9B39F4AFAF7 7EA2DCB0
+Loading driver 17985E6F-E778-4D94-AEFA-C5DD2B77E186
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB751C0
+Loading driver at 0x0007EA11000 EntryPoint=0x0007EA154AA QemuFwCfgAcpiPlatform.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB75798
+ProtectUefiImageCommon - 0x7EB751C0
+  - 0x000000007EA11000 - 0x0000000000006FC0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+Select Item: 0x0
+FW CFG Signature: 0x554D4551
+Select Item: 0x1
+FW CFG Revision: 0x3
+QemuFwCfg interface (DMA) is supported.
+AcpiPlatformEntryPoint: waiting for root bridges to be connected, registered callback
+Loading driver F74D20EE-37E7-48FC-97F7-9B1047749C69
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB74BC0
+Loading driver at 0x0007EA23000 EntryPoint=0x0007EA24023 LogoDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB74E98
+InstallProtocolInterface: 6A1EE763-D47A-43B4-AABE-EF1DE2AB56FC 7EA24D30
+ProtectUefiImageCommon - 0x7EB74BC0
+  - 0x000000007EA23000 - 0x0000000000004C80
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 53CD299F-2BC1-40C0-8C07-23F64FDB30E0 7EA24B80
+Loading driver DCE1B094-7DC6-45D0-9FDD-D7FC3CC3E4EF
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB21B40
+Loading driver at 0x0007EA07000 EntryPoint=0x0007EA09870 QemuRamfbDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB21E18
+ProtectUefiImageCommon - 0x7EB21B40
+  - 0x000000007EA07000 - 0x0000000000004E40
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+Select Item: 0x0
+FW CFG Signature: 0x554D4551
+Select Item: 0x1
+FW CFG Revision: 0x3
+QemuFwCfg interface (DMA) is supported.
+Select Item: 0x19
+Error: Image at 0007EA07000 start failed: Not Found
+Loading driver FE5CEA76-4F72-49E8-986F-2CD899DFFE5D
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB21B40
+Loading driver at 0x0007EA05000 EntryPoint=0x0007EA08C1D FaultTolerantWriteDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB21E98
+ProtectUefiImageCommon - 0x7EB21B40
+  - 0x000000007EA05000 - 0x0000000000005A00
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+Ftw: FtwWorkSpaceLba - 0x40, WorkBlockSize  - 0x1000, FtwWorkSpaceBase - 0x0
+Ftw: FtwSpareLba     - 0x42, SpareBlockSize - 0x1000
+Ftw: NumberOfWorkBlock - 0x1, FtwWorkBlockLba - 0x40
+Ftw: WorkSpaceLbaInSpare - 0x0, WorkSpaceBaseInSpare - 0x0
+Ftw: Remaining work space size - FE0
+Ftw: Work block header check mismatch
+Ftw: Work block header check mismatch
+Ftw: Both working and spare blocks are invalid, init workspace
+Ftw: start to reclaim work space
+Ftw: reclaim work space successfully
+InstallProtocolInterface: 3EBD9E82-2C78-4DE6-9786-8D4BFCB7C881 7EB1F028
+NOTICE - AuthVariableLibInitialize() returns Unsupported!
+Variable driver will continue to work without auth variable support!
+RecordSecureBootPolicyVarData GetVariable SecureBoot Status E
+InstallProtocolInterface: 6441F818-6362-4E44-B570-7DBA31DD2453 0
+Loading driver F062221E-C607-44C2-B0B4-C3886331D351
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB213C0
+Loading driver at 0x0007E7F0000 EntryPoint=0x0007E7F4D95 TdTcg2Dxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB21718
+ProtectUefiImageCommon - 0x7EB213C0
+  - 0x000000007E7F0000 - 0x0000000000007C00
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+Error: Image at 0007E7F0000 start failed: Unsupported
+Loading driver FDFF263D-5F68-4591-87BA-B768F445A9AF
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB213C0
+Loading driver at 0x0007E7BD000 EntryPoint=0x0007E7C3B55 Tcg2Dxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB21798
+ProtectUefiImageCommon - 0x7EB213C0
+  - 0x000000007E7BD000 - 0x0000000000010E80
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+Select Item: 0x0
+FW CFG Signature: 0x554D4551
+Select Item: 0x1
+FW CFG Revision: 0x3
+QemuFwCfg interface (DMA) is supported.
+WARNING: Tpm2RegisterTpm2DeviceLib - does not support 286BF25A-C2C3-408C-B3B4-25E6758B7317 registration
+No TPM2 instance required!
+Error: Image at 0007E7BD000 start failed: Unsupported
+Loading driver 17D0EF2A-5933-4007-8950-5749169D3DC5
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB213C0
+Loading driver at 0x0007E7EE000 EntryPoint=0x0007E7F2C00 VariablePolicyDynamicCommand.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB21698
+InstallProtocolInterface: 6A1EE763-D47A-43B4-AABE-EF1DE2AB56FC 7E7F5170
+ProtectUefiImageCommon - 0x7EB213C0
+  - 0x000000007E7EE000 - 0x00000000000085C0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 3C7200E9-005F-4EA4-87DE-A3DFAC8A27C3 7E7F4DC0
+Loading driver 2F30DA26-F51B-4B6F-85C4-31873C281BCA
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB1E1C0
+Loading driver at 0x0007E7C6000 EntryPoint=0x0007E7CACCD LinuxInitrdDynamicShellCommand.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB1EB98
+InstallProtocolInterface: 6A1EE763-D47A-43B4-AABE-EF1DE2AB56FC 7E7CCE70
+ProtectUefiImageCommon - 0x7EB1E1C0
+  - 0x000000007E7C6000 - 0x0000000000007980
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 3C7200E9-005F-4EA4-87DE-A3DFAC8A27C3 7E7CCB10
+Loading driver 378D7B65-8DA9-4773-B6E4-A47826A833E1
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EB10AC0
+Loading driver at 0x0007F6B8000 EntryPoint=0x0007F6BB45C PcRtc.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EB1E598
+ProtectUefiImageCommon - 0x7EB10AC0
+  - 0x000000007F6B8000 - 0x0000000000007000
+SetUefiImageMemoryAttributes - 0x000000007F6B8000 - 0x0000000000001000 (0x0000000000004008)
+SetUefiImageMemoryAttributes - 0x000000007F6B9000 - 0x0000000000005000 (0x0000000000020008)
+SetUefiImageMemoryAttributes - 0x000000007F6BE000 - 0x0000000000001000 (0x0000000000004008)
+InstallProtocolInterface: 27CFAC87-46CC-11D4-9A38-0090273FC14D 0
+Loading driver F099D67F-71AE-4C36-B2A3-DCEB0EB2B7D8
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EA101C0
+Loading driver at 0x0007EA02000 EntryPoint=0x0007EA030D7 WatchdogTimer.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EA10418
+ProtectUefiImageCommon - 0x7EA101C0
+  - 0x000000007EA02000 - 0x0000000000002040
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 665E3FF5-46CC-11D4-9A38-0090273FC14D 7EA03E90
+Loading driver AD608272-D07F-4964-801E-7BD3B7888652
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EA0FB40
+Loading driver at 0x0007F6B4000 EntryPoint=0x0007F6B5EB4 MonotonicCounterRuntimeDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EA0F098
+ProtectUefiImageCommon - 0x7EA0FB40
+  - 0x000000007F6B4000 - 0x0000000000004000
+SetUefiImageMemoryAttributes - 0x000000007F6B4000 - 0x0000000000001000 (0x0000000000004008)
+SetUefiImageMemoryAttributes - 0x000000007F6B5000 - 0x0000000000002000 (0x0000000000020008)
+SetUefiImageMemoryAttributes - 0x000000007F6B7000 - 0x0000000000001000 (0x0000000000004008)
+InstallProtocolInterface: 1DA97072-BDDC-4B30-99F1-72A0B56FFF2A 0
+Loading driver 42857F0A-13F2-4B21-8A23-53D3F714B840
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EA0F2C0
+Loading driver at 0x0007F6AF000 EntryPoint=0x0007F6B1128 CapsuleRuntimeDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EA0EF98
+ProtectUefiImageCommon - 0x7EA0F2C0
+  - 0x000000007F6AF000 - 0x0000000000005000
+SetUefiImageMemoryAttributes - 0x000000007F6AF000 - 0x0000000000001000 (0x0000000000004008)
+SetUefiImageMemoryAttributes - 0x000000007F6B0000 - 0x0000000000003000 (0x0000000000020008)
+SetUefiImageMemoryAttributes - 0x000000007F6B3000 - 0x0000000000001000 (0x0000000000004008)
+InstallProtocolInterface: 5053697E-2CBC-4819-90D9-0580DEEE5754 0
+Loading driver EBF8ED7C-0DD1-4787-84F1-F48D537DCACF
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EA0E840
+Loading driver at 0x0007E7E8000 EntryPoint=0x0007E7EBB89 DriverHealthManagerDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EA0E698
+ProtectUefiImageCommon - 0x7EA0E840
+  - 0x000000007E7E8000 - 0x0000000000006000
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E7EDA20
+InstallProtocolInterface: 330D4706-F2A0-4E4F-A369-B66FA8D54385 7E7ED9F0
+Loading driver 6D33944A-EC75-4855-A54D-809C75241F6C
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EA0D040
+Loading driver at 0x0007E786000 EntryPoint=0x0007E79A88C BdsDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EA0CE18
+ProtectUefiImageCommon - 0x7EA0D040
+  - 0x000000007E786000 - 0x000000000001F480
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+Select Item: 0x0
+FW CFG Signature: 0x554D4551
+Select Item: 0x1
+FW CFG Revision: 0x3
+QemuFwCfg interface (DMA) is supported.
+InstallProtocolInterface: 665E3FF6-46CC-11D4-9A38-0090273FC14D 7E7A5160
+Loading driver 28A03FF4-12B3-4305-A417-BB1A4F94081E
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7EA0C2C0
+Loading driver at 0x0007E7B0000 EntryPoint=0x0007E7B6796 RamDiskDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EA0C518
+ProtectUefiImageCommon - 0x7EA0C2C0
+  - 0x000000007E7B0000 - 0x000000000000A7C0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7EA0CA18
+InstallProtocolInterface: 330D4706-F2A0-4E4F-A369-B66FA8D54385 7E7BA498
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E7BA530
+InstallProtocolInterface: 330D4706-F2A0-4E4F-A369-B66FA8D54385 7EA01C30
+InstallProtocolInterface: AB38A0DF-6873-44A9-87E6-D4EB56148449 7E7BA220
+InstallProtocolInterface: 28A03FF4-12B3-4305-A417-BB1A4F94081E 7EA01C18
+Loading driver E660EA85-058E-4B55-A54B-F02F83A24707
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7FF7C0
+Loading driver at 0x0007E75E000 EntryPoint=0x0007E76C43F DisplayEngine.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E7FFB18
+ProtectUefiImageCommon - 0x7E7FF7C0
+  - 0x000000007E75E000 - 0x0000000000013880
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 9BBE29E9-FDA1-41EC-AD52-452213742D2E 7E76FCB0
+InstallProtocolInterface: 4311EDC0-6054-46D4-9E40-893EA952FCCC 7E76FCC8
+Loading driver 4110465D-5FF3-4F4B-B580-24ED0D06747A
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7FB140
+Loading driver at 0x0007E7BE000 EntryPoint=0x0007E7BFF58 SmbiosPlatformDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EA01118
+ProtectUefiImageCommon - 0x7E7FB140
+  - 0x000000007E7BE000 - 0x0000000000003F80
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+Select Item: 0x0
+FW CFG Signature: 0x554D4551
+Select Item: 0x1
+FW CFG Revision: 0x3
+QemuFwCfg interface (DMA) is supported.
+Select Item: 0x19
+Select Item: 0x28
+SmbiosAdd: Smbios type 22 with size 0x46 is added to 32-bit table
+SmbiosCreateTable: Initialize 32-bit entry point structure
+SmbiosCreateTable() re-allocate SMBIOS 32-bit table
+SmbiosAdd: Smbios type 1 with size 0x40 is added to 32-bit table
+SmbiosAdd: Smbios type 3 with size 0x22 is added to 32-bit table
+SmbiosAdd: Smbios type 4 with size 0x42 is added to 32-bit table
+SmbiosAdd: Smbios type 16 with size 0x19 is added to 32-bit table
+SmbiosAdd: Smbios type 17 with size 0x35 is added to 32-bit table
+SmbiosAdd: Smbios type 19 with size 0x21 is added to 32-bit table
+SmbiosAdd: Smbios type 19 with size 0x21 is added to 32-bit table
+SmbiosAdd: Smbios type 32 with size 0xD is added to 32-bit table
+FirmwareVendor:            "EDK II" (6 chars)
+FirmwareVersionString:     "edk2-stable202408-prebuilt.qemu.org" (35 chars)
+FirmwareReleaseDateString: "08/13/2024" (10 chars)
+SmbiosAdd: Smbios type 0 with size 0x51 is added to 32-bit table
+Loading driver 7CA1024F-EB17-11E5-9DBA-28D2447C4829
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7FB540
+Loading driver at 0x0007E752000 EntryPoint=0x0007E758B4D TlsAuthConfigDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E7F7018
+ProtectUefiImageCommon - 0x7E7FB540
+  - 0x000000007E752000 - 0x000000000000B3C0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+Select Item: 0x0
+FW CFG Signature: 0x554D4551
+Select Item: 0x1
+FW CFG Revision: 0x3
+QemuFwCfg interface (DMA) is supported.
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E7F7C98
+InstallProtocolInterface: 330D4706-F2A0-4E4F-A369-B66FA8D54385 7E75CFD8
+Select Item: 0x19
+Select Item: 0x19
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E75D0D0
+InstallProtocolInterface: 330D4706-F2A0-4E4F-A369-B66FA8D54385 7E7C5EB0
+InstallProtocolInterface: 7CA1024F-EB17-11E5-9DBA-28D2447C4829 7E7C5E98
+Loading driver D9DCC5DF-4007-435E-9098-8970935504B2
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7C56C0
+Loading driver at 0x0007E780000 EntryPoint=0x0007E7835CC PlatformDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E7C5A18
+ProtectUefiImageCommon - 0x7E7C56C0
+  - 0x000000007E780000 - 0x0000000000005BC0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E7859C0
+InstallProtocolInterface: 330D4706-F2A0-4E4F-A369-B66FA8D54385 7E785A90
+Loading driver 93B80004-9FB3-11D4-9A3A-0090273FC14D
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7C3AC0
+Loading driver at 0x0007E734000 EntryPoint=0x0007E73FDB4 PciBusDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E7C3D98
+ProtectUefiImageCommon - 0x7E7C3AC0
+  - 0x000000007E734000 - 0x000000000000EE00
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E742980
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E742860
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E742B40
+InstallProtocolInterface: 19CB87AB-2CB9-4665-8360-DDCF6054F79D 7E742B20
+Loading driver 83DD3B39-7CAF-4FAC-A542-E050B767E3A7
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7C34C0
+Loading driver at 0x0007E7A8000 EntryPoint=0x0007E7A9D02 VirtioPciDeviceDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E7C3798
+ProtectUefiImageCommon - 0x7E7C34C0
+  - 0x000000007E7A8000 - 0x0000000000003200
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E7AAF60
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E7AAFC0
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E7AAF40
+Loading driver 0170F60C-1D40-4651-956D-F0BD9879D527
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7C2B40
+Loading driver at 0x0007E776000 EntryPoint=0x0007E7793E1 Virtio10.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E7C2E98
+ProtectUefiImageCommon - 0x7E7C2B40
+  - 0x000000007E776000 - 0x0000000000004C80
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E77AA20
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E77AA80
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E77AA00
+Loading driver 11D92DFB-3CA9-4F93-BA2E-4780ED3E03B5
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7C2140
+Loading driver at 0x0007E77C000 EntryPoint=0x0007E77E2F9 VirtioBlkDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E7C2718
+ProtectUefiImageCommon - 0x7E7C2140
+  - 0x000000007E77C000 - 0x0000000000003780
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E77F5A0
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E77F600
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E77F580
+Loading driver FAB5D4F4-83C0-4AAF-8480-442D11DF6CEA
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7BDB40
+Loading driver at 0x0007E772000 EntryPoint=0x0007E774885 VirtioScsiDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E7BDE98
+ProtectUefiImageCommon - 0x7E7BDB40
+  - 0x000000007E772000 - 0x0000000000003D00
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E775B20
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E775B80
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E775B00
+Loading driver 23CACE14-EBA4-49F6-9681-C697FF0B649E
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7BD140
+Loading driver at 0x0007E748000 EntryPoint=0x0007E74B147 VirtioSerialDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E7BD718
+ProtectUefiImageCommon - 0x7E7BD140
+  - 0x000000007E748000 - 0x0000000000004E80
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E74CBC0
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E74CC60
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E74CB90
+Loading driver 51CCF399-4FDF-4E55-A45B-E123F84D456A
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7BCB40
+Loading driver at 0x0007E743000 EntryPoint=0x0007E7457D6 ConPlatformDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E7BCE98
+ProtectUefiImageCommon - 0x7E7BCB40
+  - 0x000000007E743000 - 0x00000000000041C0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E746F20
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E747020
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E746EF0
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E746EC0
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E747020
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E746EF0
+Loading driver 408EDCEC-CF6D-477C-A5A8-B4844E3DE281
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7BC240
+Loading driver at 0x0007E724000 EntryPoint=0x0007E729231 ConSplitterDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E7BC518
+ProtectUefiImageCommon - 0x7E7BC240
+  - 0x000000007E724000 - 0x0000000000007800
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E72B4E0
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E72B5C0
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E72ADE0
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E72B460
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E72B5A0
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E72ADC0
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E72B3E0
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E72B580
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E72ADA0
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E72B360
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E72B560
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E72AD80
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E72B2E0
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E72B540
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E72AD60
+InstallProtocolInterface: 387477C1-69C7-11D2-8E39-00A0C969723B 7E72B110
+InstallProtocolInterface: DD9E7534-7762-4698-8C14-F58517A625AA 7E72B140
+InstallProtocolInterface: 31878C87-0B75-11D5-9A4F-0090273FC14D 7E72B1B0
+InstallProtocolInterface: 8D59D32B-C655-4AE9-9B15-F25904992A43 7E72B208
+InstallProtocolInterface: 387477C2-69C7-11D2-8E39-00A0C969723B 7E72AFD0
+InstallProtocolInterface: 387477C2-69C7-11D2-8E39-00A0C969723B 7E72AEB0
+Loading driver CCCB0C28-4B24-11D5-9A5A-0090273FC14D
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7AD7C0
+Loading driver at 0x0007E71E000 EntryPoint=0x0007E720FA4 GraphicsConsoleDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E7BBB98
+ProtectUefiImageCommon - 0x7E7AD7C0
+  - 0x000000007E71E000 - 0x0000000000005F80
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E722620
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E723DC0
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E7225F0
+Loading driver 9E863906-A40F-4875-977F-5B93FF237FC6
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7ACB40
+Loading driver at 0x0007E716000 EntryPoint=0x0007E71B721 TerminalDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E7AD718
+ProtectUefiImageCommon - 0x7E7ACB40
+  - 0x000000007E716000 - 0x0000000000007BC0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E71D9C0
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E71DA20
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E71D750
+Loading driver 806040CA-DAD9-4978-A3B4-2D2AB0C8A48F
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7AC1C0
+Loading driver at 0x0007E711000 EntryPoint=0x0007E713366 QemuKernelLoaderFsDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E7AC518
+ProtectUefiImageCommon - 0x7E7AC1C0
+  - 0x000000007E711000 - 0x0000000000004540
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+Select Item: 0x0
+FW CFG Signature: 0x554D4551
+Select Item: 0x1
+FW CFG Revision: 0x3
+QemuFwCfg interface (DMA) is supported.
+Select Item: 0x17
+Select Item: 0x8
+Select Item: 0xB
+Select Item: 0x14
+Error: Image at 0007E711000 start failed: Not Found
+Loading driver 6B38F7B4-AD98-40E9-9093-ACA2B5A253C4
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7AC1C0
+Loading driver at 0x0007E711000 EntryPoint=0x0007E713E48 DiskIoDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E7AC718
+ProtectUefiImageCommon - 0x7E7AC1C0
+  - 0x000000007E711000 - 0x0000000000004800
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E7155A0
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E7156C0
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E715580
+Loading driver 1FA1F39E-FEFF-4AAE-BD7B-38A070A3B609
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7A7040
+Loading driver at 0x0007E70A000 EntryPoint=0x0007E70E839 PartitionDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E7A7E98
+ProtectUefiImageCommon - 0x7E7A7040
+  - 0x000000007E70A000 - 0x0000000000006480
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E710220
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E710320
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E710200
+Loading driver CD3BAFB6-50FB-4FE8-8E4E-AB74D2C1A600
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7A73C0
+Loading driver at 0x0007E72E000 EntryPoint=0x0007E72F2FD EnglishDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E7A7718
+ProtectUefiImageCommon - 0x7E7A73C0
+  - 0x000000007E72E000 - 0x0000000000002340
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 1D85CD7F-F43D-11D2-9A0C-0090273FC14D 7E72FEA0
+InstallProtocolInterface: A4C751FC-23AE-4C3E-92E9-4964CF63F349 7E72FE40
+Loading driver 0167CCC4-D0F7-4F21-A3EF-9E64B7CDCE8B
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7A60C0
+Loading driver at 0x0007E700000 EntryPoint=0x0007E702AAD ScsiBus.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E7A6A98
+ProtectUefiImageCommon - 0x7E7A60C0
+  - 0x000000007E700000 - 0x0000000000004080
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E703E80
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E703F20
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E703E60
+Loading driver 0A66E322-3740-4CCE-AD62-BD172CECCA35
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7A6340
+Loading driver at 0x0007E6EC000 EntryPoint=0x0007E6F3DCE ScsiDisk.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E7A6618
+ProtectUefiImageCommon - 0x7E7A6340
+  - 0x000000007E6EC000 - 0x0000000000009AC0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E6F5920
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E6F5980
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E6F58A0
+Loading driver 820C59BB-274C-43B2-83EA-DAC673035A59
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E77B040
+Loading driver at 0x0007E6FC000 EntryPoint=0x0007E6FDF68 SataController.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E77B298
+ProtectUefiImageCommon - 0x7E77B040
+  - 0x000000007E6FC000 - 0x00000000000035C0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E6FF400
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E6FF460
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E6FF380
+Loading driver 5E523CB4-D397-4986-87BD-A6DD8B22F455
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E77B3C0
+Loading driver at 0x0007E6D4000 EntryPoint=0x0007E6DC590 AtaAtapiPassThruDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E77B698
+ProtectUefiImageCommon - 0x7E77B3C0
+  - 0x000000007E6D4000 - 0x000000000000B3C0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E6DEF40
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E6DEFA0
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E6DEEC0
+Loading driver 19DF145A-B1D4-453F-8507-38816676D7F6
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E751040
+Loading driver at 0x0007E6CD000 EntryPoint=0x0007E6D13BB AtaBusDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E751298
+ProtectUefiImageCommon - 0x7E751040
+  - 0x000000007E6CD000 - 0x00000000000067C0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E6D3340
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E6D3430
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E6D3410
+Loading driver 5BE3BDF4-53CF-46A3-A6A9-73C34A6E5EE3
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7513C0
+Loading driver at 0x0007E6C3000 EntryPoint=0x0007E6C9CF7 NvmExpressDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E751698
+ProtectUefiImageCommon - 0x7E7513C0
+  - 0x000000007E6C3000 - 0x0000000000009680
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E6CC4A0
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E6CC500
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E6CC3D0
+InstallProtocolInterface: 5C198761-16A8-4E69-972C-89D67954F81D 7E6CC320
+Loading driver 864E1CA8-85EB-4D63-9DCC-6E0FC90FFD55
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E750CC0
+Loading driver at 0x0007E6F8000 EntryPoint=0x0007E6F9DC7 SioBusDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E750918
+ProtectUefiImageCommon - 0x7E750CC0
+  - 0x000000007E6F8000 - 0x0000000000003340
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E6FB0E0
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E6FB200
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E6FB0C0
+Loading driver E2775B47-D453-4EE3-ADA7-391A1B05AC17
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E750340
+Loading driver at 0x0007E6BC000 EntryPoint=0x0007E6C059C PciSioSerialDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E750718
+ProtectUefiImageCommon - 0x7E750340
+  - 0x000000007E6BC000 - 0x0000000000006200
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E6C2040
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E6C20A0
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E6C1EB0
+Loading driver C4D1F932-821F-4744-BF06-6D30F7730F8D
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E74DCC0
+Loading driver at 0x0007E6E0000 EntryPoint=0x0007E6E3CA8 Ps2KeyboardDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E74D918
+ProtectUefiImageCommon - 0x7E74DCC0
+  - 0x000000007E6E0000 - 0x0000000000005DC0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E6E5BE0
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E6E5C40
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E6E5B70
+Loading driver B8E62775-BB0A-43F0-A843-5BE8B14F8CCD
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E74D340
+Loading driver at 0x0007E707000 EntryPoint=0x0007E708637 BootGraphicsResourceTableDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E74D718
+ProtectUefiImageCommon - 0x7E74D340
+  - 0x000000007E707000 - 0x0000000000002A80
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: CDEA2BD3-FC25-4C1C-B97C-B31186064990 7E709830
+InstallProtocolInterface: 4B5DC1DF-1EAA-48B2-A7E9-EAC489A00B5C 7E7098B0
+Loading driver 961578FE-B6B7-44C3-AF35-6BC705CD2B1F
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E733940
+Loading driver at 0x0007E6A6000 EntryPoint=0x0007E6ADC79 Fat.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E733018
+ProtectUefiImageCommon - 0x7E733940
+  - 0x000000007E6A6000 - 0x000000000000A040
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E6AFE60
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E6AFEC0
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E6AFC90
+Loading driver 905F13B0-8F91-4B0A-BD76-E1E78F9422E4
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E733440
+Loading driver at 0x0007E69F000 EntryPoint=0x0007E6A3A78 UdfDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E732018
+ProtectUefiImageCommon - 0x7E733440
+  - 0x000000007E69F000 - 0x0000000000006480
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E6A51E0
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E6A5340
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E6A51C0
+Loading driver 7BD9DDF7-8B83-488E-AEC9-24C78610289C
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E732140
+Loading driver at 0x0007E695000 EntryPoint=0x0007E69C4BD VirtioFsDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E732998
+ProtectUefiImageCommon - 0x7E732140
+  - 0x000000007E695000 - 0x0000000000009940
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E69E820
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E69E800
+Loading driver 63E3BDCF-2AC7-4AC0-9B92-03A7541422FF
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E732540
+Loading driver at 0x0007E6B7000 EntryPoint=0x0007E6B99B0 Hash2DxeCrypto.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E731F18
+ProtectUefiImageCommon - 0x7E732540
+  - 0x000000007E6B7000 - 0x00000000000046C0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: DA836F8D-217F-4CA0-99C2-1CA4E16077EA 7E7310A8
+Loading driver 3ACEB0C0-3C72-11E4-9A56-74D435052646
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E7319C0
+Loading driver at 0x0007E4D5000 EntryPoint=0x0007E5560B9 TlsDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E731898
+ProtectUefiImageCommon - 0x7E7319C0
+  - 0x000000007E4D5000 - 0x00000000000DFDC0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 952CB795-FF36-48CF-A249-4DF486D6AB8D 7E7312A0
+Loading driver A92CDB4B-82F1-4E0B-A516-8A655D371524
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E674040
+Loading driver at 0x0007E66E000 EntryPoint=0x0007E671B65 VirtioNetDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E674E98
+ProtectUefiImageCommon - 0x7E674040
+  - 0x000000007E66E000 - 0x0000000000005600
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E673440
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E6734A0
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E6733C0
+Loading driver 2FB92EFA-2EE0-4BAE-9EB6-7464125E1EF7
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E6742C0
+Loading driver at 0x0007E660000 EntryPoint=0x0007E665033 UhciDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E674B18
+ProtectUefiImageCommon - 0x7E6742C0
+  - 0x000000007E660000 - 0x0000000000006E00
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E666C00
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E666C80
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E666C60
+Loading driver BDFE430E-8F2A-4DB0-9991-6F856594777E
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E674740
+Loading driver at 0x0007E64E000 EntryPoint=0x0007E653FC4 EhciDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E67AF98
+ProtectUefiImageCommon - 0x7E674740
+  - 0x000000007E64E000 - 0x0000000000008600
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E656460
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E6564C0
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E6563F0
+Loading driver B7F50E91-A759-412C-ADE4-DCD03E7F7C28
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E67A1C0
+Loading driver at 0x0007E632000 EntryPoint=0x0007E636E80 XhciDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E67AA18
+ProtectUefiImageCommon - 0x7E67A1C0
+  - 0x000000007E632000 - 0x000000000000D3C0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E63F0E0
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E63F1E0
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E63F1C0
+Loading driver 240612B7-A063-11D4-9A3A-0090273FC14D
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E67A640
+Loading driver at 0x0007E628000 EntryPoint=0x0007E62E2A2 UsbBusDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E679F98
+ProtectUefiImageCommon - 0x7E67A640
+  - 0x000000007E628000 - 0x0000000000009180
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E630EE0
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E630E40
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E630DE0
+Loading driver 2D2E62CF-9ECF-43B7-8219-94E7FC713DFE
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E6791C0
+Loading driver at 0x0007E659000 EntryPoint=0x0007E65CFC5 UsbKbDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E679A18
+ProtectUefiImageCommon - 0x7E6791C0
+  - 0x000000007E659000 - 0x0000000000006380
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E65E9E0
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E65F1A0
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E65F180
+Loading driver 9FB4B4A7-42C0-4BCD-8540-9BCC6711F83E
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E679640
+Loading driver at 0x0007E648000 EntryPoint=0x0007E64B9EB UsbMassStorageDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E678F98
+ProtectUefiImageCommon - 0x7E679640
+  - 0x000000007E648000 - 0x0000000000005900
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E64D6A0
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E64D780
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E64D670
+Loading driver E3752948-B9A1-4770-90C4-DF41C38986BE
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E6781C0
+Loading driver at 0x0007E641000 EntryPoint=0x0007E644AD4 QemuVideoDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E678A18
+ProtectUefiImageCommon - 0x7E6781C0
+  - 0x000000007E641000 - 0x00000000000061C0
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E646FA0
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E647000
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E646DA0
+Loading driver D6099B94-CD97-4CC5-8714-7F6312701A8A
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E678640
+Loading driver at 0x0007E622000 EntryPoint=0x0007E625E6A VirtioGpuDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E677F98
+ProtectUefiImageCommon - 0x7E678640
+  - 0x000000007E622000 - 0x0000000000005D40
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E627B20
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E627AF0
+Loading driver 58E26F0D-CBAC-4BBA-B70F-18221415665A
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E6771C0
+Loading driver at 0x0007E61E000 EntryPoint=0x0007E61FDCF VirtioRngDxe.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E677998
+ProtectUefiImageCommon - 0x7E6771C0
+  - 0x000000007E61E000 - 0x0000000000003180
+!!!!!!!!  Image Section Alignment(0x40) does not match Required Alignment (0x1000)  !!!!!!!!
+ProtectUefiImage failed to create image properties record
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E620FA0
+InstallProtocolInterface: 107A772C-D5E1-11D4-9A46-0090273FC14D 7E621000
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E620F80
+Driver 6490F1C5-EBCC-4665-8892-0075B9BB49B7 was discovered but not loaded!!
+Driver FA20568B-548B-4B2B-81EF-1BA08D4A3CEC was discovered but not loaded!!
+Driver A2F436EA-A127-4EF8-957C-8048606FF670 was discovered but not loaded!!
+Driver E4F61863-FE2C-4B56-A8F4-08519BC439DF was discovered but not loaded!!
+Driver 025BBFC7-E6A9-4B8B-82AD-6815A1AEAF4A was discovered but not loaded!!
+Driver 529D3F93-E8E9-4E73-B1E1-BDF6A9D50113 was discovered but not loaded!!
+Driver 94734718-0BBC-47FB-96A5-EE7A5AE6A2AD was discovered but not loaded!!
+Driver 9FB1A1F3-3B71-4324-B39A-745CBB015FFF was discovered but not loaded!!
+Driver 6D6963AB-906D-4A65-A7CA-BD40E5D6AF2B was discovered but not loaded!!
+Driver DC3641B8-2FA8-4ED3-BC1F-F9962A03454B was discovered but not loaded!!
+Driver 95E3669D-34BE-4775-A651-7EA41B69D89E was discovered but not loaded!!
+Driver 5BEDB5CC-D830-4EB2-8742-2D4CC9B54F2C was discovered but not loaded!!
+Driver D912C7BC-F098-4367-92BA-E911083C7B0E was discovered but not loaded!!
+Driver 99F03B99-98D8-49DD-A8D3-3219D0FFE41E was discovered but not loaded!!
+Driver 1A7E4468-2F55-4A56-903C-01265EB7622B was discovered but not loaded!!
+Driver B95E9FDA-26DE-48D2-8807-1F9107AC5E3A was discovered but not loaded!!
+Driver B219E140-DFFC-11E3-B956-0022681E6906 was discovered but not loaded!!
+Driver 2366C20F-E15A-11E3-8BF1-E4115B28BC50 was discovered but not loaded!!
+Driver 22EA234F-E72A-11E4-91F9-28D2447C4829 was discovered but not loaded!!
+Driver ECEBCB00-D9C8-11E4-AF3D-8CDCD426C973 was discovered but not loaded!!
+Driver 86CDDF93-4872-4597-8AF9-A35AE4D3725F was discovered but not loaded!!
+Driver 5CAB08D5-AD8F-4D8B-B828-D17A8D9FE977 was discovered but not loaded!!
+Driver 4D9CBEF0-15A0-4D0C-83DB-5213E710C23F was discovered but not loaded!!
+Driver A487A478-51EF-48AA-8794-7BEE2A0562F1 was discovered but not loaded!!
+Driver 19618BCE-55AE-09C6-37E9-4CE04084C7A1 was discovered but not loaded!!
+Driver AD416CE3-A483-45B1-94C2-4B4E4D575562 was discovered but not loaded!!
+[Bds] Entry...
+[BdsDxe] Locate Variable Policy protocol - Success
+Variable Driver Auto Update Lang, Lang:eng, PlatformLang:en Status: Success
+PlatformBootManagerBeforeConsole
+Registered NotifyDevPath Event
+PCI Bus First Scanning
+PciBus: Discovered PCI @ [00|00|00]  [VID = 0x8086, DID = 0x29C0]
+
+PciBus: Discovered PCI @ [00|01|00]  [VID = 0x1234, DID = 0x1111]
+   BAR[0]: Type = PMem32; Alignment = 0x7FFFFFF;	Length = 0x8000000;	Offset = 0x10
+   BAR[2]: Type =  Mem32; Alignment = 0xFFF;	Length = 0x1000;	Offset = 0x18
+
+PciBus: Discovered PCI @ [00|02|00]  [VID = 0x8086, DID = 0x100E]
+   BAR[0]: Type =  Mem32; Alignment = 0x1FFFF;	Length = 0x20000;	Offset = 0x10
+   BAR[1]: Type =   Io32; Alignment = 0x3F;	Length = 0x40;	Offset = 0x14
+
+PciBus: Discovered PCI @ [00|03|00]  [VID = 0x1B36, DID = 0xD]
+   BAR[0]: Type =  Mem64; Alignment = 0x3FFF;	Length = 0x4000;	Offset = 0x10
+
+PciBus: Discovered PCI @ [00|1F|00]  [VID = 0x8086, DID = 0x2918]
+
+PciBus: Discovered PCI @ [00|1F|02]  [VID = 0x8086, DID = 0x2922]
+   BAR[4]: Type =   Io32; Alignment = 0x1F;	Length = 0x20;	Offset = 0x20
+   BAR[5]: Type =  Mem32; Alignment = 0xFFF;	Length = 0x1000;	Offset = 0x24
+
+PciBus: Discovered PCI @ [00|1F|03]  [VID = 0x8086, DID = 0x2930]
+   BAR[4]: Type =   Io32; Alignment = 0x3F;	Length = 0x40;	Offset = 0x20
+
+PCI Bus Second Scanning
+PciBus: Discovered PCI @ [00|00|00]  [VID = 0x8086, DID = 0x29C0]
+
+PciBus: Discovered PCI @ [00|01|00]  [VID = 0x1234, DID = 0x1111]
+   BAR[0]: Type = PMem32; Alignment = 0x7FFFFFF;	Length = 0x8000000;	Offset = 0x10
+   BAR[2]: Type =  Mem32; Alignment = 0xFFF;	Length = 0x1000;	Offset = 0x18
+
+PciBus: Discovered PCI @ [00|02|00]  [VID = 0x8086, DID = 0x100E]
+   BAR[0]: Type =  Mem32; Alignment = 0x1FFFF;	Length = 0x20000;	Offset = 0x10
+   BAR[1]: Type =   Io32; Alignment = 0x3F;	Length = 0x40;	Offset = 0x14
+
+PciBus: Discovered PCI @ [00|03|00]  [VID = 0x1B36, DID = 0xD]
+   BAR[0]: Type =  Mem64; Alignment = 0x3FFF;	Length = 0x4000;	Offset = 0x10
+
+PciBus: Discovered PCI @ [00|1F|00]  [VID = 0x8086, DID = 0x2918]
+
+PciBus: Discovered PCI @ [00|1F|02]  [VID = 0x8086, DID = 0x2922]
+   BAR[4]: Type =   Io32; Alignment = 0x1F;	Length = 0x20;	Offset = 0x20
+   BAR[5]: Type =  Mem32; Alignment = 0xFFF;	Length = 0x1000;	Offset = 0x24
+
+PciBus: Discovered PCI @ [00|1F|03]  [VID = 0x8086, DID = 0x2930]
+   BAR[4]: Type =   Io32; Alignment = 0x3F;	Length = 0x40;	Offset = 0x20
+
+PciBus: Discovered PCI @ [00|00|00]  [VID = 0x8086, DID = 0x29C0]
+
+PciBus: Discovered PCI @ [00|01|00]  [VID = 0x1234, DID = 0x1111]
+   BAR[0]: Type = PMem32; Alignment = 0x7FFFFFF;	Length = 0x8000000;	Offset = 0x10
+   BAR[2]: Type =  Mem32; Alignment = 0xFFF;	Length = 0x1000;	Offset = 0x18
+
+PciBus: Discovered PCI @ [00|02|00]  [VID = 0x8086, DID = 0x100E]
+   BAR[0]: Type =  Mem32; Alignment = 0x1FFFF;	Length = 0x20000;	Offset = 0x10
+   BAR[1]: Type =   Io32; Alignment = 0x3F;	Length = 0x40;	Offset = 0x14
+
+PciBus: Discovered PCI @ [00|03|00]  [VID = 0x1B36, DID = 0xD]
+   BAR[0]: Type =  Mem64; Alignment = 0x3FFF;	Length = 0x4000;	Offset = 0x10
+
+PciBus: Discovered PCI @ [00|1F|00]  [VID = 0x8086, DID = 0x2918]
+
+PciBus: Discovered PCI @ [00|1F|02]  [VID = 0x8086, DID = 0x2922]
+   BAR[4]: Type =   Io32; Alignment = 0x1F;	Length = 0x20;	Offset = 0x20
+   BAR[5]: Type =  Mem32; Alignment = 0xFFF;	Length = 0x1000;	Offset = 0x24
+
+PciBus: Discovered PCI @ [00|1F|03]  [VID = 0x8086, DID = 0x2930]
+   BAR[4]: Type =   Io32; Alignment = 0x3F;	Length = 0x40;	Offset = 0x20
+
+PciHostBridge: SubmitResources for PciRoot(0x0)
+ I/O: Granularity/SpecificFlag = 0 / 01
+      Length/Alignment = 0x1000 / 0xFFF
+ Mem: Granularity/SpecificFlag = 32 / 00
+      Length/Alignment = 0x8100000 / 0x7FFFFFF
+ Mem: Granularity/SpecificFlag = 64 / 00
+      Length/Alignment = 0x100000 / 0xFFFFF
+PciBus: HostBridge->SubmitResources() - Success
+PciHostBridge: NotifyPhase (AllocateResources)
+ RootBridge: PciRoot(0x0)
+  Mem: Base/Length/Alignment = 80000000/8100000/7FFFFFF - Success
+  Mem64: Base/Length/Alignment = C000000000/100000/FFFFF - Success
+  I/O: Base/Length/Alignment = 6000/1000/FFF - Success
+PciBus: HostBridge->NotifyPhase(AllocateResources) - Success
+Process Option ROM: BAR Base/Length = 88000000/40000
+PciBus: Resource Map for Root Bridge PciRoot(0x0)
+Type =   Io16; Base = 0x6000;	Length = 0x1000;	Alignment = 0xFFF
+   Base = 0x6000;	Length = 0x40;	Alignment = 0x3F;	Owner = PCI [00|1F|03:20]
+   Base = 0x6040;	Length = 0x40;	Alignment = 0x3F;	Owner = PCI [00|02|00:14]
+   Base = 0x6080;	Length = 0x20;	Alignment = 0x1F;	Owner = PCI [00|1F|02:20]
+Type =  Mem32; Base = 0x80000000;	Length = 0x8100000;	Alignment = 0x7FFFFFF
+   Base = 0x80000000;	Length = 0x8000000;	Alignment = 0x7FFFFFF;	Owner = PCI [00|01|00:10]; Type = PMem32
+   Base = 0x88000000;	Length = 0x40000;	Alignment = 0x3FFFF;	Owner = PCI [00|00|00:00]; Type =  OpRom
+   Base = 0x88040000;	Length = 0x20000;	Alignment = 0x1FFFF;	Owner = PCI [00|02|00:10]
+   Base = 0x88060000;	Length = 0x1000;	Alignment = 0xFFF;	Owner = PCI [00|1F|02:24]
+   Base = 0x88061000;	Length = 0x1000;	Alignment = 0xFFF;	Owner = PCI [00|01|00:18]
+Type =  Mem64; Base = 0xC000000000;	Length = 0x100000;	Alignment = 0xFFFFF
+   Base = 0xC000000000;	Length = 0x4000;	Alignment = 0x3FFF;	Owner = PCI [00|03|00:10]
+
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E676A18
+InstallProtocolInterface: 4CF5B200-68B8-4CA5-9EEC-B23E3F50029A 7E676628
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E676A98
+InstallProtocolInterface: 4CF5B200-68B8-4CA5-9EEC-B23E3F50029A 7E675028
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E676B18
+InstallProtocolInterface: 4CF5B200-68B8-4CA5-9EEC-B23E3F50029A 7E675428
+InstallProtocolInterface: 4006C0C1-FCB3-403E-996D-4A6C8724E06D 7E6754F0
+[Security] 3rd party image[0] is deferred to load before EndOfDxe: PciRoot(0x0)/Pci(0x2,0x0)/Offset(0x10C00,0x26DFF).
+InstallProtocolInterface: 3BC1B285-8A15-4A82-AABF-4D7D13FB3265 7E6754D8
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E675E98
+InstallProtocolInterface: 4CF5B200-68B8-4CA5-9EEC-B23E3F50029A 7E675828
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E675F18
+InstallProtocolInterface: 4CF5B200-68B8-4CA5-9EEC-B23E3F50029A 7E66D028
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E675F98
+InstallProtocolInterface: 4CF5B200-68B8-4CA5-9EEC-B23E3F50029A 7E66D428
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E66DE98
+InstallProtocolInterface: 4CF5B200-68B8-4CA5-9EEC-B23E3F50029A 7E66D828
+InstallProtocolInterface: 30CFE3E7-3DE1-4586-BE20-DEABA1B3B793 0
+OnRootBridgesConnected: root bridges have been connected, installing ACPI tables
+Select Item: 0x19
+Select Item: 0x2D
+Select Item: 0x19
+Select Item: 0x2C
+Select Item: 0x19
+Select Item: 0x22
+Select Item: 0x19
+Select Item: 0x23
+InstallProtocolInterface: 928939B2-4235-462F-9580-F6A2B2C21A4F 0
+InstallQemuFwCfgTables: installed 7 tables
+PcRtc: Write 0x20 to CMOS location 0x32
+DXE - Total Runtime Image Count: 0x9
+DXE - Dump Runtime Image Records:
+CapsuleRuntimeDxe.efi: 0x7F6AF000 - 0x7F6B4000
+  Code Section: 0x7F6B0000 - 0x7F6B3000
+MonotonicCounterRuntimeDxe.efi: 0x7F6B4000 - 0x7F6B8000
+  Code Section: 0x7F6B5000 - 0x7F6B7000
+PcRtc.efi: 0x7F6B8000 - 0x7F6BF000
+  Code Section: 0x7F6B9000 - 0x7F6BE000
+StatusCodeHandlerRuntimeDxe.efi: 0x7F6BF000 - 0x7F6C4000
+  Code Section: 0x7F6C0000 - 0x7F6C3000
+VariableRuntimeDxe.efi: 0x7F6C4000 - 0x7F6D4000
+  Code Section: 0x7F6C5000 - 0x7F6D2000
+EmuVariableFvbRuntimeDxe.efi: 0x7F6D4000 - 0x7F6DA000
+  Code Section: 0x7F6D5000 - 0x7F6D8000
+ResetSystemRuntimeDxe.efi: 0x7F6DA000 - 0x7F6E1000
+  Code Section: 0x7F6DB000 - 0x7F6DF000
+RuntimeDxe.efi: 0x7F6E1000 - 0x7F6E7000
+  Code Section: 0x7F6E2000 - 0x7F6E5000
+ReportStatusCodeRouterRuntimeDxe.efi: 0x7F6E7000 - 0x7F6ED000
+  Code Section: 0x7F6E8000 - 0x7F6EB000
+[Variable]END_OF_DXE is signaled
+Initialize variable error flag (FF)
+Found PCI display device
+QemuVideo: QEMU Standard VGA detected
+QemuVideo: Using mmio bar @ 0x88061000
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E66A798
+QemuVideoBochsModeSetup: AvailableFbSize=0x8000000
+QemuVideoBochsEdid: blob found (extensions: 1)
+QemuVideoBochsEdid: default resolution: 1280x800
+Adding Bochs Internal Mode 0: 1280x800, 32-bit
+Adding Bochs Internal Mode 1: 640x480, 32-bit
+Adding Bochs Internal Mode 2: 800x480, 32-bit
+Adding Bochs Internal Mode 3: 800x600, 32-bit
+Adding Bochs Internal Mode 4: 832x624, 32-bit
+Adding Bochs Internal Mode 5: 960x640, 32-bit
+Adding Bochs Internal Mode 6: 1024x600, 32-bit
+Adding Bochs Internal Mode 7: 1024x768, 32-bit
+Adding Bochs Internal Mode 8: 1152x864, 32-bit
+Adding Bochs Internal Mode 9: 1152x870, 32-bit
+Adding Bochs Internal Mode 10: 1280x720, 32-bit
+Adding Bochs Internal Mode 11: 1280x760, 32-bit
+Adding Bochs Internal Mode 12: 1280x768, 32-bit
+Adding Bochs Internal Mode 13: 1280x960, 32-bit
+Adding Bochs Internal Mode 14: 1280x1024, 32-bit
+Adding Bochs Internal Mode 15: 1360x768, 32-bit
+Adding Bochs Internal Mode 16: 1366x768, 32-bit
+Adding Bochs Internal Mode 17: 1400x1050, 32-bit
+Adding Bochs Internal Mode 18: 1440x900, 32-bit
+Adding Bochs Internal Mode 19: 1600x900, 32-bit
+Adding Bochs Internal Mode 20: 1600x1200, 32-bit
+Adding Bochs Internal Mode 21: 1680x1050, 32-bit
+Adding Bochs Internal Mode 22: 1920x1080, 32-bit
+Adding Bochs Internal Mode 23: 1920x1200, 32-bit
+Adding Bochs Internal Mode 24: 1920x1440, 32-bit
+Adding Bochs Internal Mode 25: 2000x2000, 32-bit
+Adding Bochs Internal Mode 26: 2048x1536, 32-bit
+Adding Bochs Internal Mode 27: 2048x2048, 32-bit
+Adding Bochs Internal Mode 28: 2560x1440, 32-bit
+Adding Bochs Internal Mode 29: 2560x1600, 32-bit
+Adding Bochs Internal Mode 30: 2560x2048, 32-bit
+Adding Bochs Internal Mode 31: 2800x2100, 32-bit
+Adding Bochs Internal Mode 32: 3200x2400, 32-bit
+Adding Bochs Internal Mode 33: 3840x2160, 32-bit
+Adding Bochs Internal Mode 34: 4096x2160, 32-bit
+Adding Bochs Internal Mode 35: 7680x4320, 32-bit
+Skipping Bochs Mode 8192x4320, 32-bit (not enough vram)
+InitializeBochsGraphicsMode: 1280x800 @ 32
+PixelBlueGreenRedReserved8BitPerColor
+FrameBufferBase: 0x80000000, FrameBufferSize: 0x3E8000
+0: shl:0 shr:0 mask:FF0000
+1: shl:0 shr:0 mask:FF00
+2: shl:0 shr:0 mask:FF
+Bytes per pixel: 4
+0: shl:0 shr:0 mask:FF0000
+1: shl:0 shr:0 mask:FF00
+2: shl:0 shr:0 mask:FF
+Bytes per pixel: 4
+InstallProtocolInterface: 9042A9DE-23DC-4A38-96FB-7ADED080516A 7E667938
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+Found LPC Bridge device
+BdsPlatform.c+752: COM1 DevPath: PciRoot(0x0)/Pci(0x1F,0x0)/Serial(0x0)/Uart(115200,8,N,1)/VenMsg(AD15A0D6-8BEC-4ACF-A073-D01DE77E2D88)
+BdsPlatform.c+790: COM2 DevPath: PciRoot(0x0)/Pci(0x1F,0x0)/Serial(0x1)/Uart(115200,8,N,1)/VenMsg(AD15A0D6-8BEC-4ACF-A073-D01DE77E2D88)
+Select Item: 0x19
+[TPM2PP] no PPI
+InstallProtocolInterface: 60FF8964-E906-41D0-AFED-F241E974E08E 0
+[Security] 3rd party image[7E66BD18] can be loaded after EndOfDxe: PciRoot(0x0)/Pci(0x2,0x0)/Offset(0x10C00,0x26DFF).
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E658C40
+Loading driver at 0x0007E406000 EntryPoint=0x0007E40C447 8086100e.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7EFBDE18
+ProtectUefiImageCommon - 0x7E658C40
+  - 0x000000007E406000 - 0x00000000000A7140
+InstallProtocolInterface: 18A031AB-B443-4D1A-A5C0-0C09261E9F71 7E42A0A0
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E42A070
+Found PCI display device
+Found LPC Bridge device
+BdsPlatform.c+752: COM1 DevPath: PciRoot(0x0)/Pci(0x1F,0x0)/Serial(0x0)/Uart(115200,8,N,1)/VenMsg(AD15A0D6-8BEC-4ACF-A073-D01DE77E2D88)
+BdsPlatform.c+790: COM2 DevPath: PciRoot(0x0)/Pci(0x1F,0x0)/Serial(0x1)/Uart(115200,8,N,1)/VenMsg(AD15A0D6-8BEC-4ACF-A073-D01DE77E2D88)
+Select Item: 0xE
+[Bds]RegisterKeyNotify: 000C/0000 80000000/00 Success
+[Bds]RegisterKeyNotify: 0017/0000 80000000/00 Success
+[Bds]RegisterKeyNotify: 0000/000D 80000000/00 Success
+PixelBlueGreenRedReserved8BitPerColor
+GraphicsConsole video resolution 1280 x 800
+Graphics - Mode 0, Column = 80, Row = 25
+Graphics - Mode 1, Column = 0, Row = 0
+Graphics - Mode 2, Column = 100, Row = 31
+Graphics - Mode 3, Column = 128, Row = 40
+Graphics - Mode 4, Column = 160, Row = 42
+Graphics Console Started, Mode: 4
+InstallProtocolInterface: 387477C2-69C7-11D2-8E39-00A0C969723B 7E640D30
+InstallProtocolInterface: D3B36F2C-D551-11D4-9A46-0090273FC14D 0
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+PixelBlueGreenRedReserved8BitPerColor
+InstallProtocolInterface: 9042A9DE-23DC-4A38-96FB-7ADED080516A 7E72B060
+InstallProtocolInterface: 864E1CA8-85EB-4D63-9DCC-6E0FC90FFD55 7E5C5E98
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E640598
+InstallProtocolInterface: 215FDD18-BD50-4FEB-890B-58CA0B4739E9 7E6404B8
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E5C5B18
+InstallProtocolInterface: 215FDD18-BD50-4FEB-890B-58CA0B4739E9 7E5C56B8
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E5C5998
+InstallProtocolInterface: 215FDD18-BD50-4FEB-890B-58CA0B4739E9 7E5C5AB8
+ClockRate = 1843200
+Divisor   = 1
+BaudRate/Actual (115200/115200) = 100%
+ClockRate = 1843200
+Divisor   = 1
+BaudRate/Actual (115200/115200) = 100%
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E5C5D98
+InstallProtocolInterface: BB25CF6F-F1D4-11D2-9A0C-0090273FC1FD 7E5C4BA8
+PciSioSerial: Create SIO child serial device - Success
+ClockRate = 1843200
+Divisor   = 1
+BaudRate/Actual (115200/115200) = 100%
+Terminal - Mode 0, Column = 80, Row = 25
+Terminal - Mode 1, Column = 80, Row = 50
+Terminal - Mode 2, Column = 100, Row = 31
+ClockRate = 1843200
+Divisor   = 1
+BaudRate/Actual (115200/115200) = 100%
+InstallProtocolInterface: 387477C1-69C7-11D2-8E39-00A0C969723B 7E5C3040
+InstallProtocolInterface: DD9E7534-7762-4698-8C14-F58517A625AA 7E5C3128
+InstallProtocolInterface: 387477C2-69C7-11D2-8E39-00A0C969723B 7E5C3058
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E5C3C98
+InstallProtocolInterface: D3B36F2C-D551-11D4-9A46-0090273FC14D 0
+InstallProtocolInterface: D3B36F2D-D551-11D4-9A46-0090273FC14D 0
+InstallProtocolInterface: D3B36F2B-D551-11D4-9A46-0090273FC14D 0
+ClockRate = 1843200
+Divisor   = 1
+BaudRate/Actual (115200/115200) = 100%
+PciSioSerial: Create SIO child serial device - Device Error
+InstallProtocolInterface: 387477C1-69C7-11D2-8E39-00A0C969723B 7E5BD028
+InstallProtocolInterface: DD9E7534-7762-4698-8C14-F58517A625AA 7E5BD040
+InstallProtocolInterface: D3B36F2B-D551-11D4-9A46-0090273FC14D 0
+ClockRate = 1843200
+Divisor   = 1
+BaudRate/Actual (115200/115200) = 100%
+PciSioSerial: Create SIO child serial device - Device Error
+XhcCreateUsb3Hc: Capability length 0x40
+XhcCreateUsb3Hc: HcSParams1 0x8001040
+XhcCreateUsb3Hc: HcSParams2 0xF
+XhcCreateUsb3Hc: HcCParams 0x87001
+XhcCreateUsb3Hc: DBOff 0x2000
+XhcCreateUsb3Hc: RTSOff 0x1000
+XhcCreateUsb3Hc: UsbLegSupOffset 0xFFFFFFFF
+XhcCreateUsb3Hc: DebugCapSupOffset 0xFFFFFFFF
+XhcCreateUsb3Hc: Usb2SupOffset 0x0
+XhcCreateUsb3Hc: Usb3SupOffset 0x10
+XhcResetHC!
+XhcInitSched:DCBAA=0x7E3F6000
+XhcInitSched: Created CMD ring [7E3F6240~7E3F7240) EVENT ring [7E3F7240~7E3F9240)
+InstallProtocolInterface: 3E745226-9818-45B6-A2AC-D7CD0E8BA2BC 7E4B1038
+XhcDriverBindingStart: XHCI started for controller @ 7E66C618
+InstallProtocolInterface: 240612B7-A063-11D4-9A3A-0090273FC14D 7E5BB020
+XhcGetCapability: 8 ports, 64 bit 1
+UsbRootHubInit: root hub 7E5BBA98 - max speed 3, 8 ports
+XhcClearRootHubPortFeature: status Success
+UsbEnumeratePort: port 0 state - 00, change - 01 on 7E5BBA98
+UsbEnumeratePort: Device Connect/Disconnect Normally (port 0)
+UsbEnumeratePort: device disconnected event on port 0
+XhcClearRootHubPortFeature: status Success
+UsbEnumeratePort: port 1 state - 00, change - 01 on 7E5BBA98
+UsbEnumeratePort: Device Connect/Disconnect Normally (port 1)
+UsbEnumeratePort: device disconnected event on port 1
+XhcClearRootHubPortFeature: status Success
+UsbEnumeratePort: port 2 state - 00, change - 01 on 7E5BBA98
+UsbEnumeratePort: Device Connect/Disconnect Normally (port 2)
+UsbEnumeratePort: device disconnected event on port 2
+XhcClearRootHubPortFeature: status Success
+UsbEnumeratePort: port 3 state - 00, change - 01 on 7E5BBA98
+UsbEnumeratePort: Device Connect/Disconnect Normally (port 3)
+UsbEnumeratePort: device disconnected event on port 3
+XhcClearRootHubPortFeature: status Success
+UsbEnumeratePort: port 4 state - 401, change - 01 on 7E5BBA98
+UsbEnumeratePort: Device Connect/Disconnect Normally (port 4)
+UsbEnumeratePort: new device connected at port 4
+XhcUsbPortReset!
+XhcSetRootHubPortFeature: status Success
+XhcClearRootHubPortFeature: status Success
+XhcClearRootHubPortFeature: status Success
+Enable Slot Successfully, The Slot ID = 0x1
+    Address 1 assigned successfully
+UsbEnumerateNewDev: hub port 4 is reset
+UsbEnumerateNewDev: device is of 2 speed
+UsbEnumerateNewDev: device uses translator (0, 0)
+UsbEnumerateNewDev: device is now ADDRESSED at 1
+UsbEnumerateNewDev: max packet size for EP 0 is 64
+Evaluate context
+UsbBuildDescTable: device has 1 configures
+UsbGetOneConfig: total length is 34
+UsbParseConfigDesc: config 1 has 1 interfaces
+UsbParseInterfaceDesc: interface 0(setting 0) has 1 endpoints
+Endpoint[81]: Created INT ring [7E3FAAC0~7E3FBAC0)
+Configure Endpoint
+UsbEnumerateNewDev: device 1 is now in CONFIGED state
+UsbSelectConfig: config 1 selected for device 1
+UsbSelectSetting: setting 0 selected for interface 0
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E5BAE98
+InstallProtocolInterface: 2B2F68D6-0CD2-44CF-8E8B-BBA20B1B5B75 7E5B9040
+UsbConnectDriver: TPL before connect is 8, 7E5B9B98
+InstallProtocolInterface: 387477C1-69C7-11D2-8E39-00A0C969723B 7E5B92B8
+InstallProtocolInterface: DD9E7534-7762-4698-8C14-F58517A625AA 7E5B92D0
+InstallProtocolInterface: D3B36F2B-D551-11D4-9A46-0090273FC14D 0
+UsbConnectDriver: TPL after connect is 8
+XhcClearRootHubPortFeature: status Success
+UsbEnumeratePort: port 5 state - 401, change - 01 on 7E5BBA98
+UsbEnumeratePort: Device Connect/Disconnect Normally (port 5)
+UsbEnumeratePort: new device connected at port 5
+XhcUsbPortReset!
+XhcSetRootHubPortFeature: status Success
+XhcClearRootHubPortFeature: status Success
+XhcClearRootHubPortFeature: status Success
+Enable Slot Successfully, The Slot ID = 0x2
+    Address 2 assigned successfully
+UsbEnumerateNewDev: hub port 5 is reset
+UsbEnumerateNewDev: device is of 2 speed
+UsbEnumerateNewDev: device uses translator (0, 0)
+UsbEnumerateNewDev: device is now ADDRESSED at 2
+UsbEnumerateNewDev: max packet size for EP 0 is 64
+Evaluate context
+UsbBuildDescTable: device has 1 configures
+UsbGetOneConfig: total length is 34
+UsbParseConfigDesc: config 1 has 1 interfaces
+UsbParseInterfaceDesc: interface 0(setting 0) has 1 endpoints
+Endpoint[81]: Created INT ring [7E3FD300~7E3FE300)
+Configure Endpoint
+UsbEnumerateNewDev: device 2 is now in CONFIGED state
+UsbSelectConfig: config 1 selected for device 2
+UsbSelectSetting: setting 0 selected for interface 0
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E5B5218
+InstallProtocolInterface: 2B2F68D6-0CD2-44CF-8E8B-BBA20B1B5B75 7E5B5140
+XhcClearRootHubPortFeature: status Success
+UsbEnumeratePort: port 6 state - 00, change - 01 on 7E5BBA98
+UsbEnumeratePort: Device Connect/Disconnect Normally (port 6)
+UsbEnumeratePort: device disconnected event on port 6
+XhcClearRootHubPortFeature: status Success
+UsbEnumeratePort: port 7 state - 00, change - 01 on 7E5BBA98
+UsbEnumeratePort: Device Connect/Disconnect Normally (port 7)
+UsbEnumeratePort: device disconnected event on port 7
+UsbBusStart: usb bus started on 7E66C618, root hub 7E5BBA98
+ClockRate = 1843200
+Divisor   = 1
+BaudRate/Actual (115200/115200) = 100%
+PciSioSerial: Create SIO child serial device - Device Error
+PlatformBootManagerAfterConsole
+Found Mass Storage device: PciRoot(0x0)/Pci(0x1F,0x2)
+SataControllerStart start
+Original PCI Attributes = 0x4700
+Supported PCI Attributes = 0xE700
+Enabled PCI Attributes = 0x700
+Ports Implemented(PI) = 0x3F
+HBA Capabilities(CAP) = 0xC0141F05
+InstallProtocolInterface: A1E37052-80D9-4E65-A317-3E9A55C43EC9 7E5BC220
+SataControllerStart end with Success
+==AtaAtapiPassThru Start== Controller = 7E66BA18
+port [1] port multitplier [0] has a [cdrom]
+CalculateBestPioMode: AdvancedPioMode = 3
+IdeInitCalculateMode: PioMode = 3
+CalculateBestUdmaMode: DeviceUDmaMode = 203F
+IdeInitCalculateMode: UdmaMode = 5
+port [2] port multitplier [0] has a [cdrom]
+CalculateBestPioMode: AdvancedPioMode = 3
+IdeInitCalculateMode: PioMode = 3
+CalculateBestUdmaMode: DeviceUDmaMode = 203F
+IdeInitCalculateMode: UdmaMode = 5
+InstallProtocolInterface: 1D3DE7F0-0807-424F-AA69-11A54E19A46F 7E4AF1C0
+InstallProtocolInterface: 143B7632-B81B-4CB7-ABD3-B625A5B9BFFE 7E4AF210
+InstallProtocolInterface: 19DF145A-B1D4-453F-8507-38816676D7F6 7E2F2E98
+InstallProtocolInterface: 0167CCC4-D0F7-4F21-A3EF-9E64B7CDCE8B 7E2F2D20
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E2F2998
+InstallProtocolInterface: 932F47E6-2362-4002-803E-3CD54B138F85 7E2F2828
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E2F2498
+InstallProtocolInterface: 932F47E6-2362-4002-803E-3CD54B138F85 7E2F2228
+InstallProtocolInterface: 964E5B21-6459-11D2-8E39-00A0C969723B 7E2F11B8
+InstallProtocolInterface: A77B2472-E282-4E9F-A245-C2C0E27BBCC1 7E2F11E8
+InstallProtocolInterface: D432A67F-14DC-484B-B3BB-3F0291849327 7E2F12E0
+InstallProtocolInterface: CE345171-BA0B-11D2-8E4F-00A0C969723B 7E2F1720
+InstallProtocolInterface: 151C8EAE-7F2C-472C-9E54-9828194F6A88 7E2F1738
+ BlockSize : 2048 
+ LastBlock : 7ADB8 
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E2D0C98
+InstallProtocolInterface: 964E5B21-6459-11D2-8E39-00A0C969723B 7E2CF030
+InstallProtocolInterface: A77B2472-E282-4E9F-A245-C2C0E27BBCC1 7E2CF060
+InstallProtocolInterface: 8CF2F62C-BC9B-4821-808D-EC9EC421A1A0 7E2CF0E8
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E2CFC18
+InstallProtocolInterface: 964E5B21-6459-11D2-8E39-00A0C969723B 7E2CF2B0
+InstallProtocolInterface: A77B2472-E282-4E9F-A245-C2C0E27BBCC1 7E2CF2E0
+InstallProtocolInterface: 8CF2F62C-BC9B-4821-808D-EC9EC421A1A0 7E2CF368
+PartitionDxe: El Torito standard found on handle 0x7E2F2798.
+FindAnchorVolumeDescriptorPointer: found AVDP at block 256
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E2CFA98
+InstallProtocolInterface: 964E5B21-6459-11D2-8E39-00A0C969723B 7E2D00B0
+InstallProtocolInterface: A77B2472-E282-4E9F-A245-C2C0E27BBCC1 7E2D00E0
+InstallProtocolInterface: 8CF2F62C-BC9B-4821-808D-EC9EC421A1A0 7E2D0168
+InstallProtocolInterface: CE345171-BA0B-11D2-8E4F-00A0C969723B 7E2F1CA0
+InstallProtocolInterface: 151C8EAE-7F2C-472C-9E54-9828194F6A88 7E2F1CB8
+ BlockSize : 2048 
+ LastBlock : 7 
+InstallProtocolInterface: CE345171-BA0B-11D2-8E4F-00A0C969723B 7E2AEB20
+InstallProtocolInterface: 151C8EAE-7F2C-472C-9E54-9828194F6A88 7E2AEB38
+ BlockSize : 2048 
+ LastBlock : 7AC6C 
+PartitionValidMbr: Bad MBR partition size EndingLBA(C9E0D13F) > LastLBA(1EB1B3)
+InstallProtocolInterface: 964E5B22-6459-11D2-8E39-00A0C969723B 7E28D030
+Installed Fat filesystem on 7E2CFC98
+InstallProtocolInterface: CE345171-BA0B-11D2-8E4F-00A0C969723B 7E2AE0A0
+InstallProtocolInterface: 151C8EAE-7F2C-472C-9E54-9828194F6A88 7E2AE0B8
+InstallProtocolInterface: 964E5B22-6459-11D2-8E39-00A0C969723B 7E1E9030
+AHCI: Error interrupt reported PxIS: 40000000
+Non data transfer failed at retry 0
+Failed to execute command for non data transfer:
+ATA COMMAND BLOCK:
+AtaCommand: 160
+AtaFeatures: 0
+AtaSectorNumber: 0
+AtaCylinderLow: FF
+AtaCylinderHigh: FF
+AtaDeviceHead: 0
+AtaSectorNumberExp: 0
+AtaCylinderLowExp: 0
+AtaCylinderHighExp: 0
+AtaFeaturesExp: 0
+AtaSectorCount: 0
+AtaSectorCountExp: 0
+ATA STATUS BLOCK:
+AtaStatus: 65
+AtaError: 32
+InstallProtocolInterface: 964E5B21-6459-11D2-8E39-00A0C969723B 7E1E96B8
+InstallProtocolInterface: A77B2472-E282-4E9F-A245-C2C0E27BBCC1 7E1E96E8
+InstallProtocolInterface: D432A67F-14DC-484B-B3BB-3F0291849327 7E1E97E0
+InstallProtocolInterface: CE345171-BA0B-11D2-8E4F-00A0C969723B 7E1E8E20
+InstallProtocolInterface: 151C8EAE-7F2C-472C-9E54-9828194F6A88 7E1E8E38
+ BlockSize : 2048 
+ LastBlock : 0 
+AHCI: Error interrupt reported PxIS: 40000000
+Non data transfer failed at retry 0
+Failed to execute command for non data transfer:
+ATA COMMAND BLOCK:
+AtaCommand: 160
+AtaFeatures: 0
+AtaSectorNumber: 0
+AtaCylinderLow: FF
+AtaCylinderHigh: FF
+AtaDeviceHead: 0
+AtaSectorNumberExp: 0
+AtaCylinderLowExp: 0
+AtaCylinderHighExp: 0
+AtaFeaturesExp: 0
+AtaSectorCount: 0
+AtaSectorCountExp: 0
+ATA STATUS BLOCK:
+AtaStatus: 65
+AtaError: 32
+AHCI: Error interrupt reported PxIS: 40000000
+Non data transfer failed at retry 0
+Failed to execute command for non data transfer:
+ATA COMMAND BLOCK:
+AtaCommand: 160
+AtaFeatures: 0
+AtaSectorNumber: 0
+AtaCylinderLow: FF
+AtaCylinderHigh: FF
+AtaDeviceHead: 0
+AtaSectorNumberExp: 0
+AtaCylinderLowExp: 0
+AtaCylinderHighExp: 0
+AtaFeaturesExp: 0
+AtaSectorCount: 0
+AtaSectorCountExp: 0
+ATA STATUS BLOCK:
+AtaStatus: 65
+AtaError: 32
+FatOpenDevice: read of part_lba failed No Media
+FsAccess.c: LoadNvVarsFromFs
+FsAccess.c: Could not open NV Variables file on this file system
+Error while restoring NV variable data
+FsAccess.c: Unable to open file to saved NV Variables
+FsAccess.c: LoadNvVarsFromFs
+FsAccess.c: Could not open NV Variables file on this file system
+Error while restoring NV variable data
+FsAccess.c: Unable to open file to saved NV Variables
+Boot Mode:0
+Select Item: 0x19
+PlatformBdsConnectSequence
+Select Item: 0x19
+EfiBootManagerConnectAll
+InstallProtocolInterface: A19832B9-AC25-11D3-9A2D-0090273FC14D 7E42C830
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E42CDA8
+InstallProtocolInterface: E18541CD-F755-4F73-928D-643C8A79B229 7E42CC60
+InstallProtocolInterface: 1ACED566-76ED-4218-BC81-767F1F977A89 7E42CC60
+InstallProtocolInterface: 6A7A5CFF-E8D9-4F70-BADA-75AB3025CE14 7E42CC88
+InstallProtocolInterface: 6F6C7323-2077-7523-6E68-656C7066756C 7E42CCA0
+InstallProtocolInterface: 09576E91-6D3F-11D2-8E39-00A0C969723B 7E42CE08
+InstallProtocolInterface: 330D4706-F2A0-4E4F-A369-B66FA8D54385 7E42CCA8
+UsbBusRecursivelyConnectWantedUsbIo: TPL before connect is 4
+UsbBusRecursivelyConnectWantedUsbIo: TPL after connect is 4
+ClockRate = 1843200
+Divisor   = 1
+BaudRate/Actual (115200/115200) = 100%
+PciSioSerial: Create SIO child serial device - Device Error
+SataControllerStart start
+SataControllerStart error return status = Already started
+ BlockSize : 2048 
+ LastBlock : 7ADB8 
+PartitionDxe: El Torito standard found on handle 0x7E2F2798.
+FindAnchorVolumeDescriptorPointer: found AVDP at block 256
+ BlockSize : 2048 
+ LastBlock : 7 
+ BlockSize : 2048 
+ LastBlock : 0 
+AHCI: Error interrupt reported PxIS: 40000000
+Non data transfer failed at retry 0
+Failed to execute command for non data transfer:
+ATA COMMAND BLOCK:
+AtaCommand: 160
+AtaFeatures: 0
+AtaSectorNumber: 0
+AtaCylinderLow: FF
+AtaCylinderHigh: FF
+AtaDeviceHead: 0
+AtaSectorNumberExp: 0
+AtaCylinderLowExp: 0
+AtaCylinderHighExp: 0
+AtaFeaturesExp: 0
+AtaSectorCount: 0
+AtaSectorCountExp: 0
+ATA STATUS BLOCK:
+AtaStatus: 65
+AtaError: 32
+AHCI: Error interrupt reported PxIS: 40000000
+Non data transfer failed at retry 0
+Failed to execute command for non data transfer:
+ATA COMMAND BLOCK:
+AtaCommand: 160
+AtaFeatures: 0
+AtaSectorNumber: 0
+AtaCylinderLow: FF
+AtaCylinderHigh: FF
+AtaDeviceHead: 0
+AtaSectorNumberExp: 0
+AtaCylinderLowExp: 0
+AtaCylinderHighExp: 0
+AtaFeaturesExp: 0
+AtaSectorCount: 0
+AtaSectorCountExp: 0
+ATA STATUS BLOCK:
+AtaStatus: 65
+AtaError: 32
+FatOpenDevice: read of part_lba failed No Media
+UsbBusRecursivelyConnectWantedUsbIo: TPL before connect is 4
+UsbBusRecursivelyConnectWantedUsbIo: TPL after connect is 4
+ClockRate = 1843200
+Divisor   = 1
+BaudRate/Actual (115200/115200) = 100%
+PciSioSerial: Create SIO child serial device - Device Error
+SataControllerStart start
+SataControllerStart error return status = Already started
+ BlockSize : 2048 
+ LastBlock : 7ADB8 
+PartitionDxe: El Torito standard found on handle 0x7E2F2798.
+FindAnchorVolumeDescriptorPointer: found AVDP at block 256
+ BlockSize : 2048 
+ LastBlock : 7 
+ BlockSize : 2048 
+ LastBlock : 0 
+AHCI: Error interrupt reported PxIS: 40000000
+Non data transfer failed at retry 0
+Failed to execute command for non data transfer:
+ATA COMMAND BLOCK:
+AtaCommand: 160
+AtaFeatures: 0
+AtaSectorNumber: 0
+AtaCylinderLow: FF
+AtaCylinderHigh: FF
+AtaDeviceHead: 0
+AtaSectorNumberExp: 0
+AtaCylinderLowExp: 0
+AtaCylinderHighExp: 0
+AtaFeaturesExp: 0
+AtaSectorCount: 0
+AtaSectorCountExp: 0
+ATA STATUS BLOCK:
+AtaStatus: 65
+AtaError: 32
+AHCI: Error interrupt reported PxIS: 40000000
+Non data transfer failed at retry 0
+Failed to execute command for non data transfer:
+ATA COMMAND BLOCK:
+AtaCommand: 160
+AtaFeatures: 0
+AtaSectorNumber: 0
+AtaCylinderLow: FF
+AtaCylinderHigh: FF
+AtaDeviceHead: 0
+AtaSectorNumberExp: 0
+AtaCylinderLowExp: 0
+AtaCylinderHighExp: 0
+AtaFeaturesExp: 0
+AtaSectorCount: 0
+AtaSectorCountExp: 0
+ATA STATUS BLOCK:
+AtaStatus: 65
+AtaError: 32
+FatOpenDevice: read of part_lba failed No Media
+ClockRate = 1843200
+Divisor   = 1
+BaudRate/Actual (115200/115200) = 100%
+PciSioSerial: Create SIO child serial device - Device Error
+ BlockSize : 2048 
+ LastBlock : 7ADB8 
+PartitionDxe: El Torito standard found on handle 0x7E2F2798.
+FindAnchorVolumeDescriptorPointer: found AVDP at block 256
+ BlockSize : 2048 
+ LastBlock : 7 
+ BlockSize : 2048 
+ LastBlock : 0 
+AHCI: Error interrupt reported PxIS: 40000000
+Non data transfer failed at retry 0
+Failed to execute command for non data transfer:
+ATA COMMAND BLOCK:
+AtaCommand: 160
+AtaFeatures: 0
+AtaSectorNumber: 0
+AtaCylinderLow: FF
+AtaCylinderHigh: FF
+AtaDeviceHead: 0
+AtaSectorNumberExp: 0
+AtaCylinderLowExp: 0
+AtaCylinderHighExp: 0
+AtaFeaturesExp: 0
+AtaSectorCount: 0
+AtaSectorCountExp: 0
+ATA STATUS BLOCK:
+AtaStatus: 65
+AtaError: 32
+AHCI: Error interrupt reported PxIS: 40000000
+Non data transfer failed at retry 0
+Failed to execute command for non data transfer:
+ATA COMMAND BLOCK:
+AtaCommand: 160
+AtaFeatures: 0
+AtaSectorNumber: 0
+AtaCylinderLow: FF
+AtaCylinderHigh: FF
+AtaDeviceHead: 0
+AtaSectorNumberExp: 0
+AtaCylinderLowExp: 0
+AtaCylinderHighExp: 0
+AtaFeaturesExp: 0
+AtaSectorCount: 0
+AtaSectorCountExp: 0
+ATA STATUS BLOCK:
+AtaStatus: 65
+AtaError: 32
+FatOpenDevice: read of part_lba failed No Media
+ BlockSize : 2048 
+ LastBlock : 7 
+UsbBusRecursivelyConnectWantedUsbIo: TPL before connect is 4
+UsbBusRecursivelyConnectWantedUsbIo: TPL after connect is 4
+Select Item: 0x19
+[Bds]OsIndication: 0000000000000000
+[Bds]=============Begin Load Options Dumping ...=============
+  Driver Options:
+  SysPrep Options:
+  Boot Options:
+    Boot0000: UiApp 		 0x0109
+    Boot0001: UEFI QEMU DVD-ROM QM00003  		 0x0001
+    Boot0002: EFI Internal Shell 		 0x0001
+  PlatformRecovery Options:
+    PlatformRecovery0000: Default PlatformRecovery 		 0x0001
+[Bds]=============End Load Options Dumping=============
+[Bds]BdsWait ...Zzzzzzzzzzzz...
+[Bds]Exit the waiting!
+VirtHstiQemuFirmwareFlashCheck: FFC84010 behaves as FLASH, write-protected
+[Bds]Stop Hotkey Service!
+[Bds]UnregisterKeyNotify: 000C/0000 Success
+[Bds]UnregisterKeyNotify: 0017/0000 Success
+[Bds]UnregisterKeyNotify: 0000/000D Success
+Memory  Previous  Current    Next   
+ Type    Pages     Pages     Pages  
+======  ========  ========  ========
+  0A    00000080  00000022  00000080
+  09    00000012  0000000B  00000012
+  00    00000080  00000006  00000080
+  05    00000100  0000003E  00000100
+  06    00000100  00000129  00000173
+Memory Type Information settings change.
+[Bds]Booting UEFI QEMU DVD-ROM QM00003 
+ BlockSize : 2048 
+ LastBlock : 7ADB8 
+PartitionDxe: El Torito standard found on handle 0x7E2F2798.
+FindAnchorVolumeDescriptorPointer: found AVDP at block 256
+ BlockSize : 2048 
+ LastBlock : 7 
+FatDiskIo: Cache Page OutBound occurred! 
+FSOpen: Open '\EFI\BOOT\BOOTX64.EFI' Success
+[Bds] Expand PciRoot(0x0)/Pci(0x1F,0x2)/Sata(0x1,0xFFFF,0x0) -> PciRoot(0x0)/Pci(0x1F,0x2)/Sata(0x1,0xFFFF,0x0)/CDROM(0x1,0x14C,0x7AC6D)/\EFI\BOOT\BOOTX64.EFI
+[Security] 3rd party image[0] can be loaded after EndOfDxe: PciRoot(0x0)/Pci(0x1F,0x2)/Sata(0x1,0xFFFF,0x0)/CDROM(0x1,0x14C,0x7AC6D)/\EFI\BOOT\BOOTX64.EFI.
+None of Tcg2Protocol/CcMeasurementProtocol is installed.
+InstallProtocolInterface: 5B1B31A1-9562-11D2-8E3F-00A0C969723B 7E1AC040
+Loading driver at 0x00010000000 EntryPoint=0x00010001090 cdboot_noprompt.efi
+InstallProtocolInterface: BC62157E-3E33-4FEC-9920-2D3B36D750DF 7E1ACE98
+ProtectUefiImageCommon - 0x7E1AC040
+  - 0x0000000010000000 - 0x000000000015F000
+ERROR: Interrupts enabled at TPL_HIGH_LEVEL!
+ClockRate = 1843200
+Divisor   = 1
+BaudRate/Actual (115200/115200) = 100%
+CpuDxe: 5-Level Paging = 0
+MpInitChangeApLoopCallback() done!
+SetUefiImageMemoryAttributes - 0x000000007F6E7000 - 0x0000000000006000 (0x0000000000000008)
+SetUefiImageMemoryAttributes - 0x000000007F6E1000 - 0x0000000000006000 (0x0000000000000008)
+SetUefiImageMemoryAttributes - 0x000000007F6DA000 - 0x0000000000007000 (0x0000000000000008)
+SetUefiImageMemoryAttributes - 0x000000007F6D4000 - 0x0000000000006000 (0x0000000000000008)
+SetUefiImageMemoryAttributes - 0x000000007F6C4000 - 0x0000000000010000 (0x0000000000000008)
+SetUefiImageMemoryAttributes - 0x000000007F6BF000 - 0x0000000000005000 (0x0000000000000008)
+SetUefiImageMemoryAttributes - 0x000000007F6B8000 - 0x0000000000007000 (0x0000000000000008)
+SetUefiImageMemoryAttributes - 0x000000007F6B4000 - 0x0000000000004000 (0x0000000000000008)
+SetUefiImageMemoryAttributes - 0x000000007F6AF000 - 0x0000000000005000 (0x0000000000000008)

@@ -458,9 +458,14 @@ fn drive(
     // 裸机目标：产出独立 .o（不链接 CRT/运行时），由引导库/链接脚本组装。
 
     if mode == Mode::Bare {
-        let obj = match out {
-            Some(p) => p.to_path_buf(),
-            None => first.with_extension("o"),
+        let obj = if boot_image {
+            // --boot：-o 指"镜像路径"，内核对象用临时文件
+            std::env::temp_dir().join(format!("gtc_boot_kernel_{}.o", std::process::id()))
+        } else {
+            match out {
+                Some(p) => p.to_path_buf(),
+                None => first.with_extension("o"),
+            }
         };
         let ll = unit.write_llvm_opt(&obj.with_extension("ll"), opt)?;
         gtc_rust::driver::compile_bare(&ll, &obj, opt, bare_arch)?;
@@ -471,7 +476,7 @@ fn drive(
         }
         if boot_image {
             // 自动拼"可启动镜像"：引导库（stage1+stage2）+ 内核 + 运行时
-            let img = gtc_rust::driver::make_boot_image(&obj, &ll, opt, bare_arch, keep_tmp)?;
+            let img = gtc_rust::driver::make_boot_image(&obj, out, opt, bare_arch, keep_tmp)?;
             if lang::is_zh() {
                 println!("可启动镜像：{}", img.display());
             } else {
