@@ -83,6 +83,8 @@ pub const BOOT_FUNCS: &[BootFn] = &[
     BootFn { name: "boot_fat8_find", symbol: "boot_fat8_find", group: "fs_fat8" },
     BootFn { name: "boot_fat8_read", symbol: "boot_fat8_read", group: "fs_fat8" },
     BootFn { name: "boot_fat8_list", symbol: "boot_fat8_list", group: "fs_fat8" },
+    BootFn { name: "boot_fat8_write", symbol: "boot_fat8_write", group: "fs_fat8" },
+    BootFn { name: "boot_fat8_delete", symbol: "boot_fat8_delete", group: "fs_fat8" },
     // fs_fat16（完整读写）
     BootFn { name: "boot_fat16_find", symbol: "boot_fat16_find", group: "fs_fat16" },
     BootFn { name: "boot_fat16_read", symbol: "boot_fat16_read", group: "fs_fat16" },

@@ -147,7 +147,7 @@ pub const MODULES: &[StdModule] = &[
             // 文件系统：内存盘
             "boot_fs_ram_create", "boot_fs_ram_write", "boot_fs_ram_read", "boot_fs_ram_size", "boot_fs_ram_delete", "boot_fs_ram_count", "boot_fs_ram_list",
             // FAT8（只读）
-            "boot_fat8_find", "boot_fat8_read", "boot_fat8_list",
+            "boot_fat8_find", "boot_fat8_read", "boot_fat8_list", "boot_fat8_write", "boot_fat8_delete",
             // FAT16（完整读写）
             "boot_fat16_find", "boot_fat16_read", "boot_fat16_write", "boot_fat16_delete", "boot_fat16_list",
             // FAT32（完整读写）

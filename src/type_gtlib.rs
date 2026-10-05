@@ -239,6 +239,8 @@ pub fn gtlib_fn(name: &str) -> Option<StdFn> {
         "boot_fat8_find" => f("boot_fat8_find", Ty::I64, &[Ty::Str]),
         "boot_fat8_read" => f("boot_fat8_read", Ty::I64, &[Ty::Str, Ty::I64, Ty::I64]),
         "boot_fat8_list" => f("boot_fat8_list", Ty::I64, &[Ty::I64, Ty::I64]),
+        "boot_fat8_write" => f("boot_fat8_write", Ty::I64, &[Ty::Str, Ty::Str, Ty::I64]),
+        "boot_fat8_delete" => f("boot_fat8_delete", Ty::I64, &[Ty::Str]),
         // fs_fat16（完整读写）
         "boot_fat16_find" => f("boot_fat16_find", Ty::I64, &[Ty::Str]),
         "boot_fat16_read" => f("boot_fat16_read", Ty::I64, &[Ty::Str, Ty::I64, Ty::I64]),
@@ -407,7 +409,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "boot_version" | "boot_arch"
         | "boot_idt_init" | "boot_irq_enable" | "boot_irq_disable" | "boot_pic_init" | "boot_keyboard_handler"
         | "boot_fs_ram_create" | "boot_fs_ram_write" | "boot_fs_ram_read" | "boot_fs_ram_size" | "boot_fs_ram_delete" | "boot_fs_ram_count" | "boot_fs_ram_list"
-        | "boot_fat8_find" | "boot_fat8_read" | "boot_fat8_list"
+        | "boot_fat8_find" | "boot_fat8_read" | "boot_fat8_list" | "boot_fat8_write" | "boot_fat8_delete"
         | "boot_fat16_find" | "boot_fat16_read" | "boot_fat16_write" | "boot_fat16_delete" | "boot_fat16_list"
         | "boot_fat32_find" | "boot_fat32_read" | "boot_fat32_write" | "boot_fat32_delete" | "boot_fat32_list"
         | "boot_task_create" | "boot_task_yield" | "boot_task_start"

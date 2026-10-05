@@ -2,12 +2,10 @@ import boot
 
 fn main() {
     boot.serial_init()
-    boot.serial_puts("[gtlang] kbd modifiers + serial poll\n")
-    m := boot.keyboard_modifiers()
-    boot.serial_puts("modifiers=")
-    put(m)
+    boot.serial_puts("[gtlang] fat8 write\n")
+    n := boot.fat8_write("TST     TXT", "hello", 5)
+    boot.serial_puts("wrote=")
+    put(n)
     put(10)
-    c := boot.serial_poll()
-    boot.serial_puts("serial poll ok\n")
     boot.hlt()
 }

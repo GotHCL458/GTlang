@@ -636,6 +636,59 @@ long long boot_fat8_read(const char *name83, char *out, long long cap) {
     return -1;
 }
 
+long long boot_fat8_write(const char *name83, const char *data, long long n) {
+    // 找空目录项（FAT8 布局：LBA 2 起，16 项）
+    unsigned char e[32];
+    long long idx = -1;
+    for (long long i = 0; i < 16; i++) {
+        long long lba = 2 + i / 16;
+        long long off = (i % 16) * 32;
+        if (boot_disk_read(lba, 1, (long long)fat_buf) < 0) return -1;
+        for (int k = 0; k < 32; k++) e[k] = fat_buf[off + k];
+        if (e[0] == 0 || e[0] == 0xE5) { idx = i; break; }
+    }
+    if (idx < 0) return -1;
+    long long cluster = 2 + idx;   // 简化：簇号 = 2 + 目录项索引
+    long long total = 0;
+    const unsigned char *p = (const unsigned char *)data;
+    while (total < n) {
+        long long lba = 18 + cluster - 2 + total / 512;
+        long long m = (n - total) < 512 ? (n - total) : 512;
+        for (long long k = 0; k < 512; k++) fat_buf[k] = (k < m) ? p[total + k] : 0;
+        if (boot_disk_write(lba, 1, (long long)fat_buf) < 0) return -1;
+        total += m;
+    }
+    for (int i = 0; i < 32; i++) e[i] = 0;
+    for (int j = 0; j < 11; j++) { char c = name83[j]; if (c >= 'a' && c <= 'z') c -= 32; e[j] = (unsigned char)c; }
+    e[26] = (unsigned char)cluster;
+    e[28] = (unsigned char)(n & 0xFF);
+    e[29] = (unsigned char)((n >> 8) & 0xFF);
+    long long lba = 2 + idx / 16;
+    long long off = (idx % 16) * 32;
+    if (boot_disk_read(lba, 1, (long long)fat_buf) < 0) return -1;
+    for (int i = 0; i < 32; i++) fat_buf[off + i] = e[i];
+    if (boot_disk_write(lba, 1, (long long)fat_buf) < 0) return -1;
+    return n;
+}
+
+long long boot_fat8_delete(const char *name83) {
+    unsigned char e[32];
+    for (long long i = 0; i < 16; i++) {
+        long long lba = 2 + i / 16;
+        long long off = (i % 16) * 32;
+        if (boot_disk_read(lba, 1, (long long)fat_buf) < 0) return -1;
+        for (int k = 0; k < 32; k++) e[k] = fat_buf[off + k];
+        if (e[0] == 0) break;
+        if (e[0] == 0xE5) continue;
+        int ok = 1;
+        for (int j = 0; j < 11; j++) { char c = name83[j]; if (c >= 'a' && c <= 'z') c -= 32; if (e[j] != (unsigned char)c) { ok = 0; break; } }
+        if (!ok) continue;
+        fat_buf[off] = 0xE5;
+        return boot_disk_write(lba, 1, (long long)fat_buf);
+    }
+    return -1;
+}
+
 long long boot_fat8_list(long long out, long long cap) {
     char *p = (char *)out;
     long long used = 0, count = 0;
