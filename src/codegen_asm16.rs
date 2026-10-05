@@ -488,6 +488,34 @@ fn gen_expr(a: &mut Asm16, sc: &mut Scope, e: &Expr) -> Result<(), String> {
                                 store_ax(a, voff);
                             }
                         }
+                    } else if let ExprKind::Call(cname, cargs) = &pat.kind {
+                        // `Some(x)` / `Ok(x)` pattern：subject != 0 即命中，x = subject - 1
+                        if (cname == "Some" || cname == "Ok") && cargs.len() == 1 {
+                            load_ax(a, subj_off);
+                            a.b(0x85); a.b(0xC0);        // test ax, ax
+                            a.b(0x74);                   // jz lnext
+                            let at = a.out.len(); a.b(0);
+                            let f = a.pc();
+                            a.fixups.push((at, lnext.clone(), FixKind::Rel8From(f)));
+                            if let ExprKind::Ident(vname) = &cargs[0].kind {
+                                let voff = alloc(sc);
+                                sc.vars.insert(vname.clone(), voff);
+                                load_ax(a, subj_off);
+                                a.b(0x48);               // dec ax（还原值）
+                                store_ax(a, voff);
+                            }
+                        } else {
+                            load_ax(a, subj_off);
+                            push_ax(a);
+                            gen_expr(a, sc, pat)?;
+                            a.b(0x89); a.b(0xC3);
+                            pop_ax(a);
+                            a.b(0x39); a.b(0xD8);
+                            a.b(0x75);
+                            let at = a.out.len(); a.b(0);
+                            let f = a.pc();
+                            a.fixups.push((at, lnext.clone(), FixKind::Rel8From(f)));
+                        }
                     } else {
                         load_ax(a, subj_off);
                         push_ax(a);
@@ -585,6 +613,14 @@ fn gen_expr(a: &mut Asm16, sc: &mut Scope, e: &Expr) -> Result<(), String> {
             let base = offs[n - 1];
             a.b(0x8D); a.b(0x46); a.b(base as u8); // lea ax, [bp+base]
         }
+        ExprKind::None => { a.b(0xB8); a.w(0); }   // Option: None = 0
+        ExprKind::Some(inner) => {
+            // Some(v) = v + 1（0 保留给 None）
+            gen_expr(a, sc, inner)?;
+            a.b(0x40);   // inc ax
+        }
+        ExprKind::Ok(inner) => { gen_expr(a, sc, inner)?; }
+        ExprKind::Err(_) => { a.b(0xB8); a.w(0); }
         ExprKind::Ident(n) => {
             let off = *sc.vars.get(n).ok_or_else(|| format!("未定义变量 '{}'", n))?;
             load_ax(a, off);
@@ -645,6 +681,20 @@ fn gen_expr(a: &mut Asm16, sc: &mut Scope, e: &Expr) -> Result<(), String> {
                     a.b(0xB8); a.w(0);               // mov ax, 0
                     return Ok(());
                 }
+                return Ok(());
+            }
+            // Option/Result 构造（16 位简化表示：None=0，Some(v)=v+1；Ok(v)=v，Err=0）
+            if name == "Some" && args.len() == 1 {
+                gen_expr(a, sc, &args[0])?;
+                a.b(0x40);   // inc ax
+                return Ok(());
+            }
+            if name == "None" || name == "Err" {
+                a.b(0xB8); a.w(0);
+                return Ok(());
+            }
+            if name == "Ok" && args.len() == 1 {
+                gen_expr(a, sc, &args[0])?;
                 return Ok(());
             }
             // 普通函数调用：参数压栈（逆序），call，清理
