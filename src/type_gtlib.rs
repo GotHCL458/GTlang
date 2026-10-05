@@ -200,6 +200,10 @@ pub fn gtlib_fn(name: &str) -> Option<StdFn> {
         "boot_mem_size" => f("boot_mem_size", Ty::I64, &[]),
         "boot_time_ms" => f("boot_time_ms", Ty::I64, &[]),
         "boot_sleep_ms" => f("boot_sleep_ms", Ty::Void, &[Ty::I64]),
+        "boot_rtc_read" => f("boot_rtc_read", Ty::I64, &[Ty::I64]),
+        "boot_cpuid" => f("boot_cpuid", Ty::Void, &[Ty::I64, Ty::I64]),
+        "boot_cpu_vendor" => f("boot_cpu_vendor", Ty::I64, &[Ty::I64]),
+        "boot_disk_partitions" => f("boot_disk_partitions", Ty::I64, &[Ty::I64]),
         "boot_hlt" => f("boot_hlt", Ty::Void, &[]),
         "boot_exit" => f("boot_exit", Ty::Void, &[]),
         "boot_reboot" => f("boot_reboot", Ty::Void, &[]),
@@ -390,7 +394,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "boot_clear" | "boot_putc_at" | "boot_puts" | "boot_getkey"
         | "boot_vga_clear" | "boot_vga_set_color" | "boot_vga_putc" | "boot_vga_puts"
         | "boot_mem_alloc" | "boot_mem_free" | "boot_mem_size"
-        | "boot_time_ms" | "boot_sleep_ms"
+        | "boot_time_ms" | "boot_sleep_ms" | "boot_rtc_read" | "boot_cpuid" | "boot_cpu_vendor" | "boot_disk_partitions"
         | "boot_hlt" | "boot_exit" | "boot_reboot" | "boot_shutdown"
         | "boot_disk_read" | "boot_disk_write"
         | "boot_inb" | "boot_outb" | "boot_inw" | "boot_outw"

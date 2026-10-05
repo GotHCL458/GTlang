@@ -131,10 +131,13 @@ pub const MODULES: &[StdModule] = &[
             "boot_mem_alloc", "boot_mem_free", "boot_mem_size",
             // 时间
             "boot_time_ms", "boot_sleep_ms",
+            "boot_rtc_read",
             // 系统
             "boot_hlt", "boot_exit", "boot_reboot", "boot_shutdown",
+            "boot_cpuid", "boot_cpu_vendor",
             // 磁盘
             "boot_disk_read", "boot_disk_write",
+            "boot_disk_partitions",
             // 端口
             "boot_inb", "boot_outb", "boot_inw", "boot_outw",
             // 信息

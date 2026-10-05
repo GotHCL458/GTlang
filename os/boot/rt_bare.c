@@ -874,6 +874,58 @@ void boot_vga_putc(long long c) {
 }
 
 void boot_vga_puts(const char *s) { while (*s) boot_vga_putc((unsigned char)*s++); }
+
+/* ===== system：CPUID ===== */
+void boot_cpuid(long long leaf, long long out) {
+    unsigned int *p = (unsigned int *)out;
+    unsigned int a, b, c, d;
+    __asm__ volatile("cpuid" : "=a"(a), "=b"(b), "=c"(c), "=d"(d) : "a"((unsigned int)leaf), "c"(0));
+    if (p) { p[0] = a; p[1] = b; p[2] = c; p[3] = d; }
+}
+
+long long boot_cpu_vendor(long long out) {
+    unsigned int *p = (unsigned int *)out;
+    unsigned int a, b, c, d;
+    __asm__ volatile("cpuid" : "=a"(a), "=b"(b), "=c"(c), "=d"(d) : "a"(0u), "c"(0u));
+    if (p) { p[0] = b; p[1] = d; p[2] = c; }   // EBX,EDX,ECX -> 12 字节厂商串
+    return 0;
+}
+
+/* ===== time：RTC（CMOS）===== */
+static unsigned char cmos_read(unsigned char reg) {
+    outb(0x70, reg);
+    return inb(0x71);
+}
+static int bcd2bin(unsigned char v) { return (v & 0x0F) + ((v >> 4) * 10); }
+
+/* 读 RTC 时间：out 指向 6 字节（秒 分 时 日 月 年），返回 0 */
+long long boot_rtc_read(long long out) {
+    unsigned char *p = (unsigned char *)out;
+    while (cmos_read(0x0A) & 0x80) {}   // 等 UIP 清零
+    if (p) {
+        p[0] = (unsigned char)bcd2bin(cmos_read(0x00));  // 秒
+        p[1] = (unsigned char)bcd2bin(cmos_read(0x02));  // 分
+        p[2] = (unsigned char)bcd2bin(cmos_read(0x04));  // 时
+        p[3] = (unsigned char)bcd2bin(cmos_read(0x07));  // 日
+        p[4] = (unsigned char)bcd2bin(cmos_read(0x08));  // 月
+        p[5] = (unsigned char)bcd2bin(cmos_read(0x09));  // 年
+    }
+    return 0;
+}
+
+/* ===== disk：MBR 分区表解析 ===== */
+/* 读 MBR（LBA 0），解析 4 个分区项；out 指向 4x2 的 u32（起始 LBA, 扇区数）*/
+long long boot_disk_partitions(long long out) {
+    unsigned int *p = (unsigned int *)out;
+    if (boot_disk_read(0, 1, (long long)fat_buf) < 0) return -1;
+    for (int i = 0; i < 4; i++) {
+        unsigned char *e = &fat_buf[446 + i * 16];
+        unsigned int lba = e[8] | (e[9] << 8) | (e[10] << 16) | ((unsigned int)e[11] << 24);
+        unsigned int cnt = e[12] | (e[13] << 8) | (e[14] << 16) | ((unsigned int)e[15] << 24);
+        if (p) { p[i*2] = lba; p[i*2+1] = cnt; }
+    }
+    return 0;
+}
 /* ===== 简单协作式多任务（轮转调度）===== */
 #define TASK_MAX 8
 #define TASK_STACK 8192
