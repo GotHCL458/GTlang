@@ -3,12 +3,15 @@ import boot
 import console
 import fs
 import shell
+import keyboard
+import task
 
 fn main() {
     console.init()
     console.puts("[kernel] GTLang pseudo-Linux booting\n")
     fs.init()
     fs.write("motd", "welcome to GTLang linux")
+    keyboard.init()
     shell.run("help")
     shell.run("ls")
     console.puts("[kernel] done\n")

@@ -1,0 +1,6 @@
+//! 用户程序：hello
+import console
+
+pub fn main() {
+    console.puts("[user] hello from userspace\n")
+}
