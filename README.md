@@ -82,6 +82,7 @@ GTLang is a **statically-typed**, **compiled**, **expression-oriented** programm
 | 💬 | **Smart diagnostics** — stable codes, bilingual, "did you mean X?" |
 | 📦 | **Modules** — `import math` (builtin), `import a.b` (user), `import "x.gt"` |
 | 🛠️ | **Toolchain** — `gtc` (compiler / interpreter) |
+| 🖥️ | **Bare-metal OS** — `gtc --bare --target x86_16/32/64` + `--asm16` assembler + `--boot` image; `import boot` (30 fns) runs kernels in QEMU |
 
 ---
 

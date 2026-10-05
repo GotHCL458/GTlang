@@ -50,8 +50,17 @@ All notable changes to GTLang. Bilingual (EN / 中文).
 - Split `sema.rs` (58→21 KB, + `sema_infer.rs`) and `codegen/mod.rs` (51→18 KB, + `codegen/stmt.rs`); all `.rs` < 50 KB.
 - `tests/` tracked in the repo again.
 
+### OS / Bare-metal（新增）
+- **`gtc --bare --target x86_64|x86_32|x86_16`** —— 裸机目标（无 CRT/运行时）。
+- **`gtc --bare --boot`** —— 一键生成可启动镜像（引导库 + 内核 + 运行时）。
+- **`gtc --asm16`** —— 内置 x86-16 汇编器（与 nasm 逐字节一致；`res/bin/nasm.exe` 随发行包）。
+- **`gtc --asm16gen`** —— AST → x86-16 机器码后端（`codegen_asm16`：函数/算术/if/while/for/match/break/continue/字符串/数组）。
+- **`gtlib: boot`** —— 完整裸机引导库（30 函数 × 10 组：serial/screen/keyboard/memory/time/system/disk/port/interrupt/info）。
+- **三套引导实现**：`os/boot/stage1.asm`+`stage2.asm`（MBR→32 位保护模式→64 位长模式）、`rt_bare.c`（32/64 位运行时）、`boot16.asm`（16 位，`gtc --asm16` 自组装）。
+- **中断/PIC/PIT/键盘/ATA 磁盘** 均已在 QEMU 验证。
+
 ### Tests
-- **814 tests**: 142 unit + 149 dual-backend consistency + 522 frontend bulk. 0 warnings.
+- **825 tests**: 143 unit + 160 dual-backend consistency + 522 frontend bulk. 0 warnings.
 
 ## [0.0.1c] - 2026-09-28
 
@@ -125,8 +134,17 @@ All notable changes to GTLang. Bilingual (EN / 中文).
 - 拆 `sema.rs`（58→21 KB，+ `sema_infer.rs`）与 `codegen/mod.rs`（51→18 KB，+ `codegen/stmt.rs`）；全部 `.rs` < 50 KB。
 - `tests/` 重新纳入仓库。
 
+### OS / 裸机（新增）
+- **`gtc --bare --target x86_64|x86_32|x86_16`** —— 裸机目标（无 CRT/运行时）。
+- **`gtc --bare --boot`** —— 一键生成可启动镜像。
+- **`gtc --asm16`** —— 内置 x86-16 汇编器（与 nasm 逐字节一致）。
+- **`gtc --asm16gen`** —— AST → x86-16 机器码后端。
+- **`gtlib: boot`** —— 完整裸机引导库（30 函数 × 10 组）。
+- **三套引导实现**：MBR→保护模式→长模式（x86_64）、16 位自组装。
+- **中断/PIC/PIT/键盘/ATA 磁盘** 均已在 QEMU 验证。
+
 ### 测试
-- **814 个测试**：142 单元 + 149 双后端一致性 + 522 前端批量。0 warning。
+- **825 个测试**：143 单元 + 160 双后端一致性 + 522 前端批量。0 warning。
 
 ---
 
