@@ -1,6 +1,6 @@
 //! 文件系统：ramfs + FAT16 封装
 import boot
-import console
+import "console.gt"
 
 pub fn init() {
     console.puts("[fs] ramfs ready\n")

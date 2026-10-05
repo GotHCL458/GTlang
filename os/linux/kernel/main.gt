@@ -1,10 +1,10 @@
 //! 内核主入口
 import boot
-import console
-import fs
-import shell
-import keyboard
-import task
+import "console.gt"
+import "fs.gt"
+import "shell.gt"
+import "keyboard.gt"
+import "task.gt"
 
 fn main() {
     console.init()

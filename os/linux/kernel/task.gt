@@ -1,6 +1,6 @@
 //! 任务/调度封装
 import boot
-import console
+import "console.gt"
 
 pub fn spawn(entry: int) -> int {
     return boot.task_create(entry)

@@ -125,6 +125,82 @@ void gto_pool_free(GtoPool *p);
 void gto_pool_submit(GtoPool *p, GtoTask fn, void *arg);
 void gto_pool_wait(GtoPool *p);
 
+
+/* ============================================================
+ * 8. 协程本地存储（TLS per coroutine）
+ * ============================================================ */
+
+void gto_tls_set(int slot, void *val);
+void *gto_tls_get(int slot);
+#define GTO_TLS_MAX 16
+
+/* ============================================================
+ * 9. 协程取消 / 超时
+ * ============================================================ */
+
+void gto_cancel(int64_t coro_id);          /* 请求取消（协作式） */
+int  gto_cancelled(void);                  /* 当前协程是否被取消 */
+void gto_sleep(int64_t ms);                /* 让出 ms 毫秒（可被取消） */
+int64_t gto_chan_recv_timeout(GtoChan *c, int64_t timeout_ms);  /* -1 = 超时/关闭 */
+
+/* ============================================================
+ * 10. 信号量
+ * ============================================================ */
+
+typedef struct GtoSem GtoSem;
+GtoSem *gto_sem_new(int64_t initial);
+void gto_sem_free(GtoSem *s);
+void gto_sem_wait(GtoSem *s);
+int  gto_sem_try_wait(GtoSem *s);
+void gto_sem_post(GtoSem *s);
+int64_t gto_sem_value(GtoSem *s);
+
+/* ============================================================
+ * 11. 屏障
+ * ============================================================ */
+
+typedef struct GtoBarrier GtoBarrier;
+GtoBarrier *gto_barrier_new(int64_t n);
+void gto_barrier_free(GtoBarrier *b);
+void gto_barrier_wait(GtoBarrier *b);   /* 等所有 n 个参与者到齐 */
+
+/* ============================================================
+ * 12. 条件变量
+ * ============================================================ */
+
+typedef struct GtoCond GtoCond;
+GtoCond *gto_cond_new(void);
+void gto_cond_free(GtoCond *c);
+void gto_cond_wait(GtoCond *c, GtoMutex *m);
+void gto_cond_signal(GtoCond *c);
+void gto_cond_broadcast(GtoCond *c);
+
+/* ============================================================
+ * 13. 一次性初始化
+ * ============================================================ */
+
+typedef void (*GtoOnceFn)(void);
+void gto_once(int64_t *flag, GtoOnceFn fn);
+
+/* ============================================================
+ * 14. select_send（多通道发送）
+ * ============================================================ */
+
+int gto_select_send(GtoChan **chans, int n, int64_t v, int64_t timeout_ms);
+
+/* ============================================================
+ * 15. 调度统计
+ * ============================================================ */
+
+typedef struct {
+    int64_t coros_spawned;
+    int64_t coros_done;
+    int64_t context_switches;
+    int64_t live_coros;
+    int n_workers;
+} GtoStats;
+void gto_stats(GtoStats *out);
+
 #ifdef __cplusplus
 }
 #endif

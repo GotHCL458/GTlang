@@ -1,5 +1,5 @@
 //! 用户程序：hello
-import console
+import "console.gt"
 
 pub fn main() {
     console.puts("[user] hello from userspace\n")

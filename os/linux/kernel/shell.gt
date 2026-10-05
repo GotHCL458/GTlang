@@ -1,6 +1,6 @@
 //! 简易 shell（命令解析 + 内置命令）
-import console
-import fs
+import "console.gt"
+import "fs.gt"
 import boot
 
 pub fn cmd_help() {

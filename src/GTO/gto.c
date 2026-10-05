@@ -78,6 +78,8 @@ typedef struct GtoWorker {
     int64_t next_coro;
 } GtoWorker;
 
+struct GtoMutex { gto_mtx_t m; };
+
 static GtoWorker g_workers[GTO_MAX_WORKERS];
 static int g_nworkers = 0;
 static volatile int g_running = 0;
@@ -92,6 +94,196 @@ static GtoCoro *gto_take_ready(GtoWorker *w);
 static void gto_worker_loop(int wid);
 
 const char *gto_version(void) { return GTO_VERSION; }
+
+/* ============================================================
+ * TLS（协程本地存储）
+ * ============================================================ */
+
+static void *g_tls[GTO_MAX_CORO][GTO_TLS_MAX];
+
+void gto_tls_set(int slot, void *val) {
+    if (slot < 0 || slot >= GTO_TLS_MAX) return;
+    int64_t id = gto_self();
+    if (id >= 0 && id < GTO_MAX_CORO) g_tls[id][slot] = val;
+}
+void *gto_tls_get(int slot) {
+    if (slot < 0 || slot >= GTO_TLS_MAX) return NULL;
+    int64_t id = gto_self();
+    if (id >= 0 && id < GTO_MAX_CORO) return g_tls[id][slot];
+    return NULL;
+}
+
+/* ============================================================
+ * 取消 / 超时 / 统计
+ * ============================================================ */
+
+static volatile int64_t g_coros_spawned = 0;
+static volatile int64_t g_coros_done = 0;
+static volatile int64_t g_ctx_switches = 0;
+static volatile int g_cancel_flags[GTO_MAX_CORO];
+
+void gto_cancel(int64_t coro_id) {
+    if (coro_id >= 0 && coro_id < GTO_MAX_CORO) g_cancel_flags[coro_id] = 1;
+}
+int gto_cancelled(void) {
+    int64_t id = gto_self();
+    return (id >= 0 && id < GTO_MAX_CORO) ? g_cancel_flags[id] : 0;
+}
+void gto_sleep(int64_t ms) {
+    int64_t step = 0;
+    while (step < ms && !gto_cancelled()) { GTO_SLEEP_MS(1); step++; }
+}
+
+int64_t gto_chan_recv_timeout(GtoChan *c, int64_t timeout_ms) {
+    int64_t waited = 0;
+    while (timeout_ms < 0 || waited < timeout_ms) {
+        int64_t v;
+        if (gto_chan_try_recv(c, &v) == 0) return v;
+        if (gto_cancelled()) return -1;
+        GTO_SLEEP_MS(1);
+        waited++;
+    }
+    return -1;
+}
+
+
+/* ============================================================
+ * 信号量
+ * ============================================================ */
+
+struct GtoSem { gto_mtx_t lock; gto_cnd_t cond; int64_t value; };
+GtoSem *gto_sem_new(int64_t initial) {
+    GtoSem *s = (GtoSem *)malloc(sizeof(GtoSem));
+    GTO_MTX_INIT(&s->lock); GTO_CND_INIT(&s->cond); s->value = initial;
+    return s;
+}
+void gto_sem_free(GtoSem *s) { if (s) { GTO_MTX_DESTROY(&s->lock); free(s); } }
+void gto_sem_wait(GtoSem *s) {
+    GTO_MTX_LOCK(&s->lock);
+    while (s->value <= 0) GTO_CND_WAIT(&s->cond, &s->lock);
+    s->value--;
+    GTO_MTX_UNLOCK(&s->lock);
+}
+int gto_sem_try_wait(GtoSem *s) {
+    GTO_MTX_LOCK(&s->lock);
+    if (s->value <= 0) { GTO_MTX_UNLOCK(&s->lock); return -1; }
+    s->value--;
+    GTO_MTX_UNLOCK(&s->lock);
+    return 0;
+}
+void gto_sem_post(GtoSem *s) {
+    GTO_MTX_LOCK(&s->lock);
+    s->value++;
+    GTO_CND_SIGNAL(&s->cond);
+    GTO_MTX_UNLOCK(&s->lock);
+}
+int64_t gto_sem_value(GtoSem *s) { GTO_MTX_LOCK(&s->lock); int64_t v = s->value; GTO_MTX_UNLOCK(&s->lock); return v; }
+
+/* ============================================================
+ * 屏障
+ * ============================================================ */
+
+struct GtoBarrier { gto_mtx_t lock; gto_cnd_t cond; int64_t n; int64_t count; int64_t generation; };
+GtoBarrier *gto_barrier_new(int64_t n) {
+    GtoBarrier *b = (GtoBarrier *)malloc(sizeof(GtoBarrier));
+    GTO_MTX_INIT(&b->lock); GTO_CND_INIT(&b->cond);
+    b->n = n; b->count = 0; b->generation = 0;
+    return b;
+}
+void gto_barrier_free(GtoBarrier *b) { if (b) { GTO_MTX_DESTROY(&b->lock); free(b); } }
+void gto_barrier_wait(GtoBarrier *b) {
+    GTO_MTX_LOCK(&b->lock);
+    int64_t gen = b->generation;
+    b->count++;
+    if (b->count == b->n) {
+        b->count = 0; b->generation++;
+        GTO_CND_BROADCAST(&b->cond);
+    } else {
+        while (gen == b->generation) GTO_CND_WAIT(&b->cond, &b->lock);
+    }
+    GTO_MTX_UNLOCK(&b->lock);
+}
+
+/* ============================================================
+ * 条件变量
+ * ============================================================ */
+
+struct GtoCond { gto_cnd_t c; };
+GtoCond *gto_cond_new(void) { GtoCond *c = (GtoCond *)malloc(sizeof(GtoCond)); GTO_CND_INIT(&c->c); return c; }
+void gto_cond_free(GtoCond *c) { if (c) free(c); }
+void gto_cond_wait(GtoCond *c, GtoMutex *m) { GTO_CND_WAIT(&c->c, &m->m); }
+void gto_cond_signal(GtoCond *c) { GTO_CND_SIGNAL(&c->c); }
+void gto_cond_broadcast(GtoCond *c) { GTO_CND_BROADCAST(&c->c); }
+
+/* ============================================================
+ * 一次性初始化
+ * ============================================================ */
+
+void gto_once(int64_t *flag, GtoOnceFn fn) {
+    if (gto_atomic_cas(flag, 0, 1) == 0) { fn(); gto_atomic_store(flag, 2); }
+    else { while (gto_atomic_load(flag) != 2) GTO_SLEEP_MS(1); }
+}
+
+/* ============================================================
+ * select_send（多通道发送，选第一个可写的）
+ * ============================================================ */
+
+int gto_select_send(GtoChan **chans, int n, int64_t v, int64_t timeout_ms) {
+    int64_t waited = 0;
+    while (timeout_ms < 0 || waited < timeout_ms) {
+        for (int i = 0; i < n; i++) {
+            if (gto_chan_try_send(chans[i], v) == 0) return i;
+        }
+        GTO_SLEEP_MS(1);
+        waited++;
+    }
+    return -1;
+}
+
+
+/* ============================================================
+ * 无锁 MPSC 队列（单生产者多消费者 / 多生产者单消费者）
+ *   —— 供高性能通道与内部任务队列复用
+ * ============================================================ */
+
+typedef struct GtoNode { int64_t val; struct GtoNode *next; } GtoNode;
+typedef struct {
+    GtoNode *head;   /* 出队端 */
+    GtoNode *tail;   /* 入队端 */
+    gto_mtx_t lock;  /* 简化：临界区保护（比通道锁更细） */
+} GtoMpsc;
+
+static void gto_mpsc_init(GtoMpsc *q) { q->head = q->tail = NULL; GTO_MTX_INIT(&q->lock); }
+static void gto_mpsc_push(GtoMpsc *q, int64_t v) {
+    GtoNode *n = (GtoNode *)malloc(sizeof(GtoNode));
+    n->val = v; n->next = NULL;
+    GTO_MTX_LOCK(&q->lock);
+    if (q->tail) q->tail->next = n; else q->head = n;
+    q->tail = n;
+    GTO_MTX_UNLOCK(&q->lock);
+}
+static int gto_mpsc_pop(GtoMpsc *q, int64_t *out) {
+    GTO_MTX_LOCK(&q->lock);
+    if (!q->head) { GTO_MTX_UNLOCK(&q->lock); return -1; }
+    GtoNode *n = q->head;
+    q->head = n->next;
+    if (!q->head) q->tail = NULL;
+    GTO_MTX_UNLOCK(&q->lock);
+    if (out) *out = n->val;
+    free(n);
+    return 0;
+}
+
+
+void gto_stats(GtoStats *out) {
+    if (!out) return;
+    out->coros_spawned = g_coros_spawned;
+    out->coros_done = g_coros_done;
+    out->context_switches = g_ctx_switches;
+    out->live_coros = g_live_coros;
+    out->n_workers = g_nworkers;
+}
+
 
 /* ============================================================
  * 调度器实现（Windows Fiber / POSIX ucontext 双支持）
@@ -323,7 +515,7 @@ int64_t gto_chan_len(GtoChan *c) { GTO_MTX_LOCK(&c->lock); int64_t n = c->len; G
  * 互斥锁 / 读写锁
  * ============================================================ */
 
-struct GtoMutex { gto_mtx_t m; };
+/* GtoMutex 定义见文件前部 */
 GtoMutex *gto_mutex_new(void) { GtoMutex *m = (GtoMutex *)malloc(sizeof(GtoMutex)); GTO_MTX_INIT(&m->m); return m; }
 void gto_mutex_free(GtoMutex *m) { if (m) { GTO_MTX_DESTROY(&m->m); free(m); } }
 void gto_mutex_lock(GtoMutex *m) { GTO_MTX_LOCK(&m->m); }
@@ -549,4 +741,22 @@ void gto_pool_wait(GtoPool *p) {
     GTO_MTX_LOCK(&p->lock);
     while (p->head || p->active > 0) GTO_CND_WAIT(&p->idle, &p->lock);
     GTO_MTX_UNLOCK(&p->lock);
+}
+
+
+/* ============================================================
+ * 线程池动态扩缩（定义在 GtoPool 之后）
+ * ============================================================ */
+
+int gto_pool_resize(GtoPool *p, int new_n) {
+    if (!p || new_n <= 0) return -1;
+    if (new_n == p->n) return 0;
+    if (new_n > p->n) {
+        p->threads = (GTO_THREAD_HANDLE *)realloc(p->threads, sizeof(GTO_THREAD_HANDLE) * new_n);
+        for (int i = p->n; i < new_n; i++) GTO_THREAD_CREATE(&p->threads[i], gto_pool_worker, p);
+        p->n = new_n;
+    } else {
+        p->n = new_n;
+    }
+    return 0;
 }

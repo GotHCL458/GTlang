@@ -529,9 +529,11 @@ pub struct Import {
 impl Import {
     /// 绑定到当前作用域的本地名字
     pub fn local_name(&self) -> String {
-        self.alias
-            .clone()
-            .unwrap_or_else(|| self.path.last().cloned().unwrap_or_default())
+        self.alias.clone().unwrap_or_else(|| {
+            let last = self.path.last().cloned().unwrap_or_default();
+            // 文件导入 `import "console.gt"` 的本地名取去扩展名的基名
+            last.trim_end_matches(".gt").trim_end_matches(".h").to_string()
+        })
     }
 }
 

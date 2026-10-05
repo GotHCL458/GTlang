@@ -1,6 +1,6 @@
 //! 键盘驱动
 import boot
-import console
+import "console.gt"
 
 pub fn init() {
     boot.idt_init()

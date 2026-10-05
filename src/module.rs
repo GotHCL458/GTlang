@@ -671,6 +671,16 @@ fn rewrite_expr(e: &mut Expr, own: &HashMap<String, String>, visible: &HashMap<S
             for a in args.iter_mut() {
                 rewrite_expr(a, own, visible);
             }
+            // 用户模块限定调用 `mod.fn(...)`：解析为全局名 `mod__fn`
+            if let Some(dot) = name.find('.') {
+                let (head, field) = (&name[..dot], &name[dot + 1..]);
+                if let Some(exports) = visible.get(head) {
+                    if let Some(g) = exports.get(field) {
+                        *name = g.clone();
+                        return;
+                    }
+                }
+            }
             resolve_name(name, own, visible);
         }
         ExprKind::Unary(_, a) => rewrite_expr(a, own, visible),
