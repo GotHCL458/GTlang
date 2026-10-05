@@ -158,6 +158,18 @@ void boot_idt_init(void) {
     set_gate(0x21, (unsigned long)irq1_stub);
 #endif
     boot_pit_init(1000);
+    // 使能 PS/2 键盘（i8042）：读配置字节 -> 开 IRQ1 -> 写回
+    while (inb(0x64) & 0x02) {}
+    outb(0x64, 0x20);
+    while (!(inb(0x64) & 0x01)) {}
+    unsigned char kcfg = inb(0x60);
+    kcfg |= 0x01;
+    kcfg &= ~0x10;
+    while (inb(0x64) & 0x02) {}
+    outb(0x64, 0x60);
+    while (inb(0x64) & 0x02) {}
+    outb(0x60, kcfg);
+    while (inb(0x64) & 0x01) { inb(0x60); }
     idtp.limit = sizeof(idt) - 1;
     idtp.base = (unsigned long)&idt;
     __asm__ volatile("lidt %0" :: "m"(idtp));
