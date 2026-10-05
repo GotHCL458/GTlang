@@ -38,6 +38,9 @@ bench/*.s
 !README.md
 !doc/*.md
 
+# Third-party / unrelated
+/XuanTie-Lang-1.0-rc.2/
+
 # QEMU (downloaded binary, not source)
 /qemu/
 
