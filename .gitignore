@@ -38,6 +38,9 @@ bench/*.s
 !README.md
 !doc/*.md
 
+# QEMU (downloaded binary, not source)
+/qemu/
+
 # OS build artifacts
 /os/build/
 
