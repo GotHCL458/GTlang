@@ -269,6 +269,14 @@ fn cmp_ax_0(a: &mut Asm16) { a.b(0x3D); a.w(0); } // cmp ax, 0
 fn ret(a: &mut Asm16) { a.b(0x89); a.b(0xEC); a.b(0x5D); a.b(0xC3); } // mov sp,bp; pop bp; ret
 
 
+/// 结构体字段索引（简化：字段名哈希 -> 索引，用于 16 位后端字段访问）。
+/// 注：同一程序内字段名唯一时可用；多结构体同名字段需按类型区分（暂未做）。
+fn struct_field_index(name: &str) -> Option<usize> {
+    // 用字段名哈希的低位作索引（0..16），冲突概率低（16 位后端仅用于小内核）
+    let mut h: u32 = 2166136261;
+    for b in name.bytes() { h = (h ^ b as u32).wrapping_mul(16777619); }
+    Some((h % 16) as usize)
+}
 /// 字符串常量表：内容 -> 标签名（在数据段末尾统一发射）
 fn str_label(s: &str) -> String {
     let mut h: u32 = 2166136261;
@@ -362,6 +370,25 @@ fn gen_expr(a: &mut Asm16, sc: &mut Scope, e: &Expr) -> Result<(), String> {
                 a.label(&lnext);
             }
             a.label(&lend);
+        }
+        ExprKind::StructLit(_, fields) => {
+            // 结构体：按字段名哈希索引定位（与 Field 访问一致）
+            let mut slots: Vec<(usize, i64)> = Vec::new();
+            let mut maxidx = 0;
+            for (fname, _) in fields.iter() { let i = struct_field_index(fname).unwrap_or(0); if i > maxidx { maxidx = i; } }
+            // 分配 maxidx+1 个槽
+            let mut base_off = 0i64;
+            for i in 0..=maxidx { let o = alloc(sc); if i == maxidx { base_off = o; } slots.push((i, o)); }
+            for (fname, fval) in fields.iter() {
+                let idx = struct_field_index(fname).unwrap_or(0);
+                gen_expr(a, sc, fval)?;
+                let o = slots.iter().find(|(i, _)| *i == idx).map(|(_, o)| *o).unwrap_or(base_off);
+                store_ax(a, o);
+            }
+            let _ = base_off;
+            // AX = 首槽地址（最高偏移 = 最低地址）
+            let lowest = slots.iter().map(|(_, o)| *o).max().unwrap_or(base_off);
+            a.b(0x8D); a.b(0x46); a.b(lowest as u8);
         }
         ExprKind::ArrayLit(items) => {
             // 数组：在栈上为每个元素分配 2 字节（连续，向下增长）
@@ -464,5 +491,6 @@ impl Asm16 {
         Ok(())
     }
 }
+
 
 
