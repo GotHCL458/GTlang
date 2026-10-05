@@ -1,0 +1,5 @@
+fn main() {
+    b := !true
+    put(b)
+    put(10)
+}

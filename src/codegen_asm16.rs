@@ -19,6 +19,8 @@ pub struct Asm16 {
     fixups: Vec<(usize, String, FixKind)>,
     fn_addr: HashMap<String, i64>,
     #[allow(dead_code)] entry: Option<String>,
+    /// 结构体字段表：结构体名 -> 字段名（按定义顺序，索引 = 字段序号）
+    struct_fields: HashMap<String, Vec<String>>,
     /// 字符串常量（内容 -> 在数据段的标签名）
     strs: Vec<(String, Vec<u8>)>,
     /// 标签序号（保证唯一）
@@ -35,6 +37,12 @@ pub fn compile(prog: &Program) -> Result<Vec<u8>, String> {
     let fns: Vec<&FnDef> = prog.items.iter().filter_map(|it| match it { Item::Fn(f) => Some(f), _ => None }).collect();
     if fns.is_empty() { return Err("没有可编译的函数".into()); }
     let mut a = Asm16::new();
+    // 收集结构体字段顺序（供 StructLit/Field/FieldAssign 用顺序索引）
+    for it in &prog.items {
+        if let Item::Struct(s) = it {
+            a.struct_fields.insert(s.name.clone(), s.fields.iter().map(|(n, _, _)| n.clone()).collect());
+        }
+    }
     // 入口在前：call main; hlt（相对位移用标签回填）
     let entry = if fns.iter().any(|f| f.name == "main") { "main".to_string() } else { fns[fns.len() - 1].name.clone() };
     // 初始化 COM1（0x3F8）：8N1 + FIFO
@@ -110,6 +118,7 @@ fn count_locals(b: &Block) -> usize {
             Stmt::ForRange { body, .. } => { n += 1 + count_locals(body); }
             Stmt::If { then, els, .. } => { n += count_locals(then); if let Some(e) = els { n += count_locals(e); } }
             Stmt::While { body, .. } | Stmt::DoWhile { body, .. } | Stmt::Block(body) => { n += count_locals(body); }
+            Stmt::ForEach { body, els, .. } => { n += 1 + count_locals(body); if let Some(e) = els { n += count_locals(e); } }
             _ => {}
         }
     }
@@ -152,9 +161,74 @@ fn gen_stmt(a: &mut Asm16, sc: &mut Scope, s: &Stmt) -> Result<(), String> {
         }
         Stmt::Assign { name, value, index: None, op, .. } => {
             let off = *sc.vars.get(name).ok_or_else(|| format!("未定义变量 '{}'", name))?;
-            gen_expr(a, sc, value)?;
-            if let Some(_o) = op { /* += 等：先取旧值再运算（暂略） */ }
+            if let Some(o) = op {
+                // x op= v：旧值 op 新值
+                load_ax(a, off); push_ax(a);
+                gen_expr(a, sc, value)?;
+                pop_bx(a);
+                gen_binop(a, *o)?;
+            } else {
+                gen_expr(a, sc, value)?;
+            }
             store_ax(a, off);
+        }
+        Stmt::Assign { name, value, index: Some(idx), op, .. } => {
+            // a[i] = v（数组元素，2 字节；字符串不支持写）
+            let off = *sc.vars.get(name).ok_or_else(|| format!("未定义变量 '{}'", name))?;
+            load_ax(a, off);                       // AX = 基址
+            push_ax(a);
+            gen_expr(a, sc, idx)?;                 // AX = 下标
+            a.b(0xD1); a.b(0xE0);                  // shl ax, 1（元素 2 字节）
+            a.b(0x89); a.b(0xC3);                  // mov bx, ax
+            pop_ax(a);                             // AX = 基址
+            a.b(0x01); a.b(0xD8);                  // add ax, bx
+            push_ax(a);                            // 暂存目标地址
+            gen_expr(a, sc, value)?;               // AX = 新值
+            if let Some(o) = op {
+                // a[i] op= v：旧值 op 新值
+                pop_bx(a);                         // BX = 地址
+                a.b(0x50);                         // push ax（新值）
+                a.b(0x8B); a.b(0x07);              // mov ax, [bx]（旧值）
+                a.b(0x89); a.b(0xC1);              // mov cx, ax
+                a.b(0x58);                         // pop ax（新值）
+                a.b(0x53);                         // push bx（地址）
+                a.b(0x89); a.b(0xCB);              // mov bx, cx（左=旧值）
+                gen_binop(a, *o)?;
+                a.b(0x5B);                         // pop bx（地址）
+            } else {
+                pop_bx(a);                         // BX = 地址
+            }
+            a.b(0x89); a.b(0x07);                  // mov [bx], ax
+        }
+        Stmt::FieldAssign { obj, field, op, value, .. } => {
+            // p.x = v：基址在栈上（BP 相对），字段地址 = 基址 + (n-1-i)*2
+            let off = *sc.vars.get(obj).ok_or_else(|| format!("未定义变量 '{}'", obj))?;
+            if op.is_some() {
+                return Err("16 位后端暂不支持字段复合赋值".into());
+            }
+            // 结构体名：从变量类型推（sc 里存的只是偏移，这里用 obj 的类型近似——暂用字段表全局唯一匹配）
+            let (sname, n, i) = {
+                let mut found = (String::new(), 1usize, 0usize);
+                for (sn, v) in a.struct_fields.iter() {
+                    if let Some(pos) = v.iter().position(|x| x == field) {
+                        found = (sn.clone(), v.len(), pos);
+                        break;
+                    }
+                }
+                found
+            };
+            let _ = sname;
+            let delta = ((n - 1 - i) * 2) as u8;
+            gen_expr(a, sc, value)?;
+            a.b(0x89); a.b(0xC1);                  // mov cx, ax（值暂存 CX）
+            a.b(0x8D); a.b(0x5E); a.b(off as u8);  // lea bx, [bp+off]（BX = 基址槽地址）
+            // 基址槽里存的是"结构体基址"（StructLit 的 lea 结果），需先取出
+            a.b(0x8B); a.b(0x1F);                  // mov bx, [bx]
+            if delta > 0 {
+                a.b(0x83); a.b(0xC3); a.b(delta);  // add bx, delta
+            }
+            a.b(0x89); a.b(0xC8);                  // mov ax, cx
+            a.b(0x89); a.b(0x07);                  // mov [bx], ax
         }
         Stmt::Expr(e) => { gen_expr(a, sc, e)?; }
         Stmt::Return(Some(e), _) => { gen_expr(a, sc, e)?; ret(a); }
@@ -247,6 +321,42 @@ fn gen_stmt(a: &mut Asm16, sc: &mut Scope, s: &Stmt) -> Result<(), String> {
             let frompc = a.pc();
             a.fixups.push((at, t, FixKind::Rel16From(frompc)));
         }
+        Stmt::ForEach { var, iter, body, .. } => {
+            // 16 位后端：仅支持字符串遍历（NUL 结尾）。数组遍历暂不支持。
+            let is_str = matches!(iter.ty, Ty::Str) || matches!(&iter.kind, ExprKind::Str(_));
+            if !is_str {
+                return Err("16 位后端暂不支持非字符串的 for-in".into());
+            }
+            let loff = alloc(sc);
+            gen_expr(a, sc, iter)?;
+            store_ax(a, loff);
+            let voff = alloc(sc);
+            sc.vars.insert(var.clone(), voff);
+            let lstart = a.new_label("Lfs");
+            let lend = a.new_label("Lfe");
+            let linc = a.new_label("Lfi");
+            a.label(&lstart);
+            load_ax(a, loff);
+            a.b(0x89); a.b(0xC3);            // mov bx, ax
+            a.b(0x8A); a.b(0x07);            // mov al, [bx]
+            a.b(0x0F); a.b(0xB6); a.b(0xC0); // movzx ax, al
+            a.b(0x85); a.b(0xC0);            // test ax, ax
+            a.b(0x74);                       // jz lend (rel8)
+            let at = a.out.len(); a.b(0);
+            let f = a.pc();
+            a.fixups.push((at, lend.clone(), FixKind::Rel8From(f)));
+            store_ax(a, voff);
+            sc.breaks.push(lend.clone()); sc.continues.push(linc.clone());
+            gen_block(a, sc, body)?;
+            sc.breaks.pop(); sc.continues.pop();
+            a.label(&linc);
+            load_ax(a, loff);
+            a.b(0x40);                       // inc ax
+            store_ax(a, loff);
+            a.b(0xE9); let atb = a.out.len(); a.w(0); let fb = a.pc();
+            a.fixups.push((atb, lstart.clone(), FixKind::Rel16From(fb)));
+            a.label(&lend);
+        }
         Stmt::Block(inner) => gen_block(a, sc, inner)?,
         _ => return Err(format!("16 位后端暂不支持该语句")),
     }
@@ -257,6 +367,28 @@ fn gen_stmt(a: &mut Asm16, sc: &mut Scope, s: &Stmt) -> Result<(), String> {
 fn push_ax(a: &mut Asm16) { a.b(0x50); }
 fn pop_bx(a: &mut Asm16) { a.b(0x5B); }
 fn pop_ax(a: &mut Asm16) { a.b(0x58); }
+
+/// 二元运算：入参 BX = 左值，AX = 右值；结果留在 AX。
+fn gen_binop(a: &mut Asm16, op: BinOp) -> Result<(), String> {
+    match op {
+        BinOp::Add => { a.b(0x01); a.b(0xD8); } // add ax, bx
+        BinOp::Sub => { a.b(0x29); a.b(0xD8); } // sub ax, bx
+        BinOp::Mul => { a.b(0x0F); a.b(0xAF); a.b(0xC3); } // imul ax, bx
+        BinOp::Div | BinOp::FloorDiv => { a.b(0x99); a.b(0xF7); a.b(0xFB); } // cwd; idiv bx
+        BinOp::Rem => { a.b(0x99); a.b(0xF7); a.b(0xFB); a.b(0x89); a.b(0xD0); } // cwd; idiv bx; mov ax,dx
+        BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge => {
+            a.b(0x39); a.b(0xC3); // cmp bx, ax
+            let cc: u8 = match op {
+                BinOp::Eq => 0x94, BinOp::Ne => 0x95, BinOp::Lt => 0x9C,
+                BinOp::Le => 0x9E, BinOp::Gt => 0x9F, _ => 0x9D,
+            };
+            a.b(0x0F); a.b(cc); a.b(0xC0);
+            a.b(0x0F); a.b(0xB6); a.b(0xC0);
+        }
+        _ => return Err("16 位后端暂不支持该运算符".into()),
+    }
+    Ok(())
+}
 
 fn store_ax(a: &mut Asm16, off: i64) {
     // mov [bp+off], ax
@@ -269,14 +401,6 @@ fn cmp_ax_0(a: &mut Asm16) { a.b(0x3D); a.w(0); } // cmp ax, 0
 fn ret(a: &mut Asm16) { a.b(0x89); a.b(0xEC); a.b(0x5D); a.b(0xC3); } // mov sp,bp; pop bp; ret
 
 
-/// 结构体字段索引（简化：字段名哈希 -> 索引，用于 16 位后端字段访问）。
-/// 注：同一程序内字段名唯一时可用；多结构体同名字段需按类型区分（暂未做）。
-fn struct_field_index(name: &str) -> Option<usize> {
-    // 用字段名哈希的低位作索引（0..16），冲突概率低（16 位后端仅用于小内核）
-    let mut h: u32 = 2166136261;
-    for b in name.bytes() { h = (h ^ b as u32).wrapping_mul(16777619); }
-    Some((h % 16) as usize)
-}
 /// 字符串常量表：内容 -> 标签名（在数据段末尾统一发射）
 fn str_label(s: &str) -> String {
     let mut h: u32 = 2166136261;
@@ -285,6 +409,14 @@ fn str_label(s: &str) -> String {
 }
 fn gen_expr(a: &mut Asm16, sc: &mut Scope, e: &Expr) -> Result<(), String> {
     match &e.kind {
+        ExprKind::Unary(op, x) => {
+            gen_expr(a, sc, x)?;
+            match op {
+                UnOp::Neg => { a.b(0xF7); a.b(0xD8); }          // neg ax
+                UnOp::Not => { a.b(0x85); a.b(0xC0); a.b(0x0F); a.b(0x94); a.b(0xC0); a.b(0x0F); a.b(0xB6); a.b(0xC0); } // test ax,ax; setz al; movzx ax,al
+                UnOp::BitNot => { a.b(0xF7); a.b(0xD0); }        // not ax
+            }
+        }
         ExprKind::Int(v) => { a.b(0xB8); a.w(*v); }
         ExprKind::Bool(v) => { a.b(0xB8); a.w(if *v { 1 } else { 0 }); }
         ExprKind::Str(s) => {
@@ -389,24 +521,20 @@ fn gen_expr(a: &mut Asm16, sc: &mut Scope, e: &Expr) -> Result<(), String> {
             let base = offs[nargs];
             a.b(0x8D); a.b(0x46); a.b(base as u8); // lea ax, [bp+base]
         }
-        ExprKind::StructLit(_, fields) => {
-            // 结构体：按字段名哈希索引定位（与 Field 访问一致）
-            let mut slots: Vec<(usize, i64)> = Vec::new();
-            let mut maxidx = 0;
-            for (fname, _) in fields.iter() { let i = struct_field_index(fname).unwrap_or(0); if i > maxidx { maxidx = i; } }
-            // 分配 maxidx+1 个槽
-            let mut base_off = 0i64;
-            for i in 0..=maxidx { let o = alloc(sc); if i == maxidx { base_off = o; } slots.push((i, o)); }
+        ExprKind::StructLit(sname, fields) => {
+            // 结构体：按"定义顺序"连续分配槽（i=0..n-1），槽 i 在 bp+offs[i]（offs 递减）。
+            // AX = 基址（最低地址 = 最后一个槽）。字段偏移 = (n-1-i)*2（相对基址，向高地址）。
+            let order: Vec<String> = a.struct_fields.get(sname).cloned().unwrap_or_default();
+            let n = if order.is_empty() { fields.len() } else { order.len() };
+            let mut offs = Vec::new();
+            for _ in 0..n { offs.push(alloc(sc)); }
             for (fname, fval) in fields.iter() {
-                let idx = struct_field_index(fname).unwrap_or(0);
+                let i = order.iter().position(|x| x == fname).unwrap_or(0);
                 gen_expr(a, sc, fval)?;
-                let o = slots.iter().find(|(i, _)| *i == idx).map(|(_, o)| *o).unwrap_or(base_off);
-                store_ax(a, o);
+                store_ax(a, offs[i]);
             }
-            let _ = base_off;
-            // AX = 首槽地址（最高偏移 = 最低地址）
-            let lowest = slots.iter().map(|(_, o)| *o).max().unwrap_or(base_off);
-            a.b(0x8D); a.b(0x46); a.b(lowest as u8);
+            let base = *offs.iter().max().unwrap_or(&0);
+            a.b(0x8D); a.b(0x46); a.b(base as u8); // lea ax, [bp+base]
         }
         ExprKind::ArrayLit(items) => {
             // 数组：在栈上为每个元素分配 2 字节（连续，向下增长）
@@ -426,27 +554,41 @@ fn gen_expr(a: &mut Asm16, sc: &mut Scope, e: &Expr) -> Result<(), String> {
             let off = *sc.vars.get(n).ok_or_else(|| format!("未定义变量 '{}'", n))?;
             load_ax(a, off);
         }
+        ExprKind::If { cond, then, els } => {
+            let lelse = a.new_label("Lie");
+            let lend = a.new_label("Lix");
+            gen_expr(a, sc, cond)?;
+            cmp_ax_0(a);
+            a.rel8(0x74, &lelse);
+            gen_block(a, sc, then)?;
+            a.b(0xE9); let at = a.out.len(); a.w(0); let f = a.pc();
+            a.fixups.push((at, lend.clone(), FixKind::Rel16From(f)));
+            a.label(&lelse);
+            if let Some(e) = els {
+                gen_block(a, sc, e)?;
+            } else {
+                a.b(0xB8); a.w(0);
+            }
+            a.label(&lend);
+        }
+        ExprKind::Field(base, field) => {
+            // 结构体字段读：基址 = 表达式值（AX），字段地址 = 基址 + (n-1-i)*2（向高地址）
+            gen_expr(a, sc, base)?;
+            let sname = match &base.ty { Ty::Struct(n) => n.clone(), _ => String::new() };
+            let n = a.struct_fields.get(&sname).map(|v| v.len()).unwrap_or(1);
+            let i = a.struct_fields.get(&sname).and_then(|v| v.iter().position(|x| x == field)).unwrap_or(0);
+            let delta = ((n - 1 - i) * 2) as u8;
+            a.b(0x89); a.b(0xC3);                 // mov bx, ax
+            if delta > 0 {
+                a.b(0x83); a.b(0xC3); a.b(delta); // add bx, delta
+            }
+            a.b(0x8B); a.b(0x07);                 // mov ax, [bx]
+        }
         ExprKind::Binary(op, l, r) => {
             gen_expr(a, sc, l)?; push_ax(a);
             gen_expr(a, sc, r)?;
             pop_bx(a); // BX = 左值, AX = 右值
-            match op {
-                BinOp::Add => { a.b(0x01); a.b(0xD8); } // add ax, bx
-                BinOp::Sub => { a.b(0x29); a.b(0xD8); } // sub ax, bx
-                BinOp::Mul => { a.b(0x0F); a.b(0xAF); a.b(0xC3); } // imul ax, bx
-                BinOp::Div | BinOp::FloorDiv => { a.b(0x99); a.b(0xF7); a.b(0xFB); } // cwd; idiv bx
-                BinOp::Rem => { a.b(0x99); a.b(0xF7); a.b(0xFB); a.b(0x89); a.b(0xD0); } // cwd; idiv bx; mov ax,dx
-                BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge => {
-                    a.b(0x39); a.b(0xC3); // cmp bx, ax（BX 是左值、AX 是右值）
-                    let cc: u8 = match op {
-                        BinOp::Eq => 0x94, BinOp::Ne => 0x95, BinOp::Lt => 0x9C,
-                        BinOp::Le => 0x9E, BinOp::Gt => 0x9F, _ => 0x9D,
-                    };
-                    a.b(0x0F); a.b(cc); a.b(0xC0); // setcc al
-                    a.b(0x0F); a.b(0xB6); a.b(0xC0); // movzx ax, al
-                }
-                _ => return Err("16 位后端暂不支持该运算符".into()),
-            }
+            gen_binop(a, *op)?;
         }
         ExprKind::Call(name, args) => {
             if name == "put" {
@@ -491,7 +633,7 @@ fn gen_expr(a: &mut Asm16, sc: &mut Scope, e: &Expr) -> Result<(), String> {
 
 impl Asm16 {
     pub fn new() -> Self {
-        Asm16 { out: Vec::new(), labels: HashMap::new(), fixups: Vec::new(), fn_addr: HashMap::new(), entry: None, strs: Vec::new(), seq: 0 }
+        Asm16 { out: Vec::new(), labels: HashMap::new(), fixups: Vec::new(), fn_addr: HashMap::new(), entry: None, struct_fields: HashMap::new(), strs: Vec::new(), seq: 0 }
     }
 
     fn pc(&self) -> i64 { ORG + self.out.len() as i64 }
