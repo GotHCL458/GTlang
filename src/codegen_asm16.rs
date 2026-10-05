@@ -97,7 +97,7 @@ fn resolve_fixups(a: &mut Asm16) -> Result<(), String> {
 
 /// 变量表：名字 -> (bp 相对偏移)
 #[allow(dead_code)]
-struct Scope { vars: HashMap<String, i64>, base: i64, next: i64 }
+struct Scope { vars: HashMap<String, i64>, base: i64, next: i64, breaks: Vec<String>, continues: Vec<String> }
 
 /// 统计函数体内的局部变量数（Let/Const/ForRange 变量），用于预留栈帧。
 fn count_locals(b: &Block) -> usize {
@@ -120,7 +120,7 @@ fn gen_fn(a: &mut Asm16, f: &FnDef) -> Result<(), String> {
     let nlocals = count_locals(&f.body);
     let frame = ((nlocals + 8) * 2) as i64;
     a.b(0x83); a.b(0xEC); a.b(frame as u8); // sub sp, frame
-    let mut sc = Scope { vars: HashMap::new(), base: 4, next: -2 };
+    let mut sc = Scope { vars: HashMap::new(), base: 4, next: -2, breaks: Vec::new(), continues: Vec::new() };
     // 参数在 [bp+4], [bp+6], ...
     for (i, p) in f.params.iter().enumerate() {
         sc.vars.insert(p.name.clone(), 4 + (i as i64) * 2);
@@ -175,7 +175,9 @@ fn gen_stmt(a: &mut Asm16, sc: &mut Scope, s: &Stmt) -> Result<(), String> {
             gen_expr(a, sc, cond)?;
             cmp_ax_0(a);
             a.rel8(0x74, &lend);
+            sc.breaks.push(lend.clone()); sc.continues.push(ltop.clone());
             gen_block(a, sc, body)?;
+            sc.breaks.pop(); sc.continues.pop();
             a.rel8(0xEB, &ltop);
             a.label(&lend);
         }
@@ -198,7 +200,12 @@ fn gen_stmt(a: &mut Asm16, sc: &mut Scope, s: &Stmt) -> Result<(), String> {
             let at = a.out.len(); a.w(0);
             let frompc = a.pc();
             a.fixups.push((at, lend.clone(), FixKind::Rel16From(frompc)));
+            // continue 跳到"自增处"（linc）
+            let linc = format!("Linc{}", a.out.len());
+            sc.breaks.push(lend.clone()); sc.continues.push(linc.clone());
             gen_block(a, sc, body)?;
+            sc.breaks.pop(); sc.continues.pop();
+            a.label(&linc);
             load_ax(a, off);
             a.b(0x40);                   // inc ax
             store_ax(a, off);
@@ -207,8 +214,11 @@ fn gen_stmt(a: &mut Asm16, sc: &mut Scope, s: &Stmt) -> Result<(), String> {
         }
         Stmt::DoWhile { body, cond, .. } => {
             let ltop = format!("Ldw{}", a.out.len());
+            let lend = format!("Lde{}", a.out.len());
             a.label(&ltop);
+            sc.breaks.push(lend.clone()); sc.continues.push(ltop.clone());
             gen_block(a, sc, body)?;
+            sc.breaks.pop(); sc.continues.pop();
             gen_expr(a, sc, cond)?;
             cmp_ax_0(a);
             a.b(0x0F); a.b(0x85);        // jne rel16
@@ -216,8 +226,21 @@ fn gen_stmt(a: &mut Asm16, sc: &mut Scope, s: &Stmt) -> Result<(), String> {
             let frompc = a.pc();
             a.fixups.push((at, ltop.clone(), FixKind::Rel16From(frompc)));
         }
-        // break/continue：暂用"跳出到最近循环末尾"的简化（label 由循环注册）
-        Stmt::Break(..) | Stmt::Continue(..) => { /* TODO: 循环栈 */ }
+        Stmt::Break(..) => {
+            let t = sc.breaks.last().cloned().ok_or_else(|| "break 不在循环中".to_string())?;
+            // 用 rel16 跳转（目标可能较远）
+            a.b(0xE9);
+            let at = a.out.len(); a.w(0);
+            let frompc = a.pc();
+            a.fixups.push((at, t, FixKind::Rel16From(frompc)));
+        }
+        Stmt::Continue(..) => {
+            let t = sc.continues.last().cloned().ok_or_else(|| "continue 不在循环中".to_string())?;
+            a.b(0xE9);
+            let at = a.out.len(); a.w(0);
+            let frompc = a.pc();
+            a.fixups.push((at, t, FixKind::Rel16From(frompc)));
+        }
         Stmt::Block(inner) => gen_block(a, sc, inner)?,
         _ => return Err(format!("16 位后端暂不支持该语句")),
     }
