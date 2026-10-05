@@ -2,6 +2,28 @@
 
 All notable changes to GTLang. Bilingual (EN / 中文).
 
+## [0.0.1e] - 2026-10-05
+
+### Added（OS / 裸机）
+- **`gtc --bare --target x86_64|x86_32|x86_16`** — 裸机目标（无 CRT/运行时）。
+- **`gtc --bare --boot`** — 一键生成可启动镜像（引导库 + 内核 + 运行时）。三架构全部可用，`-o` 指定镜像输出。
+- **`gtc --asm16`** — 内置 x86-16 汇编器（与 nasm 逐字节一致；`res/bin/nasm.exe` 随发行包）。
+- **`gtc --asm16gen`** — AST → x86-16 机器码后端（`codegen_asm16`：函数/算术/if/while/for/match/break/continue/字符串/数组/struct/enum）。
+- **`gtlib: boot`** — 完整裸机引导库（**41 函数 × 12 组**：serial/screen/keyboard/memory/time/system/disk/port/interrupt/fs/task/info）。
+- **三套引导实现**：`stage1.asm`+`stage2.asm`（MBR→32 位保护模式→64 位长模式）、`stage2_32.asm`（仅保护模式）、`rt_bare.c`（32/64 位运行时）、`boot16.asm`（16 位，`gtc --asm16` 自组装）。
+- **中断/PIC/PIT/键盘/ATA 磁盘/ramfs/FAT16/协作式多任务** 均已在 QEMU 验证。
+- **`fn_addr(f)`** — 取顶层函数地址（裸机多任务入口用）。
+
+### Fixed（OS）
+- `clear_bss` 改为字对齐清零（字节循环在 QEMU 下过慢）。
+- `stage2` 分块读内核（每次 64 扇区，段:偏移进位正确）。
+- `kernel.ld` 的 `.bss` 收集 `.sbss`/`COMMON`。
+- `--bare --boot` 的 `-o` 与内核对象路径冲突（`--boot` 时内核对象用临时文件）。
+- 32 位下 `boot_pit_init` 的 `i64` 除法（改用 32 位除法，避免 `__udivdi3`）。
+
+### Tests
+- **825 tests**: 143 unit + 160 dual-backend consistency + 522 frontend bulk. 0 warnings.
+
 ## [0.0.1d] - 2026-10-04
 
 ### Added
@@ -90,6 +112,27 @@ All notable changes to GTLang. Bilingual (EN / 中文).
 
 ---
 
+## [0.0.1e] - 2026-10-05（中文）
+
+### 新增（OS / 裸机）
+- **`gtc --bare --target x86_64|x86_32|x86_16`** —— 裸机目标（无 CRT/运行时）。
+- **`gtc --bare --boot`** —— 一键生成可启动镜像（引导库 + 内核 + 运行时）。三架构全部可用，`-o` 指定镜像输出。
+- **`gtc --asm16`** —— 内置 x86-16 汇编器（与 nasm 逐字节一致；`res/bin/nasm.exe` 随发行包）。
+- **`gtc --asm16gen`** —— AST → x86-16 机器码后端（`codegen_asm16`：函数/算术/if/while/for/match/break/continue/字符串/数组/struct/enum）。
+- **`gtlib: boot`** —— 完整裸机引导库（**41 函数 × 12 组**：serial/screen/keyboard/memory/time/system/disk/port/interrupt/fs/task/info）。
+- **三套引导实现**：`stage1.asm`+`stage2.asm`（MBR→32 位保护模式→64 位长模式）、`stage2_32.asm`（仅保护模式）、`rt_bare.c`（32/64 位运行时）、`boot16.asm`（16 位，`gtc --asm16` 自组装）。
+- **中断/PIC/PIT/键盘/ATA 磁盘/ramfs/FAT16/协作式多任务** 均已在 QEMU 验证。
+- **`fn_addr(f)`** —— 取顶层函数地址（裸机多任务入口用）。
+
+### 修复（OS）
+- `clear_bss` 改为字对齐清零（字节循环在 QEMU 下过慢）。
+- `stage2` 分块读内核（每次 64 扇区，段:偏移进位正确）。
+- `kernel.ld` 的 `.bss` 收集 `.sbss`/`COMMON`。
+- `--bare --boot` 的 `-o` 与内核对象路径冲突（`--boot` 时内核对象用临时文件）。
+- 32 位下 `boot_pit_init` 的 `i64` 除法（改用 32 位除法，避免 `__udivdi3`）。
+
+### 测试
+- **825 个测试**：143 单元 + 160 双后端一致性 + 522 前端批量。0 warning。
 ## [0.0.1d] - 2026-10-04（中文）
 
 ### 新增
@@ -188,3 +231,4 @@ All notable changes to GTLang. Bilingual (EN / 中文).
 ## [0.0.1a] - 2026-09-26
 
 First public preview: dual backend, generics, traits, dyn Trait, enums, match, closures, macros, @derive, go/chan, C interop, smart diagnostics.
+
