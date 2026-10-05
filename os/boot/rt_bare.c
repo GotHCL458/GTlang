@@ -222,9 +222,52 @@ void boot_sleep_ms(long long ms) {
     while (pit_ticks < t) { __asm__ volatile("hlt"); }
 }
 
-/* ---- disk（LBA 暂未实现，返回 -1）---- */
-long long boot_disk_read(long long lba, long long n, long long buf) { (void)lba; (void)n; (void)buf; return -1; }
-long long boot_disk_write(long long lba, long long n, long long buf) { (void)lba; (void)n; (void)buf; return -1; }
+/* ---- disk（ATA PIO，主通道）---- */
+static void ata_wait(void) {
+    for (int i = 0; i < 4; i++) inb(0x1F7);
+    while (inb(0x1F7) & 0x80) {}   /* BSY */
+}
+static int ata_wait_drq(void) {
+    ata_wait();
+    for (int t = 0; t < 100000; t++) {
+        unsigned char st = inb(0x1F7);
+        if (st & 0x08) return 0;   /* DRQ */
+        if (st & 0x01) return -1;  /* ERR */
+    }
+    return -1;
+}
+long long boot_disk_read(long long lba, long long n, long long buf) {
+    unsigned short *p = (unsigned short *)buf;
+    for (long long s = 0; s < n; s++) {
+        unsigned int l = (unsigned int)(lba + s);
+        ata_wait();
+        outb(0x1F6, (unsigned char)(0xE0 | ((l >> 24) & 0x0F)));
+        outb(0x1F2, 1);
+        outb(0x1F3, (unsigned char)(l & 0xFF));
+        outb(0x1F4, (unsigned char)((l >> 8) & 0xFF));
+        outb(0x1F5, (unsigned char)((l >> 16) & 0xFF));
+        outb(0x1F7, 0x20);   /* READ SECTORS */
+        if (ata_wait_drq() != 0) return -1;
+        for (int i = 0; i < 256; i++) p[s * 256 + i] = inw(0x1F0);
+    }
+    return n;
+}
+long long boot_disk_write(long long lba, long long n, long long buf) {
+    unsigned short *p = (unsigned short *)buf;
+    for (long long s = 0; s < n; s++) {
+        unsigned int l = (unsigned int)(lba + s);
+        ata_wait();
+        outb(0x1F6, (unsigned char)(0xE0 | ((l >> 24) & 0x0F)));
+        outb(0x1F2, 1);
+        outb(0x1F3, (unsigned char)(l & 0xFF));
+        outb(0x1F4, (unsigned char)((l >> 8) & 0xFF));
+        outb(0x1F5, (unsigned char)((l >> 16) & 0xFF));
+        outb(0x1F7, 0x30);   /* WRITE SECTORS */
+        if (ata_wait_drq() != 0) return -1;
+        for (int i = 0; i < 256; i++) outw(0x1F0, p[s * 256 + i]);
+    }
+    return n;
+}
 
 /* ---- screen / keyboard（BIOS 中断，保护模式/长模式下不可用；占位）---- */
 void boot_clear(void) {}

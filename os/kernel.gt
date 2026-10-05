@@ -2,14 +2,11 @@ import boot
 
 fn main() {
     boot_serial_init()
-    boot_serial_puts("[gtlang] pit test\n")
-    boot_idt_init()
-    boot_irq_enable()
-    t0 := boot_time_ms()
-    boot_sleep_ms(100)
-    t1 := boot_time_ms()
-    boot_serial_puts("elapsed ms: ")
-    put(t1 - t0)
+    boot_serial_puts("[gtlang] disk test\n")
+    buf := boot_mem_alloc(512)
+    n := boot_disk_read(129, 1, buf)
+    boot_serial_puts("read sector, n=")
+    put(n)
     put(10)
     boot_hlt()
 }
