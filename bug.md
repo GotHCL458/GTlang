@@ -258,3 +258,111 @@
 - fuzz/深挖用例：约 4000+，全部 `panic=0` 且双端一致
 - 文档：`0.0.1d` 全量更新 + 文档示例逐条核对
 
+---
+
+# 第二轮：双后端一致性深挖（Bug Log · 续）
+
+> 承接上文。本轮聚焦 **JIT（Cranelift）与 AOT（LLVM）逐字节一致** 的系统性验证，
+> 覆盖全部标准库模块、全部语法糖、所有权/借用、高阶函数、运算符重载、泛型与综合场景。
+> 基线：**825**（143 单元 + 522 前端批量 + 160 双后端一致性）；结束：**827**（166 一致性）。
+> 所有修复均已提交并推送。
+
+## 概览（本轮，共 12 项）
+
+| # | commit | 类别 | 缺陷 | 现象 |
+|---|---|---|---|---|
+| 54 | `1e878fa` | codegen | `from_slot` 对 `Option`/`Result` 字段未 `inttoptr` | `a?.b`（`b` 为 `Option[T]` 字段）取到错误指针 |
+| 55 | `8e8ac19` | codegen | `gt_list_*`/`gt_map_*` 声明类型不统一（i64 vs ptr）| list/map 同时被下标与 `put` 使用时 IR 重定义 |
+| 56 | `f9b4c95` | codegen | `sb_push_f64` 传 `i64`（应为 `double`）| `str_builder` 追加浮点输出垃圾 |
+| 57 | `aa1fc23` | JIT | 未注册 `sb_push_char` 运行时符号 | JIT 报 missing symbol |
+| 58 | `a683649` | JIT | 未注册 `sb_pop` 运行时符号 | JIT 报 missing symbol |
+| 59 | `f2a6cae` | sema | `expt e` 的 `e` 类型未定为 `Str` | `try{ f()? } expt e { put(e) }` 打印错误 |
+| 60 | `e451df3` | codegen | AOT `return` 前未执行 `defer` | `fn f() { defer put("d") ... return }` AOT 缺 `d` |
+| 61 | `8837a6a` | gtlib | `json_valid` 只查括号/引号配对 | `json_valid("bad")` 误返回 `true` |
+| 62 | `60f3fa0` | mono/type | 链式运算符重载 `a + b + c` 失效 | `(a+b)` 是 `Call`，降级只认裸 `Ident`，输出句柄 |
+| 63 | `e953e61` | type | 一元 `-` 对 `Struct` 返回 `Unknown`/`I64` | `-a + a`（运算符重载）输出句柄 |
+| 64 | `24f9828` | codegen/JIT | 泛型 struct 显示带单态化后缀 | `Box$i` 应显示为 `Box` |
+| 65 | `3f244ef` | codegen/JIT | `for-else` 的 `else` 从不执行 | `for … { } else { }` 的 `else` 被忽略 |
+
+## 详细说明（本轮）
+
+### 54. `from_slot` 对 Option/Result 字段未 inttoptr
+- **现象**：`a?.b`（`b: Option[T]` 字段）在 AOT 下取到错误指针，JIT 正常。
+- **根因**：`from_slot` 把 i64 槽还原为指针类型时，未对 `Option`/`Result` 字段做 `inttoptr`。
+- **修复**：`from_slot` 对 `Option`/`Result` 生成 `inttoptr i64 -> ptr`。
+
+### 55. gt_list_*/gt_map_* 声明类型不统一
+- **现象**：list/map 同时被下标访问与 `put` 打印时，AOT 报 IR 符号重定义（`gt_list_len` 一处 `i64`、一处 `ptr`）。
+- **根因**：不同调用点各自 `declare` 同名运行时函数，签名不一致。
+- **修复**：统一 `gt_list_len/at`、`gt_map_len/key_at/val_at` 的声明为 `ptr`。
+
+### 56. sb_push_f64 传参类型错误
+- **现象**：`str_builder` 追加浮点后 `sb_finish` 输出垃圾。
+- **根因**：`sb_push_f64` 用 `fptosi i64` 传值，运行时按 `double` 解释。
+- **修复**：改为直接传 `double`。
+
+### 57–58. JIT 缺失运行时符号
+- **现象**：JIT 执行 `sb_push_char`/`sb_pop` 报 missing symbol。
+- **根因**：`jit/symbol.rs` 的 `STDLIB_NAMES` 漏登记这两个符号。
+- **修复**：补登记。
+
+### 59. expt 绑定 e 的类型
+- **现象**：`try { f()? } expt e { put(e) }` AOT 打印错误内容。
+- **根因**：`expt` 绑定的 `e` 类型未定为 `Str`，`put` 按 i64 解释。
+- **修复**：sema 将 `expt e` 的 `e` 定为 `Ty::Str`（与 sema 类型一致）。
+
+### 60. AOT return 前未执行 defer
+- **现象**：`fn f() { defer put("d1") ... return 1 }` AOT 缺 `d1`（JIT 有）。
+- **根因**：AOT 的 `Stmt::Return` 未 drain `defer_stack`。
+- **修复**：`return` 前逆序执行本函数已登记的 `defer`。
+
+### 61. json_valid 校验过弱
+- **现象**：`json_valid("bad")` 返回 `true`。
+- **根因**：只做括号配对 + 引号闭合，未检查顶层值形态。
+- **修复**：追加"顶层必须是合法 JSON 值"的检查（`{ [ " true false null 数字`），并拒绝裸标识符。
+
+### 62. 链式运算符重载 a+b+c
+- **现象**：`a + b + c`（`Vec`）JIT/AOT 输出句柄而非 `Vec {x: 6}`。
+- **根因**：1) `binary_result` 对 `Vec + Vec` 返回 `Unknown`；2) `mono` 的运算符降级只认左操作数为裸 `Ident`，`(a+b)` 已是 `Call` 被漏掉。
+- **修复**：`binary_result` 对两侧同 struct 返回该 struct；降级改用"左操作数类型名"（`vars` 或 `a.ty` 的 `Struct` 名）判断。
+
+### 63. 一元 - 对 Struct 返回类型
+- **现象**：`-a + a`（`Vec` 实现 `neg`）输出句柄。
+- **根因**：`unary_result(Neg, Struct)` 报错/返回 `I64`，导致 `-a` 类型丢失。
+- **修复**：`Neg` 对 `Struct` 返回该 `Struct`（`Vec__neg` 的结果类型）。
+
+### 64. 泛型 struct 显示的 $i 后缀
+- **现象**：`put(Box { v: 42 })` 显示 `Box$i {v: 42}`。
+- **根因**：`put` 打印 struct 名时未剥离单态化后缀。
+- **修复**：AOT/JIT 打印时去除 `$` 之后的后缀（`Box$i` → `Box`）。
+
+### 65. for-else 的 else 从不执行
+- **现象**：`for x in xs { } else { put("empty") }` 的 `else` 从不执行。
+- **根因**：`ForEach` 的 codegen/JIT 均把 `els` 忽略（`els: _`）。
+- **修复**：双端在循环 `exit` 块追加判定——索引等于长度（正常结束）才执行 `else`，`break` 时跳过。
+
+## 统计（第二轮）
+
+- 真实缺陷修复：**12 个**（累计 **65 个**）
+- 测试：**825 → 827**（单元 143、前端批量 522、双后端一致性 160→166）
+- 验证方式：对同一 `.gt` 分别跑 `gtc --run`（JIT）与 `gtc --c`（AOT 产物），断言 stdout **逐字节一致**
+- 覆盖：全类型 `put`、嵌套容器、全部语法糖/匹配、全部标准库模块、所有权/借用、高阶函数/闭包、运算符重载、泛型、CLI、大数/浮点/递归/位运算/短路/循环控制，以及综合场景（学生管理、栈式求值器、矩阵、单词计数、斐波那契记忆化、LRU 缓存、优先队列）
+
+## 待办（已知未修）
+
+| 优先级 | 缺陷 |
+|---|---|
+| 高 | JIT 的 `defer` 在 `fn` 末尾 / `match` arm 的 `return` 前不执行（AOT 正确）|
+| 中 | `enum` 作 struct 字段类型时打印 `Color {}` |
+| 中 | 一行嵌套 Enum 解构 `E::Has(Shape::Circle(r))` |
+| 中 | blanket impl / 泛型 impl 方法调用 |
+| 中 | `fily` 块在 `expt` 里 `return` 时不执行 |
+| 低 | `ast` 库 AOT 链接（缺 `_static.lib`）|
+| 低 | `map` 的 struct 键（按指针比较，非内容）|
+| 低 | 泛型函数返回泛型 struct 时字段类型未单态化 |
+| 低 | 嵌套泛型 `Box[Box[T]]` 字段类型冲突 |
+| 低 | `match` 表达式返回定长数组 |
+| 低 | 插值 `$p.x`（应写 `${p.x}`）|
+| 低 | `?.` 链式（中间字段本身是 `Option`）|
+| 低 | `a.b[i] = v`（字段-下标赋值，语法缺口，改动面 ~12 处）|
+
