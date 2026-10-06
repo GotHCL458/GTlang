@@ -807,8 +807,12 @@ impl FnState {
                 b.ins().brif(isz, ls, &[], ln, &[]);
                 b.switch_to_block(ls);
                 put_lit!("Some(");
-                let pv = b.ins().load(types::I64, MemFlags::new(), v.0, 8);
-                self.gen_print_v(jit, b, &(pv, (**inner).clone()))?;
+                let raw = b.ins().load(types::I64, MemFlags::new(), v.0, 8);
+                let inner_ty = (**inner).clone();
+                let pv = if matches!(inner_ty, Ty::F64) {
+                    b.ins().bitcast(types::F64, MemFlags::new(), raw)
+                } else { raw };
+                self.gen_print_v(jit, b, &(pv, inner_ty))?;
                 put_lit!(")");
                 b.ins().jump(lend, &[]);
                 b.switch_to_block(ln);
@@ -826,14 +830,18 @@ impl FnState {
                 b.ins().brif(isz, ls, &[], ln, &[]);
                 b.switch_to_block(ls);
                 put_lit!("Ok(");
-                let pv = b.ins().load(types::I64, MemFlags::new(), v.0, 8);
-                self.gen_print_v(jit, b, &(pv, (**t).clone()))?;
+                let raw = b.ins().load(types::I64, MemFlags::new(), v.0, 8);
+                let oty = (**t).clone();
+                let pv = if matches!(oty, Ty::F64) { b.ins().bitcast(types::F64, MemFlags::new(), raw) } else { raw };
+                self.gen_print_v(jit, b, &(pv, oty))?;
                 put_lit!(")");
                 b.ins().jump(lend, &[]);
                 b.switch_to_block(ln);
                 put_lit!("Err(");
-                let pv2 = b.ins().load(types::I64, MemFlags::new(), v.0, 8);
-                self.gen_print_v(jit, b, &(pv2, (**ety).clone()))?;
+                let raw2 = b.ins().load(types::I64, MemFlags::new(), v.0, 8);
+                let ety2 = (**ety).clone();
+                let pv2 = if matches!(ety2, Ty::F64) { b.ins().bitcast(types::F64, MemFlags::new(), raw2) } else { raw2 };
+                self.gen_print_v(jit, b, &(pv2, ety2))?;
                 put_lit!(")");
                 b.ins().jump(lend, &[]);
                 b.switch_to_block(lend);
@@ -859,11 +867,11 @@ impl FnState {
                         for (pi, pt) in payload_tys.iter().enumerate() {
                             if pi > 0 { put_lit!(", "); }
                             let off = ((pi + 1) * 8) as i32;
+                            // 载荷统一以 i64 位模式存储；f64 需 bitcast 回 double
+                            let raw = b.ins().load(types::I64, MemFlags::new(), v.0, off);
                             let pv = if matches!(pt, Ty::F64) {
-                                b.ins().load(types::F64, MemFlags::new(), v.0, off)
-                            } else {
-                                b.ins().load(types::I64, MemFlags::new(), v.0, off)
-                            };
+                                b.ins().bitcast(types::F64, MemFlags::new(), raw)
+                            } else { raw };
                             self.gen_print_v(jit, b, &(pv, pt.clone()))?;
                         }
                         put_lit!(")");
@@ -881,11 +889,11 @@ impl FnState {
                 for (i, et) in ts.iter().enumerate() {
                     if i > 0 { put_lit!(", "); }
                     let off = (i * 8) as i32;
+                    // 元组元素统一以 i64 位模式存储；f64 需 bitcast 回 double
+                    let raw = b.ins().load(types::I64, MemFlags::new(), v.0, off);
                     let ev = if matches!(et, Ty::F64) {
-                        b.ins().load(types::F64, MemFlags::new(), v.0, off)
-                    } else {
-                        b.ins().load(types::I64, MemFlags::new(), v.0, off)
-                    };
+                        b.ins().bitcast(types::F64, MemFlags::new(), raw)
+                    } else { raw };
                     self.gen_print_v(jit, b, &(ev, et.clone()))?;
                 }
                 put_lit!(")");

@@ -352,6 +352,10 @@ impl<'a> Codegen<'a> {
                     let t = self.new_reg();
                     self.body.push_str(&format!("  {} = trunc i64 {} to i1\n", t, pvv));
                     Val::new_slot(&ity, t)
+                } else if matches!(ity, Ty::F64) {
+                    let t = self.new_reg();
+                    self.body.push_str(&format!("  {} = bitcast i64 {} to double\n", t, pvv));
+                    Val::new_slot(&ity, t)
                 } else { Val::new_slot(&ity, pvv) };
                 self.emit_print_v(&psub, &ity)?;
                 self.emit_puts_lit(")");
@@ -385,6 +389,10 @@ impl<'a> Codegen<'a> {
                     let t2 = self.new_reg();
                     self.body.push_str(&format!("  {} = trunc i64 {} to i1\n", t2, pvv));
                     Val::new_slot(&pty, t2)
+                } else if matches!(pty, Ty::F64) {
+                    let t2 = self.new_reg();
+                    self.body.push_str(&format!("  {} = bitcast i64 {} to double\n", t2, pvv));
+                    Val::new_slot(&pty, t2)
                 } else { Val::new_slot(&pty, pvv) };
                 self.emit_print_v(&sub, &pty)?;
                 self.emit_puts_lit(")");
@@ -403,6 +411,10 @@ impl<'a> Codegen<'a> {
                 } else if matches!(ety2, Ty::Bool) {
                     let t2 = self.new_reg();
                     self.body.push_str(&format!("  {} = trunc i64 {} to i1\n", t2, pvv2));
+                    Val::new_slot(&ety2, t2)
+                } else if matches!(ety2, Ty::F64) {
+                    let t2 = self.new_reg();
+                    self.body.push_str(&format!("  {} = bitcast i64 {} to double\n", t2, pvv2));
                     Val::new_slot(&ety2, t2)
                 } else { Val::new_slot(&ety2, pvv2) };
                 self.emit_print_v(&sub2, &ety2)?;
@@ -437,7 +449,7 @@ impl<'a> Codegen<'a> {
                             let fp = self.new_reg();
                             self.body.push_str(&format!("  {} = getelementptr i8, ptr {}, i64 {}\n", fp, sp, (pi + 1) * 8));
                             let (pv, is_ptr_f) = match pt {
-                                Ty::F64 => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load double, ptr {}\n", r, fp)); (r, false) }
+                                Ty::F64 => { let r = self.new_reg(); let d = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n  {} = bitcast i64 {} to double\n", r, fp, d, r)); (d, false) }
                                 Ty::Bool => { let r = self.new_reg(); let t = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n  {} = trunc i64 {} to i1\n", r, fp, t, r)); (t, false) }
                                 t if t.llvm() == "ptr" => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load ptr, ptr {}\n", r, fp)); (r, true) }
                                 _ => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n", r, fp)); (r, false) }
@@ -465,7 +477,7 @@ impl<'a> Codegen<'a> {
                     let fp = self.new_reg();
                     self.body.push_str(&format!("  {} = getelementptr i8, ptr {}, i64 {}\n", fp, sp, i * 8));
                     let (ev, is_ptr_field) = match et {
-                        Ty::F64 => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load double, ptr {}\n", r, fp)); (r, false) }
+                        Ty::F64 => { let r = self.new_reg(); let d = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n  {} = bitcast i64 {} to double\n", r, fp, d, r)); (d, false) }
                         Ty::Bool => { let r = self.new_reg(); let t = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n  {} = trunc i64 {} to i1\n", r, fp, t, r)); (t, false) }
                         t if t.llvm() == "ptr" => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load ptr, ptr {}\n", r, fp)); (r, true) }
                         _ => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n", r, fp)); (r, false) }
