@@ -1,0 +1,9 @@
+struct P { x: int, y: int }
+fn main() {
+    const N = comptime { 3 * 4 }
+    p := P { x: N, y: N + 1 }
+    put(p)
+    // comptime 布尔
+    const B = comptime { 1 < 2 }
+    put(B)
+}

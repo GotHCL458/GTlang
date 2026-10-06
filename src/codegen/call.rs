@@ -618,7 +618,22 @@ impl<'a> Codegen<'a> {
             Ty::F64 => Ok(("%g".into(), (Ty::F64, v.s))),
             Ty::Str => Ok(("%s".into(), (Ty::Str, v.s))),
             Ty::Bool => { let t = self.intern(b"true"); let f = self.intern(b"false"); let r = self.new_reg(); self.body.push_str(&format!("  {} = select i1 {}, ptr {}, ptr {}\n", r, v.s, t, f)); Ok(("%s".into(), (Ty::Str, r))) }
-            _ => Ok(("%lld".into(), (Ty::I64, v.s))),
+            // 复杂类型：优先调其 to_str 方法（@derive(Debug) 生成），否则退回句柄
+            Ty::Struct(ref sname) => {
+                let m = format!("{}__to_str", sname);
+                if let Some(info) = self.fns.get(&m).cloned() {
+                    let arg = self.as_i64(&v);
+                    let r = self.new_reg();
+                    self.body.push_str(&format!("  {} = call ptr @{}(i64 {})\n", r, info.cname, arg));
+                    Ok(("%s".into(), (Ty::Str, r)))
+                } else {
+                    // 无 to_str：报错提示加 @derive(Debug) 或用 put() 打印
+                    Err(crate::lb!(e.line,
+                        "struct '{}' cannot be used in string interpolation; add @derive(Debug) or use put()",
+                        "结构体 '{}' 不能用于字符串插值；请加 @derive(Debug) 或用 put() 打印", sname))
+                }
+            }
+            _ => Ok(("%lld".into(), (Ty::I64, self.as_i64(&v)))),
         }
     }
 

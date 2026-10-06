@@ -1,0 +1,11 @@
+struct K { id: int }
+fn main() {
+    m := map()
+    m[1.5] = "a"
+    m[2.5] = "b"
+    put(m)
+    // map 键是 str，值是 f64
+    n := map()
+    n["x"] = 1.5
+    put(n)
+}

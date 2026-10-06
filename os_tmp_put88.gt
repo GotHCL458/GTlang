@@ -1,0 +1,10 @@
+struct P { x: int, y: int }
+macro 造点(a, b) { P { x: a, y: b } }
+fn main() {
+    p := 造点(1, 2)
+    put(p)
+    // 宏 + list
+    xs := list()
+    push(xs, 造点(3, 4))
+    put(xs)
+}
