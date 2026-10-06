@@ -380,16 +380,44 @@ impl<'a> Codegen<'a> {
                 self.emit_label(&lend);
             }
             Ty::Enum(ename) => {
-                // 变体名(tag) + 载荷
+                // 按 tag 分派到变体：变体名 + 载荷
                 let sp = self.as_ptr(v);
                 let tag = self.new_reg();
                 self.body.push_str(&format!("  {} = load i64, ptr {}\n", tag, sp));
                 let variants = self.enum_variants.get(ename).cloned().unwrap_or_default();
-                // 简单：打印 枚举名(变体索引)
-                self.emit_puts_lit(&format!("{}(", ename));
+                let l_end = self.new_label();
+                for (vi, (vname, payload_tys)) in variants.iter().enumerate() {
+                    let l_match = self.new_label();
+                    let l_next = self.new_label();
+                    let is_v = self.new_reg();
+                    self.body.push_str(&format!("  {} = icmp eq i64 {}, {}\n", is_v, tag, vi));
+                    self.body.push_str(&format!("  br i1 {}, label %{}, label %{}\n", is_v, l_match, l_next));
+                    self.emit_label(&l_match);
+                    self.emit_puts_lit(&format!("{}::{}", ename, vname));
+                    if !payload_tys.is_empty() {
+                        self.emit_puts_lit("(");
+                        for (pi, pt) in payload_tys.iter().enumerate() {
+                            if pi > 0 { self.emit_puts_lit(", "); }
+                            let fp = self.new_reg();
+                            self.body.push_str(&format!("  {} = getelementptr i8, ptr {}, i64 {}\n", fp, sp, (pi + 1) * 8));
+                            let (pv, is_ptr_f) = match pt {
+                                Ty::F64 => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load double, ptr {}\n", r, fp)); (r, false) }
+                                t if t.llvm() == "ptr" => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load ptr, ptr {}\n", r, fp)); (r, true) }
+                                _ => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n", r, fp)); (r, false) }
+                            };
+                            let sub = if is_ptr_f { Val::new_ptr(pt, pv) } else { Val::new_slot(pt, pv) };
+                            self.emit_print_v(&sub, pt)?;
+                        }
+                        self.emit_puts_lit(")");
+                    }
+                    self.body.push_str(&format!("  br label %{}\n", l_end));
+                    self.emit_label(&l_next);
+                }
+                // 未知 tag 兜底
                 let pf = self.intern(b"%lld");
                 self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, i64 {})\n", pf, tag));
-                self.emit_puts_lit(")");
+                self.body.push_str(&format!("  br label %{}\n", l_end));
+                self.emit_label(&l_end);
             }
             Ty::Tuple(ts) => {
                 // 元组：(a, b, ...)；堆块 [elem0, elem1, ...]，各元素 8 字节

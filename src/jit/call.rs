@@ -821,11 +821,37 @@ impl FnState {
             }
             Ty::Enum(ename) => {
                 let tag = b.ins().load(types::I64, MemFlags::new(), v.0, 0);
-                let hdr = format!("{}(", ename);
-                put_lit!(&hdr);
+                let variants = jit.enum_variants.get(ename).cloned().unwrap_or_default();
+                let l_end = b.create_block();
+                for (vi, (vname, payload_tys)) in variants.iter().enumerate() {
+                    let l_match = b.create_block();
+                    let l_next = b.create_block();
+                    let is_v = b.ins().icmp_imm(IntCC::Equal, tag, vi as i64);
+                    b.ins().brif(is_v, l_match, &[], l_next, &[]);
+                    b.switch_to_block(l_match);
+                    let hdr = format!("{}::{}", ename, vname);
+                    put_lit!(&hdr);
+                    if !payload_tys.is_empty() {
+                        put_lit!("(");
+                        for (pi, pt) in payload_tys.iter().enumerate() {
+                            if pi > 0 { put_lit!(", "); }
+                            let off = ((pi + 1) * 8) as i32;
+                            let pv = if matches!(pt, Ty::F64) {
+                                b.ins().load(types::F64, MemFlags::new(), v.0, off)
+                            } else {
+                                b.ins().load(types::I64, MemFlags::new(), v.0, off)
+                            };
+                            self.gen_print_v(jit, b, &(pv, pt.clone()))?;
+                        }
+                        put_lit!(")");
+                    }
+                    b.ins().jump(l_end, &[]);
+                    b.switch_to_block(l_next);
+                }
                 let pf = self.rt_ref(jit, b, "put_i64")?;
                 b.ins().call(pf, &[tag]);
-                put_lit!(")");
+                b.ins().jump(l_end, &[]);
+                b.switch_to_block(l_end);
             }
             Ty::Tuple(ts) => {
                 put_lit!("(");
