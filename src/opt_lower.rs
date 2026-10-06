@@ -342,8 +342,10 @@ pub(crate) fn macro_subst_stmt(s: &mut Stmt, subst: &std::collections::HashMap<S
 pub fn expand_comptime(prog: &mut Program) {
     let consts = prog_consts(prog);
     for item in prog.items.iter_mut() {
-        if let Item::Fn(f) = item {
-            comptime_block(&mut f.body, &consts);
+        match item {
+            Item::Fn(f) => comptime_block(&mut f.body, &consts),
+            Item::Const { value, .. } => comptime_expr(value, &consts),
+            _ => {}
         }
     }
 }

@@ -1,0 +1,8 @@
+const N = comptime { 3 + 4 }
+macro 平方(x) { x * x }
+fn main() {
+    put(N)
+    put(平方(5))
+    a := [1, 2, 3]
+    put(a)
+}
