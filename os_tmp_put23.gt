@@ -1,0 +1,13 @@
+struct K { id: int }
+fn main() {
+    // list of struct
+    ks := list()
+    push(ks, K { id: 1 })
+    push(ks, K { id: 2 })
+    put(ks)
+    // map 的 value 是 struct
+    m := map()
+    m[1] = K { id: 100 }
+    // 注意：map value 是 struct 时 put 可能不展开
+    put(m)
+}

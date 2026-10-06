@@ -290,14 +290,18 @@ impl<'a> Codegen<'a> {
                 self.emit_puts_lit(", ");
                 self.body.push_str(&format!("  br label %{}\n", l_nosep));
                 self.emit_label(&l_nosep);
+                let (kt, vt) = match ty { Ty::Map(k, v) => ((**k).clone(), (**v).clone()), _ => (Ty::I64, Ty::I64) };
                 let kv = self.new_reg();
                 self.body.push_str(&format!("  {} = call i64 @gt_map_key_at(i64 {}, i64 {})\n", kv, vslot, iv));
-                let kf = self.intern(b"%lld: ");
-                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, i64 {})\n", kf, kv));
+                // key 按类型打印
+                let ksub = if kt.llvm() == "ptr" { let p = self.new_reg(); self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, kv)); Val::new_ptr(&kt, p) } else { Val::new_slot(&kt, kv) };
+                self.emit_print_v(&ksub, &kt)?;
+                self.emit_puts_lit(": ");
                 let vv = self.new_reg();
                 self.body.push_str(&format!("  {} = call i64 @gt_map_val_at(i64 {}, i64 {})\n", vv, vslot, iv));
-                let vf = self.intern(b"%lld");
-                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, i64 {})\n", vf, vv));
+                // value 按类型打印
+                let vsub = if vt.llvm() == "ptr" { let p = self.new_reg(); self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, vv)); Val::new_ptr(&vt, p) } else { Val::new_slot(&vt, vv) };
+                self.emit_print_v(&vsub, &vt)?;
                 let nx = self.new_reg();
                 self.body.push_str(&format!("  {} = add i64 {}, 1\n", nx, iv));
                 self.body.push_str(&format!("  store i64 {}, ptr {}\n", nx, i));

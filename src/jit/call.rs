@@ -718,7 +718,7 @@ impl FnState {
                 b.switch_to_block(exit);
                 put_lit!(if is_set { "}" } else { "]" });
             }
-            Ty::Map(_, _) => {
+            Ty::Map(kt, vt) => {
                 put_lit!("{");
                 let fl = self.rt_ref(jit, b, "map_len")?;
                 let cl = b.ins().call(fl, &[v.0]);
@@ -747,12 +747,11 @@ impl FnState {
                 b.switch_to_block(nosep);
                 let ck = b.ins().call(fk, &[v.0, iv]);
                 let kv = b.inst_results(ck)[0];
-                let fpi = self.rt_ref(jit, b, "put_i64")?;
-                b.ins().call(fpi, &[kv]);
+                self.gen_print_v(jit, b, &(kv, (**kt).clone()))?;
                 put_lit!(": ");
                 let cv = b.ins().call(fv, &[v.0, iv]);
                 let vv = b.inst_results(cv)[0];
-                b.ins().call(fpi, &[vv]);
+                self.gen_print_v(jit, b, &(vv, (**vt).clone()))?;
                 let one = b.ins().iconst(types::I64, 1);
                 let nx = b.ins().iadd(iv, one);
                 b.def_var(idx, nx);
