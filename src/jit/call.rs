@@ -782,10 +782,8 @@ impl FnState {
                 // `Name { f: v, ... }`（字段名+类型来自 jit.structs，偏移 i*8）
                 let fields: Vec<(String, Ty)> = jit.structs.get(sname).cloned().unwrap_or_default();
                 // 去掉跨模块前缀 `模块__`
-                let display = match sname.rfind("__") {
-                    Some(i) => &sname[i + 2..],
-                    None => sname.as_str(),
-                };
+                let no_mod = match sname.rfind("__") { Some(i) => &sname[i + 2..], None => sname.as_str() };
+                let display = match no_mod.find('$') { Some(i) => &no_mod[..i], None => no_mod };
                 let hdr = format!("{} {{", display);
                 put_lit!(&hdr);
                 for (i, (fname, fty)) in fields.iter().enumerate() {

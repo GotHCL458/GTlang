@@ -1,0 +1,9 @@
+@derive(Eq, Debug)
+struct Box[T] { v: T }
+fn main() {
+    a := Box { v: 42 }
+    b := Box { v: 42 }
+    put(a)
+    put(b)
+    put(a == b)
+}

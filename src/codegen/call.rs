@@ -260,10 +260,9 @@ impl<'a> Codegen<'a> {
                     let suffix = format!("__{}", sname);
                     self.structs.iter().find(|(k, _)| k.ends_with(&suffix)).map(|(_, v)| v.clone())
                 }).unwrap_or_default();
-                let display = match sname.rfind("__") {
-                    Some(i) => &sname[i + 2..],
-                    None => sname.as_str(),
-                };
+                // 去跨模块前缀（模块__）和泛型单态化后缀（$i/$s…），只显示结构体本名
+                let no_mod = match sname.rfind("__") { Some(i) => &sname[i + 2..], None => sname.as_str() };
+                let display = match no_mod.find('$') { Some(i) => &no_mod[..i], None => no_mod };
                 self.emit_puts_lit(&format!("{} {{", display));
                 let sp = self.as_ptr(v);
                 for (i, (fname, fty)) in fields.iter().enumerate() {
