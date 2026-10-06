@@ -1,0 +1,11 @@
+struct P { x: int }
+fn pick(n: int) -> Option[int] {
+    if n > 0 { return Some(n) }
+    return None
+}
+fn main() {
+    o := Some(P { x: 5 })
+    if let Some(p) = o { put(p) }
+    if let Some(v) = pick(3) { put(v) }
+    if let Some(v) = pick(-1) { put(v) } else { put(0) }
+}

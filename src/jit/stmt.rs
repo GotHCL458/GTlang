@@ -479,6 +479,8 @@ impl FnState {
         let slot = b.func.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, 8, 3));
         let exit = self.new_block(b);
         for (i, arm) in arms.iter().enumerate() {
+            // 每个 arm 的绑定作用域：arm 结束时回滚，避免模式绑定泄漏到后续 arm
+            let scope_mark = self.scopes.last().map(|s| s.len()).unwrap_or(0);
             let arm_blk = self.new_block(b); let next_blk = self.new_block(b);
             let cond = if let Some((lo, hi)) = &arm.range {
                 let lov = self.gen_expr(jit, b, lo)?;
@@ -598,6 +600,8 @@ impl FnState {
                 if let Some(v) = v { let a = b.ins().stack_addr(types::I64, slot, 0); b.ins().store(MemFlags::new(), v, a, 0); }
                 b.ins().jump(exit, &[]);
             }
+            // 回滚本 arm 的模式绑定
+            if let Some(s) = self.scopes.last_mut() { s.truncate(scope_mark); }
             b.switch_to_block(next_blk); self.terminated = false;
             if i + 1 == arms.len() { b.ins().jump(exit, &[]); }
         }

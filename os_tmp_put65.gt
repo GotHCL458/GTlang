@@ -1,0 +1,11 @@
+fn f(n: int) -> Option[int] {
+    if n <= 0 { return None }
+    return Some(n)
+}
+fn main() {
+    i := 3
+    while let Some(v) = f(i) {
+        put(v)
+        i = i - 1
+    }
+}

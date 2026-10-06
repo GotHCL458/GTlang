@@ -1,0 +1,9 @@
+struct Tree { val: int, left: int, right: int }
+fn main() {
+    // 用 list 表示树（简化）
+    nodes := list()
+    push(nodes, Tree { val: 1, left: 1, right: 2 })
+    push(nodes, Tree { val: 2, left: 3, right: 4 })
+    push(nodes, Tree { val: 3, left: 0, right: 0 })
+    put(nodes)
+}

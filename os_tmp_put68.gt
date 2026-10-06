@@ -1,0 +1,12 @@
+fn describe(n: int) {
+    match n {
+        x if x < 0 => { put("neg") }
+        x if x == 0 => { put("zero") }
+        _ => { put("pos") }
+    }
+}
+fn main() {
+    describe(-5)
+    describe(0)
+    describe(5)
+}

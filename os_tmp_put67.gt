@@ -1,0 +1,13 @@
+fn check(c: str) {
+    match c {
+        "a" | "b" | "c" => { put("letter") }
+        "1" | "2" => { put("digit") }
+        _ => { put("other") }
+    }
+}
+fn main() {
+    check("a")
+    check("b")
+    check("2")
+    check("z")
+}
