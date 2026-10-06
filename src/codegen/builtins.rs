@@ -25,9 +25,20 @@ impl<'a> Codegen<'a> {
             return Ok(Val::new(&Ty::I64, r));
         }
         // `s.方法(args)`：s 是 dyn Trait 对象 → 从 vtable 取址 + 间接调用
+        // `x.方法(args)`：x 是 struct 变量 → 调 `类型__方法(x, args)`
         if let Some(dot) = name.find('.') {
             let recv = &name[..dot];
             if let Some(loc) = self.lookup(recv) {
+                if let Ty::Struct(sty) = loc.ty.clone() {
+                    let method = &name[dot + 1..];
+                    let mangled = format!("{}__{}", sty, method);
+                    if self.fns.contains_key(&mangled) {
+                        let mut new_args: Vec<Expr> = Vec::new();
+                        new_args.push(Expr::new(ExprKind::Ident(recv.to_string()), line));
+                        new_args.extend(args.iter().cloned());
+                        return self.call(&mangled, &new_args, line, call_ty);
+                    }
+                }
                 if let Ty::Dyn(tr) = loc.ty.clone() {
                     let method = name[dot+1..].to_string();
                     // vtable 索引 = trait 方法序号 + 1

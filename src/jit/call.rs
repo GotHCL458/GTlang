@@ -4,6 +4,20 @@ use super::*;
 
 impl FnState {
     pub(crate) fn gen_call(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, name: &str, args: &[Expr], line: usize, call_ty: &Ty) -> Result<(Value, Ty), String> {
+        // `x.方法(args)`：x 是 struct 变量 → 调 `类型__方法(x, args)`
+        if let Some(dot) = name.find('.') {
+            let recv = &name[..dot];
+            if let Some((_, Ty::Struct(sty))) = self.lookup(recv) {
+                let method = &name[dot + 1..];
+                let mangled = format!("{}__{}", sty, method);
+                if jit.fns.contains_key(&mangled) {
+                    let mut new_args: Vec<Expr> = Vec::new();
+                    new_args.push(Expr::new(ExprKind::Ident(recv.to_string()), line));
+                    new_args.extend(args.iter().cloned());
+                    return self.gen_call(jit, b, &mangled, &new_args, line, call_ty);
+                }
+            }
+        }
         // `s.方法(args)`：s 是 dyn Trait 对象 → vtable 取址 + call_indirect
         if let Some(dot) = name.find('.') {
             let recv = &name[..dot];

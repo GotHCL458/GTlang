@@ -540,7 +540,9 @@ fn builtin_check(name: &str, args: &[Ty]) -> Result<Ty, String> {
                     if !matches!(**elem, Ty::Unknown) {
                         let e = (**elem).clone();
                         let v = &args[1];
-                        if !crate::sema::sema_const::compatible(&e, v) {
+                        // 元素是 dyn Trait 时，Struct/Enum 实参自动装箱，允许
+                        let auto_box = matches!(e, Ty::Dyn(_)) && matches!(v, Ty::Struct(_) | Ty::Enum(_));
+                        if !auto_box && !crate::sema::sema_const::compatible(&e, v) {
                             return Err(crate::te!(
                                 "{}() element type mismatch: list of {}, got {}",
                                 "{}() 元素类型不匹配：list 元素为 {}，实际为 {}", name, e, v
