@@ -699,11 +699,13 @@ pub(crate) struct FnState {
     pub(crate) range: Option<crate::range::Analysis>,
     /// `defer` 栈（当前函数的 defer 表达式，返回前逆序求值）
     pub(crate) defer_stack: Vec<Expr>,
+    /// `fily` 栈（当前 try 的 finally 块；return 时也要执行）
+    pub(crate) fily_stack: Vec<Block>,
 }
 
 impl FnState {
     pub(crate) fn new(cur_ret: Ty, range: Option<crate::range::Analysis>) -> FnState {
-        FnState { var_count: 0, scopes: vec![Vec::new()], array_slots: HashMap::new(), loops: Vec::new(), cur_ret, terminated: false, bounded: HashMap::new(), fault_stack: Vec::new(), range, defer_stack: Vec::new() }
+        FnState { var_count: 0, scopes: vec![Vec::new()], array_slots: HashMap::new(), loops: Vec::new(), cur_ret, terminated: false, bounded: HashMap::new(), fault_stack: Vec::new(), range, defer_stack: Vec::new(), fily_stack: Vec::new() }
     }
     pub(crate) fn new_block(&mut self, b: &mut FunctionBuilder) -> ClBlock { b.create_block() }
     pub(crate) fn new_var(&mut self, b: &mut FunctionBuilder, ty: &Ty) -> Variable {

@@ -551,6 +551,21 @@ fn infer_block_ret(ctx: &mut Ctx, b: &mut Block) -> Result<Ty, String> {
             Stmt::While { body, .. } | Stmt::DoWhile { body, .. } | Stmt::ForRange { body, .. } | Stmt::ForEach { body, .. } => {
                 infer_block_ret(ctx, body).ok()
             }
+            // try/expt/fily：任一分支的 return 都算返回值路径
+            Stmt::Try { body, catches, fin, .. } => {
+                let mut t = infer_block_ret(ctx, body).ok();
+                for ca in catches.iter_mut() {
+                    if let Some(bt) = infer_block_ret(ctx, &mut ca.body).ok() {
+                        t = Some(match t { None => bt, Some(p) => join_ret_types(&p, &bt) });
+                    }
+                }
+                if let Some(f) = fin {
+                    if let Some(bt) = infer_block_ret(ctx, f).ok() {
+                        t = Some(match t { None => bt, Some(p) => join_ret_types(&p, &bt) });
+                    }
+                }
+                t
+            }
             // 无值 return：非 void 返回类型时报错（在返回类型推断阶段即可捕获）。
             Stmt::Return(None, line) => {
                 if ctx.cur_ret != Ty::Void && ctx.cur_ret != Ty::Unknown {
@@ -604,6 +619,10 @@ fn block_yields(b: &Block) -> bool {
         Some(Stmt::Return(..)) => true,
         Some(Stmt::If { then, els: Some(els), .. }) => block_yields(then) && block_yields(els),
         Some(Stmt::Block(inner)) => block_yields(inner),
+        // try/expt/fily：body 或任一 catch 分支有产出即算有返回值
+        Some(Stmt::Try { body, catches, .. }) => {
+            block_yields(body) || catches.iter().any(|ca| block_yields(&ca.body))
+        }
         _ => false,
     }
 }

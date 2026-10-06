@@ -80,7 +80,9 @@ impl FnState {
                 let zero = b.ins().iconst(types::I64, 0);
                 b.def_var(fvar, zero);
                 self.fault_stack.push((l_err, fvar));
+                if let Some(f) = fin { self.fily_stack.push(f.clone()); }
                 let rv = self.gen_block_value(jit, b, body, &want)?;
+                if fin.is_some() { self.fily_stack.pop(); }
                 self.fault_stack.pop();
                 // body 正常结束（有值）：按 Result 的 tag 分发到 l_ok / l_err
                 if let Some(v) = rv {
@@ -111,7 +113,9 @@ impl FnState {
                         b.def_var(bv, ev2);
                         self.bind(binding, bv, Ty::I64);
                     }
+                    if let Some(f) = fin { self.fily_stack.push(f.clone()); }
                     let _ = self.gen_block_value(jit, b, &ca.body, &Ty::I64)?;
+                    if fin.is_some() { self.fily_stack.pop(); }
                     self.pop_scope();
                 }
                 if !self.terminated { b.ins().jump(l_end, &[]); }
@@ -379,7 +383,10 @@ impl FnState {
                 }
             }
             Stmt::Return(Some(e), _) => {
-                // 先执行 defer（逆序）
+                // 先执行在栈的 fily（finally）块（逆序）
+                let filies: Vec<Block> = self.fily_stack.clone();
+                for f in filies.iter().rev() { self.push_scope(); self.gen_block(jit, b, f)?; self.pop_scope(); }
+                // 再执行 defer（逆序）
                 let defers: Vec<Expr> = self.defer_stack.drain(..).rev().collect();
                 for d in &defers { let _ = self.gen_expr(jit, b, d); }
                 // impl Trait 返回位置：具体类型自动装箱为 dyn Trait
@@ -399,6 +406,8 @@ impl FnState {
                 b.ins().return_(&[v]); self.terminated = true;
             }
             Stmt::Return(None, _) => {
+                let filies: Vec<Block> = self.fily_stack.clone();
+                for f in filies.iter().rev() { self.push_scope(); self.gen_block(jit, b, f)?; self.pop_scope(); }
                 let defers: Vec<Expr> = self.defer_stack.drain(..).rev().collect();
                 for d in &defers { let _ = self.gen_expr(jit, b, d); }
                 b.ins().return_(&[]); self.terminated = true;

@@ -79,6 +79,7 @@ pub fn generate(prog: &Program, an: &Analysis, file: &str) -> Result<String, Str
         labeled: Vec::new(),
         label_targets: HashMap::new(),
         defer_stack: Vec::new(),
+        fily_stack: Vec::new(),
     };
     // 先做范围分析（用 &Program，与后续遍历同一 AST，地址一致）
     cg.range_analysis = Some(crate::range::analyze(prog));
@@ -197,6 +198,8 @@ struct Codegen<'a> {
     pub(crate) err_stack: Vec<(String, String)>,
     /// `defer` 栈（当前函数的 defer 表达式，函数返回前逆序求值）
     pub(crate) defer_stack: Vec<Expr>,
+    /// `fily` 栈（当前 try 的 finally 块；return 时也要执行）
+    pub(crate) fily_stack: Vec<Block>,
 }
 
 impl<'a> Codegen<'a> {

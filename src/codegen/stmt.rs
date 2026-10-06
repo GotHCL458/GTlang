@@ -132,7 +132,9 @@ impl<'a> Codegen<'a> {
                 let l_end = self.new_label();
                 self.err_stack.push((l_handler.clone(), err_slot.clone()));
                 // body 作为普通语句块执行；?/throw 命中 Err 时经 err_stack 跳到 l_handler。
+                if let Some(f) = fin { self.fily_stack.push(f.clone()); }
                 self.block(body)?;
+                if fin.is_some() { self.fily_stack.pop(); }
                 self.err_stack.pop();
                 if !self.terminated {
                     // 正常结束：把 0 存入值槽（try 语句的值无意义）
@@ -154,7 +156,9 @@ impl<'a> Codegen<'a> {
                         self.body.push_str(&format!("  store ptr {}, ptr {}\n", ep, bslot));
                         self.scopes.last_mut().unwrap().insert(binding.clone(), Local { ptr: bslot, ty: Ty::Str });
                     }
+                    if let Some(f) = fin { self.fily_stack.push(f.clone()); }
                     let hv = self.block_ret(&ca.body, &Ty::I64)?;
+                    if fin.is_some() { self.fily_stack.pop(); }
                     if let Some(hv) = hv {
                         let hs = self.as_i64(&hv);
                         self.body.push_str(&format!("  store i64 {}, ptr {}\n", hs, slot));
@@ -553,7 +557,14 @@ impl<'a> Codegen<'a> {
                 }
             }
             Stmt::Return(e, _) => {
-                // 返回前逆序执行本函数已登记的 defer
+                // 返回前先执行所有在栈的 fily（finally）块（逆序，最内层最先）
+                let filies: Vec<Block> = self.fily_stack.clone();
+                for f in filies.iter().rev() {
+                    self.push_scope();
+                    self.block(f)?;
+                    self.pop_scope();
+                }
+                // 再逆序执行本函数已登记的 defer
                 let defers: Vec<Expr> = self.defer_stack.drain(..).rev().collect();
                 for d in &defers { let _ = self.expr(d); }
                 if self.is_main_fn {
