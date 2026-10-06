@@ -1,6 +1,0 @@
-fn main() {
-    a := [1, 2, 3]
-    put(a)
-    m := map()
-    put(m)
-}

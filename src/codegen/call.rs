@@ -35,16 +35,6 @@ impl<'a> Codegen<'a> {
     pub(crate) fn declare(&mut self, d: &str) {
         self.declares.insert(d.to_string());
     }
-    /// 同 `intern`，但指定全局名（必须以 `@` 开头，且不能是点开头）。
-    pub(crate) fn intern_named(&mut self, name: &str, bytes: &[u8]) -> String {
-        let gname = format!("@{}", name);
-        let mut s = String::new();
-        s.push_str(&format!("{} = private unnamed_addr constant [{} x i8] c\"", gname, bytes.len() + 1));
-        s.push_str(&escape_bytes(bytes));
-        s.push_str("\\00\"\n");
-        self.globals.push_str(&s);
-        gname
-    }
     pub(crate) fn intern(&mut self, bytes: &[u8]) -> String {
         if let Some(g) = self.string_cache.get(bytes) { return g.clone(); }
         let name = format!("@.str{}", self.string_cache.len());

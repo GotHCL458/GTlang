@@ -78,11 +78,10 @@ GTLang is a **statically-typed**, **compiled**, **expression-oriented** programm
 | 🧩 | **Macros** — declarative `macro` + `@derive(Eq, Clone, Debug, ...)` |
 | 🪄 | **First-class functions** — pass a `fn` name as a value; closures capture containers/params |
 | 🔗 | **Ergonomic borrows** — automatic deref for `&T`/`&mut T` fields, methods and params; `dyn Trait` auto-boxing |
-| 🧷 | **Rich patterns** — ident bindings, nested destructuring (`Some(Some(v))`), `x or default` |
+| 🧷 | **Rich patterns** — ident bindings, nested destructuring (`Some(Some(v))`) |
 | 💬 | **Smart diagnostics** — stable codes, bilingual, "did you mean X?" |
 | 📦 | **Modules** — `import math` (builtin), `import a.b` (user), `import "x.gt"` |
 | 🛠️ | **Toolchain** — `gtc` (compiler / interpreter) |
-| 🖥️ | **Bare-metal OS** — `gtc --bare --target x86_16/32/64` + `--asm16` assembler + `--boot` image; `import boot` (30 fns) runs kernels in QEMU |
 
 ---
 

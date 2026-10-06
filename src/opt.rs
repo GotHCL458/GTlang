@@ -603,13 +603,6 @@ fn collect_calls(e: &Expr, out: &mut std::collections::HashSet<String>) {
                     out.insert(fname.clone());
                 }
             }
-            // boot.boot.load("模块", "入口")：第二参数（入口名）视为"被调用"，
-            // 否则作为引导入口的顶层函数会被 DCE 误删。
-            if name == "boot.boot.load" || name == "boot_load" {
-                if let Some(Expr { kind: ExprKind::Str(entry), .. }) = args.get(1) {
-                    out.insert(entry.clone());
-                }
-            }
         }
         ExprKind::CallValue { callee, args } => { collect_calls(callee, out); for a in args { collect_calls(a, out); } }
         ExprKind::Unary(_, a) => collect_calls(a, out),

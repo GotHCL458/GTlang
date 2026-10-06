@@ -1,8 +1,0 @@
-fn main() {
-    put("a\bb")
-    put(10)
-    put("\x41\x42\x43")
-    put(10)
-    put("\e[32mgreen\e[0m")
-    put(10)
-}

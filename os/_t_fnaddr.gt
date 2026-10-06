@@ -1,8 +1,0 @@
-fn 任务甲() {
-    put(1)
-}
-
-fn main() {
-    a := fn_addr(任务甲)
-    put(a)
-}

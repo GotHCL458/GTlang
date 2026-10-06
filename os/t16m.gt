@@ -1,9 +1,0 @@
-fn add3(a: int, b: int, c: int) -> int {
-    return a + b + c
-}
-
-fn main() {
-    put(add3(65, 1, 1))
-    put(add3(0, 66, 0))
-    put(10)
-}

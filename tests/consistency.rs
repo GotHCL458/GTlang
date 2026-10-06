@@ -2993,18 +2993,6 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
 }
 
 #[test]
-fn or_block_fallback() {
-    // `expr or { ... }`：块形式兜底（块内可含语句，最后表达式为默认值）。
-    assert_consistent_src(
-        "or_block",
-        &[
-            "fn f(n: int) -> Result[int, str] { if n < 0 { return Err(\"neg\") }  return Ok(n * 2) }",
-            "fn main() { put(f(5) or { 0 })  put(f(-1) or { -1 })  put(Some(3) or { 99 })  put(None or { 7 }) }",
-        ],
-    );
-}
-
-#[test]
 fn dyn_trait_in_containers() {
     // 回归：list[dyn Trait] 的元素（push 时自动装箱 + for 迭代 + 方法分发）。
     assert_consistent_src(
@@ -3152,18 +3140,6 @@ fn void_return_in_non_void_fn_rejected() {
     );
 }
 
-#[test]
-fn result_or_default_matches() {
-    // 回归：x or y 展开的 match 同时含 Some(v)/Ok(v)；对 Result 主体，
-    // 此前 Some(v) 的 v 被按 Result 的第二载荷（Err 类型）绑定 -> 非法 IR。
-    assert_consistent_src(
-        "result_or_default",
-        &[
-            "fn f(n: int) -> Result[int, str] { if n == 0 { return Err(\"zero\") }  return Ok(10 / n) }",
-            "fn main() { put(f(2) or -1)  put(f(0) or -1) }",
-        ],
-    );
-}
 
 #[test]
 fn generic_struct_bracket_type_matches() {
@@ -3465,26 +3441,6 @@ fn single_expr_interpolation_is_string() {
     );
 }
 
-#[test]
-fn option_or_default_matches() {
-    // `x or y`：Some(v) 取 v，None 取 y
-    assert_consistent_src(
-        "or_default",
-        &[
-            "fn f(n: int) { if n < 0 { return None }  return Some(n * 2) }",
-            "fn main() {",
-            "    put(f(3) or 0)",
-            "    put(f(-1) or 99)",
-            "    v := f(0) or 7",
-            "    put(v)",
-            "    o := Some(5)",
-            "    put(o or 1)",
-            "    n := None",
-            "    put(n or 42)",
-            "}",
-        ],
-    );
-}
 
 #[test]
 fn pipe_to_non_callable_is_rejected() {

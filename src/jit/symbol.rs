@@ -162,23 +162,6 @@ pub(crate) const GTLIB_NAMES: &[&str] = &[
     "sql_begin", "sql_commit", "sql_rollback", "sql_exec_many",
     // core
     "core_free", "core_version", "core_echo",
-    // boot（裸机引导库）
-    "boot_serial_init", "boot_serial_putc", "boot_serial_puts", "boot_serial_getc", "boot_serial_poll",
-    "boot_keyboard_modifiers",
-    "boot_clear", "boot_putc_at", "boot_puts", "boot_getkey",
-    "boot_vga_clear", "boot_vga_set_color", "boot_vga_putc", "boot_vga_puts",
-    "boot_mem_alloc", "boot_mem_free", "boot_mem_size", "boot_mem_free_bytes", "boot_paging_init", "boot_irq_register", "boot_task_exit",
-    "boot_time_ms", "boot_sleep_ms", "boot_rtc_read",
-    "boot_hlt", "boot_exit", "boot_reboot", "boot_shutdown", "boot_cpuid", "boot_cpu_vendor",
-    "boot_disk_read", "boot_disk_write", "boot_disk_partitions",
-    "boot_inb", "boot_outb", "boot_inw", "boot_outw",
-    "boot_version", "boot_arch",
-    "boot_idt_init", "boot_irq_enable", "boot_irq_disable", "boot_pic_init", "boot_keyboard_handler",
-    "boot_fs_ram_create", "boot_fs_ram_write", "boot_fs_ram_read", "boot_fs_ram_size", "boot_fs_ram_delete", "boot_fs_ram_count", "boot_fs_ram_list",
-    "boot_fat8_find", "boot_fat8_read", "boot_fat8_list", "boot_fat8_write", "boot_fat8_delete",
-    "boot_fat16_find", "boot_fat16_read", "boot_fat16_write", "boot_fat16_delete", "boot_fat16_list",
-    "boot_fat32_find", "boot_fat32_read", "boot_fat32_write", "boot_fat32_delete", "boot_fat32_list",
-    "boot_task_create", "boot_task_yield", "boot_task_start",
     // crypto
     "sha256", "hmac_sha256", "sha256_hexlen", "sha512", "sha1", "md5", "sha512_hexlen", "hex_encode", "hex_decode", "password_hash", "password_verify",
     // entropy
@@ -207,3 +190,4 @@ pub(crate) fn enable_vt() {
         }
     }
 }
+

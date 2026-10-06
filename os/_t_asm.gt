@@ -1,4 +1,0 @@
-fn main() {
-    asm { mov eax, 42 }
-    put(1)
-}

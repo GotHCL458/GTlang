@@ -51,7 +51,7 @@
 内联 C `C { ... }`、`extern "C"`、`import c "a.h"`
 
 ### 1.12 错误处理
-Result/Option + `?`、`try/expt/fily` + `throw/raise`、`expr or 默认值`（Option 与 Result 均支持）
+Result/Option + `?`、`try/expt/fily` + `throw/raise`
 
 ### 1.13 所有权
 move 语义、借用冲突（`&mut` 独占）、**流敏感 NLL**（last_use + 分支 join + 不可达）

@@ -29,11 +29,9 @@
 //! ```
 
 // ---------- 编译器内部模块 ----------
-pub mod asm16;
 pub mod ast;
 pub mod cblock;
 pub mod codegen;
-pub mod codegen_asm16;
 pub mod diag;
 pub mod driver;
 pub mod encoding;

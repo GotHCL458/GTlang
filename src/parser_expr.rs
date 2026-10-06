@@ -41,34 +41,7 @@ impl Parser {
                 }, line);
                 continue;
             }
-            // Option 默认值：`x or y` → `match x { Some(v) => v, _ => y }`
-            // （x 为 None 时取 y；为 Some(v) 时取 v 本身——按值解包，不做 Option 包装）
-            if self.at_ident("or") && min_prec == 0 {
-                let line = self.line();
-                self.bump();
-                // 块形式：`x or { ... }` —— 块作为 None/Err 分支的 body
-                // （块内可含语句；最后一句表达式作为默认值，或直接 return/throw）。
-                let fallback_body: Vec<Stmt> = if self.at_punct("{") {
-                    self.block()?
-                } else {
-                    vec![Stmt::Expr(self.expr(1)?)]
-                };
-                let v = format!("__or_v{}", line);
-                let vexpr = || Expr::new(ExprKind::Ident(v.clone()), line);
-                let some_pat = Expr::new(ExprKind::Call("Some".to_string(), vec![vexpr()]), line);
-                let ok_pat = Expr::new(ExprKind::Call("Ok".to_string(), vec![vexpr()]), line);
-                let arms = vec![
-                    // Some(v)（Option）与 Ok(v)（Result）都取内层值；None/Err 落到 _ 取默认值。
-                    MatchArm { pat: Some(some_pat), range: None, guard: None,
-                        body: vec![Stmt::Expr(vexpr())], line },
-                    MatchArm { pat: Some(ok_pat), range: None, guard: None,
-                        body: vec![Stmt::Expr(vexpr())], line },
-                    MatchArm { pat: None, range: None, guard: None,
-                        body: fallback_body, line },
-                ];
-                lhs = Expr::new(ExprKind::Match { subject: Box::new(lhs), arms }, line);
-                continue;
-            }
+            // `or` 语法已移除
             // 空合并：`a ?? b` → `match a { Some(v) => v, None => b }`（Option）
             if self.at_punct("??") && min_prec == 0 {
                 let line = self.line();

@@ -16,23 +16,6 @@ pub struct StdFn {
 /// 两个后端与 sema 共用此表：sema 做类型检查，codegen/jit 生成对 `py_*` 的调用。
 pub fn gtlib_fn(name: &str) -> Option<StdFn> {
     let f = |symbol, ret, params: &'static [Ty]| StdFn { symbol, ret, params };
-    // `boot.<组>.<函数>` 命名空间：归一化为下划线名（与旧 `boot_xxx` 名等价）。
-    // 这样新增 boot 子模块无需逐条登记。
-    if name == "boot.boot.load" || name == "boot_load" {
-        return Some(f("boot_load", Ty::Void, &[Ty::Str, Ty::Str]));
-    }
-    if let Some(rest) = name.strip_prefix("boot.") {
-        // `boot.<子模块>.<函数>`：先试 `boot_<子>_<函数>`，再试 `boot_<函数>`（丢子模块名）。
-        // 例：boot.serial.init -> boot_serial_init；boot.screen.vga_clear -> boot_vga_clear。
-        let parts: Vec<&str> = rest.split('.').collect();
-        let with_mod = format!("boot_{}", rest.replace('.', "_"));
-        if let Some(found) = gtlib_fn(&with_mod) { return Some(found); }
-        if parts.len() >= 2 {
-            let fname = parts.last().unwrap();
-            let no_mod = format!("boot_{}", fname);
-            if let Some(found) = gtlib_fn(&no_mod) { return Some(found); }
-        }
-    }
     Some(match name {
         // ---- math ----
         "sqrt" => f("py_sqrt", Ty::F64, &[Ty::F64]),
@@ -188,82 +171,6 @@ pub fn gtlib_fn(name: &str) -> Option<StdFn> {
         "hex_decode" => f("py_hex_decode", Ty::Str, &[Ty::Str]),
         "password_hash" => f("py_password_hash", Ty::Str, &[Ty::Str, Ty::Str]),
         "password_verify" => f("py_password_verify", Ty::Bool, &[Ty::Str, Ty::Str]),
-        // ---- boot（裸机引导库；仅 --bare 目标有实现）----
-        "boot_serial_init" => f("boot_serial_init", Ty::Void, &[]),
-        "boot_serial_putc" => f("boot_serial_putc", Ty::Void, &[Ty::I64]),
-        "boot_serial_puts" => f("boot_serial_puts", Ty::Void, &[Ty::Str]),
-        "boot_serial_getc" => f("boot_serial_getc", Ty::I64, &[]),
-        "boot_serial_poll" => f("boot_serial_poll", Ty::I64, &[]),
-        "boot_keyboard_modifiers" => f("boot_keyboard_modifiers", Ty::I64, &[]),
-        "boot_clear" => f("boot_clear", Ty::Void, &[]),
-        "boot_putc_at" => f("boot_putc_at", Ty::Void, &[Ty::I64, Ty::I64, Ty::I64]),
-        "boot_puts" => f("boot_puts", Ty::Void, &[Ty::Str]),
-        "boot_vga_clear" => f("boot_vga_clear", Ty::Void, &[]),
-        "boot_vga_set_color" => f("boot_vga_set_color", Ty::Void, &[Ty::I64, Ty::I64]),
-        "boot_vga_putc" => f("boot_vga_putc", Ty::Void, &[Ty::I64]),
-        "boot_vga_puts" => f("boot_vga_puts", Ty::Void, &[Ty::Str]),
-        "boot_getkey" => f("boot_getkey", Ty::I64, &[]),
-        "boot_mem_alloc" => f("boot_mem_alloc", Ty::I64, &[Ty::I64]),
-        "boot_mem_free" => f("boot_mem_free", Ty::Void, &[Ty::I64]),
-        "boot_mem_size" => f("boot_mem_size", Ty::I64, &[]),
-        "boot_mem_free_bytes" => f("boot_mem_free_bytes", Ty::I64, &[]),
-        "boot_paging_init" => f("boot_paging_init", Ty::I64, &[Ty::I64]),
-        "boot_irq_register" => f("boot_irq_register", Ty::I64, &[Ty::I64, Ty::I64]),
-        "boot_task_exit" => f("boot_task_exit", Ty::Void, &[]),
-        "boot_time_ms" => f("boot_time_ms", Ty::I64, &[]),
-        "boot_sleep_ms" => f("boot_sleep_ms", Ty::Void, &[Ty::I64]),
-        "boot_rtc_read" => f("boot_rtc_read", Ty::I64, &[Ty::I64]),
-        "boot_cpuid" => f("boot_cpuid", Ty::Void, &[Ty::I64, Ty::I64]),
-        "boot_cpu_vendor" => f("boot_cpu_vendor", Ty::I64, &[Ty::I64]),
-        "boot_disk_partitions" => f("boot_disk_partitions", Ty::I64, &[Ty::I64]),
-        "boot_hlt" => f("boot_hlt", Ty::Void, &[]),
-        "boot_exit" => f("boot_exit", Ty::Void, &[]),
-        "boot_reboot" => f("boot_reboot", Ty::Void, &[]),
-        "boot_shutdown" => f("boot_shutdown", Ty::Void, &[]),
-        "boot_disk_read" => f("boot_disk_read", Ty::I64, &[Ty::I64, Ty::I64, Ty::I64]),
-        "boot_disk_write" => f("boot_disk_write", Ty::I64, &[Ty::I64, Ty::I64, Ty::I64]),
-        "boot_inb" => f("boot_inb", Ty::I64, &[Ty::I64]),
-        "boot_outb" => f("boot_outb", Ty::Void, &[Ty::I64, Ty::I64]),
-        "boot_inw" => f("boot_inw", Ty::I64, &[Ty::I64]),
-        "boot_outw" => f("boot_outw", Ty::Void, &[Ty::I64, Ty::I64]),
-        "boot_version" => f("boot_version", Ty::Str, &[]),
-        "boot_arch" => f("boot_arch", Ty::I64, &[]),
-        "boot_idt_init" => f("boot_idt_init", Ty::Void, &[]),
-        "boot_irq_enable" => f("boot_irq_enable", Ty::Void, &[]),
-        "boot_irq_disable" => f("boot_irq_disable", Ty::Void, &[]),
-        "boot_pic_init" => f("boot_pic_init", Ty::Void, &[]),
-        "boot_keyboard_handler" => f("boot_keyboard_handler", Ty::I64, &[]),
-        // fs_ram（内存文件系统，完整 CRUD）
-        "boot_fs_ram_create" => f("boot_fs_ram_create", Ty::I64, &[Ty::Str]),
-        "boot_fs_ram_write" => f("boot_fs_ram_write", Ty::I64, &[Ty::Str, Ty::Str, Ty::I64]),
-        "boot_fs_ram_read" => f("boot_fs_ram_read", Ty::I64, &[Ty::Str, Ty::I64, Ty::I64]),
-        "boot_fs_ram_size" => f("boot_fs_ram_size", Ty::I64, &[Ty::Str]),
-        "boot_fs_ram_delete" => f("boot_fs_ram_delete", Ty::I64, &[Ty::Str]),
-        "boot_fs_ram_count" => f("boot_fs_ram_count", Ty::I64, &[]),
-        "boot_fs_ram_list" => f("boot_fs_ram_list", Ty::I64, &[Ty::I64, Ty::I64]),
-        // fs_fat8（只读）
-        "boot_fat8_find" => f("boot_fat8_find", Ty::I64, &[Ty::Str]),
-        "boot_fat8_read" => f("boot_fat8_read", Ty::I64, &[Ty::Str, Ty::I64, Ty::I64]),
-        "boot_fat8_list" => f("boot_fat8_list", Ty::I64, &[Ty::I64, Ty::I64]),
-        "boot_fat8_write" => f("boot_fat8_write", Ty::I64, &[Ty::Str, Ty::Str, Ty::I64]),
-        "boot_fat8_delete" => f("boot_fat8_delete", Ty::I64, &[Ty::Str]),
-        // fs_fat16（完整读写）
-        "boot_fat16_find" => f("boot_fat16_find", Ty::I64, &[Ty::Str]),
-        "boot_fat16_read" => f("boot_fat16_read", Ty::I64, &[Ty::Str, Ty::I64, Ty::I64]),
-        "boot_fat16_write" => f("boot_fat16_write", Ty::I64, &[Ty::Str, Ty::I64, Ty::I64]),
-        "boot_fat16_delete" => f("boot_fat16_delete", Ty::I64, &[Ty::Str]),
-        "boot_fat16_list" => f("boot_fat16_list", Ty::I64, &[Ty::I64, Ty::I64]),
-        // fs_fat32（完整读写）
-        "boot_fat32_find" => f("boot_fat32_find", Ty::I64, &[Ty::Str]),
-        "boot_fat32_read" => f("boot_fat32_read", Ty::I64, &[Ty::Str, Ty::I64, Ty::I64]),
-        "boot_fat32_write" => f("boot_fat32_write", Ty::I64, &[Ty::Str, Ty::I64, Ty::I64]),
-        "boot_fat32_delete" => f("boot_fat32_delete", Ty::I64, &[Ty::Str]),
-        "boot_fat32_list" => f("boot_fat32_list", Ty::I64, &[Ty::I64, Ty::I64]),
-        "boot_task_create" => f("boot_task_create", Ty::I64, &[Ty::I64]),
-        "boot_task_yield" => f("boot_task_yield", Ty::Void, &[]),
-        "boot_task_start" => f("boot_task_start", Ty::Void, &[]),
-        // boot.boot.load("模块", "入口")：编译期登记内核入口，运行时直接跳转
-        "boot_load" => f("boot_load", Ty::Void, &[Ty::Str, Ty::Str]),
         // ---- core ----
         "core_free" => f("py_free", Ty::Void, &[Ty::Str]),
         "core_version" => f("py_core_version", Ty::Str, &[]),
@@ -406,21 +313,6 @@ pub fn is_builtin_name(name: &str) -> bool {
         | "tcp_connect" | "tcp_listen" | "accept" | "net_send" | "net_recv" | "recv_all" | "net_close" | "close_listener" | "peer_addr"
         | "sql_open" | "sql_close" | "sql_exec" | "sql_query" | "sql_run" | "sql_error" | "sql_begin" | "sql_commit" | "sql_rollback" | "sql_exec_many"
         | "core_free" | "core_version" | "core_echo"
-        | "boot_serial_init" | "boot_serial_putc" | "boot_serial_puts" | "boot_serial_getc" | "boot_serial_poll" | "boot_keyboard_modifiers"
-        | "boot_clear" | "boot_putc_at" | "boot_puts" | "boot_getkey"
-        | "boot_vga_clear" | "boot_vga_set_color" | "boot_vga_putc" | "boot_vga_puts"
-        | "boot_mem_alloc" | "boot_mem_free" | "boot_mem_size" | "boot_mem_free_bytes" | "boot_paging_init" | "boot_irq_register" | "boot_task_exit"
-        | "boot_time_ms" | "boot_sleep_ms" | "boot_rtc_read" | "boot_cpuid" | "boot_cpu_vendor" | "boot_disk_partitions"
-        | "boot_hlt" | "boot_exit" | "boot_reboot" | "boot_shutdown"
-        | "boot_disk_read" | "boot_disk_write"
-        | "boot_inb" | "boot_outb" | "boot_inw" | "boot_outw"
-        | "boot_version" | "boot_arch"
-        | "boot_idt_init" | "boot_irq_enable" | "boot_irq_disable" | "boot_pic_init" | "boot_keyboard_handler"
-        | "boot_fs_ram_create" | "boot_fs_ram_write" | "boot_fs_ram_read" | "boot_fs_ram_size" | "boot_fs_ram_delete" | "boot_fs_ram_count" | "boot_fs_ram_list"
-        | "boot_fat8_find" | "boot_fat8_read" | "boot_fat8_list" | "boot_fat8_write" | "boot_fat8_delete"
-        | "boot_fat16_find" | "boot_fat16_read" | "boot_fat16_write" | "boot_fat16_delete" | "boot_fat16_list"
-        | "boot_fat32_find" | "boot_fat32_read" | "boot_fat32_write" | "boot_fat32_delete" | "boot_fat32_list"
-        | "boot_task_create" | "boot_task_yield" | "boot_task_start"
         | "sha256" | "hmac_sha256" | "sha256_hexlen" | "sha512" | "sha1" | "md5" | "sha512_hexlen" | "hex_encode" | "hex_decode" | "password_hash" | "password_verify"
         | "entropy_random_hex" | "entropy_random_int" | "entropy_random_bytes" | "entropy_uuid"
         | "session_create" | "session_get" | "session_destroy" | "session_gc" | "session_count"
@@ -444,3 +336,5 @@ pub fn is_builtin_name(name: &str) -> bool {
 #[path = "tests/type_gtlib.rs"]
 #[cfg(test)]
 mod type_gtlib_tests;
+
+

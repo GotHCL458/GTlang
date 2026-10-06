@@ -1,7 +1,0 @@
-import boot
-
-fn main() {
-    boot_serial_init()
-    put(10)
-    boot_hlt()
-}

@@ -1,7 +1,0 @@
-enum Color { Red, Green, Blue }
-
-fn main() {
-    c := Color::Green
-    put(1)
-    put(10)
-}

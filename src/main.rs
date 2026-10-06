@@ -85,12 +85,6 @@ enum Mode {
     Check,
     /// 运行测试（`test_` 前缀函数）
     Test,
-    /// 裸机目标（无 CRT/运行时；与引导库配合）
-    Bare,
-    /// 16 位汇编（内置汇编器：.asm -> .bin）
-    Asm16,
-    /// 16 位后端（GTLang AST -> 机器码 .bin）
-    Asm16Gen,
     /// 只产出 LLVM IR
     EmitLlvm,
     EmitLlvmOpt,
@@ -145,12 +139,6 @@ fn main() -> ExitCode {
     let mut lint_strict = false;
     let mut lint_json = false;
     let mut sources: Vec<PathBuf> = Vec::new();
-    let mut bare_arch: String = "x86_64".to_string();
-    let mut boot_image = false;
-    let mut kernel_entry: Option<String> = None;
-    let mut link_script: Option<PathBuf> = None;
-    let mut include_dirs: Vec<PathBuf> = Vec::new();
-    let mut keep_ll = false;
 
     let mut i = 0;
     while i < args.len() {
@@ -173,47 +161,9 @@ fn main() -> ExitCode {
             "--json" => lint_json = true,
             "--test" | "test" => mode = Mode::Test,
             "--emit-llvm" => mode = Mode::EmitLlvm,
-            "--asm16" => mode = Mode::Asm16,
-            "--asm16gen" | "--x86_16" => mode = Mode::Asm16Gen,
-            "--boot" => { mode = Mode::Bare; boot_image = true; }
-            "--os" => { mode = Mode::Bare; boot_image = true; }   // OS 开发模式（= --bare --boot）
-            "--kernel" => {
-                i += 1;
-                match args.get(i) {
-                    Some(x) => kernel_entry = Some(x.clone()),
-                    None => { eprintln!("{}", lang::tr("error: --kernel requires an entry name", "错误：--kernel 需要入口名")); return ExitCode::from(1); }
-                }
-            }
-            "--link" => {
-                i += 1;
-                match args.get(i) {
-                    Some(x) => link_script = Some(PathBuf::from(x)),
-                    None => { eprintln!("{}", lang::tr("error: --link requires a script path", "错误：--link 需要脚本路径")); return ExitCode::from(1); }
-                }
-            }
-            "-I" => {
-                i += 1;
-                match args.get(i) {
-                    Some(x) => include_dirs.push(PathBuf::from(x)),
-                    None => { eprintln!("{}", lang::tr("error: -I requires a directory", "错误：-I 需要目录")); return ExitCode::from(1); }
-                }
-            }
-            "--bare" | "--target" => {
-                // `--target <arch>`：裸机目标（arch: x86_64|x86_32|x86_16）；`--bare` 等价默认 x86_64。
-                mode = Mode::Bare;
-                if a == "--target" {
-                    i += 1;
-                    match args.get(i) {
-                        Some(x) => bare_arch = x.clone(),
-                        None => { eprintln!("{}", lang::tr("error: --target requires an arch (x86_64|x86_32|x86_16)", "错误：--target 需要架构（x86_64|x86_32|x86_16）")); return ExitCode::from(1); }
-                    }
-                }
-            }
-
             "--emit-llvm-opt" | "--ir-ugly" => mode = Mode::EmitLlvmOpt,
             "--no-color" => no_color = true,
             "--keep-tmp" => keep_tmp = true,
-            "--keep-ll" => keep_ll = true,
             "--watch" | "-w" => watch = true,
             "--no-overflow-check" | "-fno-overflow" => gtc_rust::disable_overflow_check(),
             "--no-gc" | "-fno-gc" => gtc_rust::disable_gc(),
@@ -287,14 +237,14 @@ fn main() -> ExitCode {
             if cur != last {
                 last = cur;
                 if lang::is_zh() { println!("\n[watch] 变更，重新构建…"); } else { println!("\n[watch] change detected, rebuilding..."); }
-                if let Err(e) = drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, &bare_arch, boot_image, link_script.as_deref(), keep_ll) {
+                if let Err(e) = drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json) {
                     eprintln!("{}", e);
                 }
             }
         }
     }
 
-    match drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, &bare_arch, boot_image, link_script.as_deref(), keep_ll) {
+    match drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("{}", e);
@@ -353,30 +303,10 @@ fn drive(
     keep_tmp: bool,
     lint_strict: bool,
     lint_json: bool,
-    bare_arch: &str,
-    boot_image: bool,
-    link_script: Option<&Path>,
-    keep_ll: bool,
 ) -> Result<(), String> {
     let first = &sources[0];
 
     // 0. 16 位汇编：直接读 .asm 文本并汇编（不经过 GTLang 前端）。
-    if mode == Mode::Asm16 {
-        let (text, _) = gtc_rust::load_sources(sources)?;
-        let bin = gtc_rust::asm16::assemble(&text).map_err(|e| format!("汇编失败：{}", e))?;
-        let outp = match out {
-            Some(p) => p.to_path_buf(),
-            None => first.with_extension("bin"),
-        };
-        std::fs::write(&outp, &bin).map_err(|e| format!("无法写入 {}：{}", outp.display(), e))?;
-        if lang::is_zh() {
-            println!("已汇编：{}（{} 字节）", outp.display(), bin.len());
-        } else {
-            println!("assembled: {} ({} bytes)", outp.display(), bin.len());
-        }
-        return Ok(());
-    }
-
     // 1. 读入并解码（UTF-8 优先，其它编码按系统代码页转换）
     let (text, notes) = gtc_rust::load_sources(sources)?;
     for n in &notes {
@@ -453,70 +383,6 @@ fn drive(
     }
 
     // 16 位汇编：内置汇编器，.asm -> 扁平二进制。
-    if mode == Mode::Asm16 {
-        let bin = gtc_rust::asm16::assemble(&text).map_err(|e| format!("汇编失败：{}", e))?;
-        let outp = match out {
-            Some(p) => p.to_path_buf(),
-            None => first.with_extension("bin"),
-        };
-        std::fs::write(&outp, &bin).map_err(|e| format!("无法写入 {}：{}", outp.display(), e))?;
-        if lang::is_zh() {
-            println!("已汇编：{}（{} 字节）", outp.display(), bin.len());
-        } else {
-            println!("assembled: {} ({} bytes)", outp.display(), bin.len());
-        }
-        return Ok(());
-    }
-
-    // 16 位后端：AST -> 机器码 .bin。
-    if mode == Mode::Asm16Gen {
-        let bin = gtc_rust::codegen_asm16::compile(&unit.ast).map_err(|e| format!("16 位后端失败：{}", e))?;
-        let outp = match out {
-            Some(p) => p.to_path_buf(),
-            None => first.with_extension("bin"),
-        };
-        std::fs::write(&outp, &bin).map_err(|e| format!("无法写入 {}：{}", outp.display(), e))?;
-        if lang::is_zh() {
-            println!("16 位镜像已生成：{}（{} 字节）", outp.display(), bin.len());
-        } else {
-            println!("16-bit image written: {} ({} bytes)", outp.display(), bin.len());
-        }
-        return Ok(());
-    }
-
-    // 裸机目标：产出独立 .o（不链接 CRT/运行时），由引导库/链接脚本组装。
-
-    if mode == Mode::Bare {
-        let obj = if boot_image {
-            // --boot：-o 指"镜像路径"，内核对象用临时文件
-            std::env::temp_dir().join(format!("gtc_boot_kernel_{}.o", std::process::id()))
-        } else {
-            match out {
-                Some(p) => p.to_path_buf(),
-                None => first.with_extension("o"),
-            }
-        };
-        // 默认写临时目录（不污染源码目录）；--keep-ll 时才与 .o 同目录
-        let ll_path = if keep_ll { obj.with_extension("ll") } else { std::env::temp_dir().join(format!("gtc_bare_{}.ll", std::process::id())) };
-        let ll = unit.write_llvm_opt(&ll_path, opt)?;
-        gtc_rust::driver::compile_bare(&ll, &obj, opt, bare_arch)?;
-        if lang::is_zh() {
-            println!("裸机目标已生成：{}（arch={}）", obj.display(), bare_arch);
-        } else {
-            println!("bare object written: {} (arch={})", obj.display(), bare_arch);
-        }
-        if boot_image {
-            // 自动拼"可启动镜像"：引导库（stage1+stage2）+ 内核 + 运行时
-            let img = gtc_rust::driver::make_boot_image_ex(&obj, out, opt, bare_arch, keep_tmp, link_script)?;
-            if lang::is_zh() {
-                println!("可启动镜像：{}", img.display());
-            } else {
-                println!("bootable image: {}", img.display());
-            }
-        }
-        return Ok(());
-    }
-
     let exe = unit.compile_to_ex(&target, opt, keep_tmp)?;
     if lang::is_zh() {
         println!("编译成功：{}", exe.display());

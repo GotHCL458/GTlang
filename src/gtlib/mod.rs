@@ -1,7 +1,5 @@
 //! GT 标准库元信息。
 
-pub mod boot;
-
 /// 一个标准库模块。
 pub struct StdModule {
     pub dll: &'static str,
@@ -115,45 +113,6 @@ pub const MODULES: &[StdModule] = &[
         funcs: &[
             "seed", "random", "randint", "randrange", "uniform",
             "choice", "shuffle", "sample", "gauss",
-        ],
-    },
-    StdModule {
-        dll: "boot",
-        funcs: &[
-            // 串口
-            "boot_serial_init", "boot_serial_putc", "boot_serial_puts", "boot_serial_getc", "boot_serial_poll",
-            // 屏幕
-            "boot_clear", "boot_putc_at", "boot_puts",
-            "boot_vga_clear", "boot_vga_set_color", "boot_vga_putc", "boot_vga_puts",
-            // 键盘
-            "boot_getkey", "boot_keyboard_modifiers",
-            // 内存
-            "boot_mem_alloc", "boot_mem_free", "boot_mem_size", "boot_mem_free_bytes", "boot_paging_init",
-            // 时间
-            "boot_time_ms", "boot_sleep_ms",
-            "boot_rtc_read",
-            // 系统
-            "boot_hlt", "boot_exit", "boot_reboot", "boot_shutdown",
-            "boot_cpuid", "boot_cpu_vendor",
-            // 磁盘
-            "boot_disk_read", "boot_disk_write",
-            "boot_disk_partitions",
-            // 端口
-            "boot_inb", "boot_outb", "boot_inw", "boot_outw",
-            // 信息
-            "boot_version", "boot_arch",
-            // 中断
-            "boot_idt_init", "boot_irq_enable", "boot_irq_disable", "boot_pic_init", "boot_keyboard_handler", "boot_irq_register",
-            // 文件系统：内存盘
-            "boot_fs_ram_create", "boot_fs_ram_write", "boot_fs_ram_read", "boot_fs_ram_size", "boot_fs_ram_delete", "boot_fs_ram_count", "boot_fs_ram_list",
-            // FAT8（只读）
-            "boot_fat8_find", "boot_fat8_read", "boot_fat8_list", "boot_fat8_write", "boot_fat8_delete",
-            // FAT16（完整读写）
-            "boot_fat16_find", "boot_fat16_read", "boot_fat16_write", "boot_fat16_delete", "boot_fat16_list",
-            // FAT32（完整读写）
-            "boot_fat32_find", "boot_fat32_read", "boot_fat32_write", "boot_fat32_delete", "boot_fat32_list",
-            // 多任务
-            "boot_task_create", "boot_task_yield", "boot_task_start", "boot_task_exit",
         ],
     },
     StdModule {

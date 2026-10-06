@@ -1,7 +1,0 @@
-fn main() {
-    put(65)
-    for i in 0..3 {
-        put(66)
-    }
-    put(67)
-}

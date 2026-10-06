@@ -1,8 +1,0 @@
-@export("my_kernel_entry")
-fn entry() {
-    put(1)
-}
-
-fn main() {
-    entry()
-}

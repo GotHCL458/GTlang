@@ -239,9 +239,6 @@ Overloadable: add sub mul div rem eq ne lt le gt ge neg
     match f(-1) { Ok(v) => { ... } Err(e) => { ... } }
 
     o := Some(1)
-    v := o or 0              // default: Some(v) yields v, None yields 0
-    v := f(-1) or { put("fail")  0 }   // block form: on None/Err run the block
-                                       // (last expr is the fallback; return/throw also OK)
 
     try { throw "boom" } expt e { put(e) } fily { ... }
 

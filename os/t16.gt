@@ -1,5 +1,0 @@
-fn main() {
-    put(72)
-    put(73)
-    put(10)
-}

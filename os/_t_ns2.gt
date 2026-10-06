@@ -1,3 +1,0 @@
-fn main() {
-    boot.fs.write("a.txt", "xy", 2)
-}
