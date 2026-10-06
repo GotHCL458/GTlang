@@ -355,9 +355,24 @@
 - **修复**：1) `emit_print_v`/`gen_print_v` 入口：若 `Ty::Struct(name)` 的 `name` 在 `enum_variants` 中，则按 `Ty::Enum` 打印；2) AOT `Ty::Array` 打印：`ptr` 类元素用 `Val::new_ptr` 保留标记。
 - **验证**：`P {c: Color::Red}` / `[Color::Red, Color::Blue]` / `Some(Color::Red)` 双端一致。
 
+### 68. 嵌套 Enum 解构 `E::Has(Shape::Circle(r))`
+
+- **现象**：内层 enum 解构的绑定名 `r` 未定义（sema 报 E101）；即使绕过，内层变体 tag 判定错误（`E::Has(Shape::Rect(w,h))` 的 `w*h` 得 0 或垃圾）。
+- **根因**：三处都只解一层——1) `sema_infer.rs` 的 enum 载荷绑定未递归内层 `EnumLit`；2) JIT `bind_pat_deep` 无 `EnumLit` 分支；3) AOT `bind_pat_deep` 无 `EnumLit` 分支。且"内层变体 tag"被硬编码为 0/1（只区分 None/Err），`Shape::Rect`（第 2 变体，tag=1）被误判。
+- **修复**：三处补 `EnumLit` 递归绑定；内层变体 tag 从 `enum_variants` 查真实位置（`pat_tag_cond`/`want_inner`）。
+- **验证**：`E::Has(Shape::Circle(2.0))`→12.56、`E::Has(Shape::Rect(3,4))`→12、`E::None`→0，双端一致。
+
+### 69. `impl <trait> for <基础类型>`（int/str/f64/bool）
+
+- **现象**：`impl Show for int { fn show(self) -> str { ... } }` —— `self` 被当作 `Ty::Struct("int")`，`str(self)` 报"str() 不能转换结构体(int)"；方法调用报 `MethodOn (non-dyn) not lowered`。
+- **根因**：1) `hoist.rs` 把 `self` 一律设为 `Ty::Struct(ty)`；2) `mono.rs` 的 `MethodOn` 降级只认 `Ty::Struct`，基础类型无降级。
+- **修复**：1) `self` 类型用 `Ty::from_name(ty)` 优先（int→I64 等），否则 `Ty::Struct`；2) `Ty` 新增 `impl_name()`（基础类型回映射到注解名），`mono` 的 `MethodOn` 对任意具名类型降级为 `类型__方法`。
+- **验证**：`42.show()`→`int(42)`、`"hi".show()`→`str(hi)`，双端一致。
+- **未覆盖**：泛型 blanket impl（`impl[T] Show for T`）仍报 "missing method"（见待办）。
+
 ## 统计（第二轮）
 
-- 真实缺陷修复：**14 个**（累计 **67 个**）
+- 真实缺陷修复：**16 个**（累计 **69 个**）
 - 测试：**825 → 827**（单元 143、前端批量 522、双后端一致性 160→166）
 - 验证方式：对同一 `.gt` 分别跑 `gtc --run`（JIT）与 `gtc --c`（AOT 产物），断言 stdout **逐字节一致**
 - 覆盖：全类型 `put`、嵌套容器、全部语法糖/匹配、全部标准库模块、所有权/借用、高阶函数/闭包、运算符重载、泛型、CLI、大数/浮点/递归/位运算/短路/循环控制，以及综合场景（学生管理、栈式求值器、矩阵、单词计数、斐波那契记忆化、LRU 缓存、优先队列）

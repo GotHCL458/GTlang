@@ -1027,7 +1027,12 @@ fn lower_expr(
                 Ty::Ref(inner) | Ty::RefMut(inner) => *inner,
                 other => other,
             };
-            if let Ty::Struct(sname) = rty {
+            // 具名类型（结构体/枚举/基础类型）降级为 类型__方法(recv, ...)。
+            // 基础类型（int/str/f64/bool）的 impl 也走这套（impl Show for int 等）。
+            if let Some(sname) = rty.impl_name() {
+                let has = methods.get(&sname).map_or(false, |ms| ms.contains(&method.clone()))
+                    || { let mname = format!("{}__{}", sname, method); methods.values().any(|ms| ms.contains(&mname)) };
+                let _ = has;
                 let self_expr = (**recv).clone();
                 let mut new_args = vec![self_expr];
                 new_args.append(args);

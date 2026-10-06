@@ -126,6 +126,22 @@ impl Ty {
     }
 }
 
+impl Ty {
+    /// 用于"方法表/impl 表"的源名：基础类型回映射到注解名（int/str/...），
+    /// 结构体/枚举返回其名。其余返回 None。
+    pub fn impl_name(&self) -> Option<String> {
+        Some(match self {
+            Ty::Bool => "bool".into(),
+            Ty::I64 => "int".into(),
+            Ty::F64 => "f64".into(),
+            Ty::Str => "str".into(),
+            Ty::Void => "void".into(),
+            Ty::Struct(n) | Ty::Enum(n) => n.clone(),
+            _ => return None,
+        })
+    }
+}
+
 impl fmt::Display for Ty {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

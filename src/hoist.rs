@@ -225,9 +225,12 @@ pub fn hoist(prog: &mut Program) {
                     impl_scope
                         .insert(format!("{}.{}", ty, m.name), format!("{}__{}", ty, m.name));
                     m.name = format!("{}__{}", ty, m.name);
+                    // impl ... for <ty>：self 的类型。ty 可能是基础类型名（int/str/f64/bool），
+                    // 应先按内建类型解析，只有非内建名才当作结构体/枚举。
+                    let self_ty = Ty::from_name(ty.as_str()).unwrap_or_else(|| Ty::Struct(ty.clone()));
                     if let Some(first) = m.params.first_mut() {
                         if first.name == "self" && first.ty.is_none() {
-                            first.ty = Some(Ty::Struct(ty.clone()));
+                            first.ty = Some(self_ty.clone());
                         }
                     }
                     let mut scope: HashMap<String, String> = HashMap::new();
@@ -246,12 +249,13 @@ pub fn hoist(prog: &mut Program) {
                         if impl_names.contains(&mname) { continue; }
                         let uniq = format!("{}__{}", ty, mname);
                         impl_scope.insert(format!("{}.{}", ty, mname), uniq.clone());
+                        let self_ty2 = Ty::from_name(ty.as_str()).unwrap_or_else(|| Ty::Struct(ty.clone()));
                         let mut params: Vec<Param> = pnames.iter().map(|(n, t)| {
-                            let ty2 = if n == "self" { Ty::Struct(ty.clone()) } else { t.clone() };
+                            let ty2 = if n == "self" { self_ty2.clone() } else { t.clone() };
                             Param { name: n.clone(), ty: Some(ty2), default: None, line }
                         }).collect();
-                        if params.is_empty() { params.push(Param { name: "self".into(), ty: Some(Ty::Struct(ty.clone())), default: None, line }); }
-                        else if params[0].name == "self" { params[0].ty = Some(Ty::Struct(ty.clone())); }
+                        if params.is_empty() { params.push(Param { name: "self".into(), ty: Some(self_ty2.clone()), default: None, line }); }
+                        else if params[0].name == "self" { params[0].ty = Some(self_ty2.clone()); }
                         let mut b2 = body.clone();
                         let mut scope: HashMap<String, String> = HashMap::new();
                         hoist_block(&mut b2, &uniq, &mut scope, &mut hoisted);
