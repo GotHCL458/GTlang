@@ -1,0 +1,13 @@
+struct Point { x: int, y: int }
+impl Point {
+    fn show(self) { put(self) }
+    fn dist2(self) -> int { return self.x * self.x + self.y * self.y }
+}
+fn main() {
+    p := Point { x: 3, y: 4 }
+    p.show()
+    put(p.dist2())
+    // 方法返回结构体
+    q := Point { x: 1, y: 1 }
+    put(q)
+}

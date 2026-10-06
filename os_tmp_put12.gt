@@ -1,0 +1,12 @@
+trait Shape { fn area(self) -> f64 }
+struct Circle { r: f64 }
+struct Square { s: f64 }
+impl Shape for Circle { fn area(self) -> f64 { return 3.14 * self.r * self.r } }
+impl Shape for Square { fn area(self) -> f64 { return self.s * self.s } }
+fn show(x: dyn Shape) { put(x.area()) }
+fn main() {
+    c := Circle { r: 2.0 }
+    s := Square { s: 3.0 }
+    show(c)
+    show(s)
+}

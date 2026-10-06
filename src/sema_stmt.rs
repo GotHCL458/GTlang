@@ -326,9 +326,14 @@ pub(crate) fn check_stmt(ctx: &mut Ctx, s: &mut Stmt, errors: &mut Vec<String>) 
             }
             for a in args.iter_mut() { let _ = ctx.infer(a); }
         }
-        Stmt::Throw(e, _) => {
+        Stmt::Throw(e, line) => {
             if let Err(err) = ctx.infer(e) {
                 errors.push(err);
+            }
+            let ret_is_result = matches!(ctx.cur_ret, Ty::Result(..));
+            if !ret_is_result && ctx.try_depth == 0 {
+                let msg = crate::lb!(*line, "throw requires the enclosing function to return Result (or be inside try)", "throw 要求所在函数返回 Result（或位于 try 内）");
+                errors.push(msg);
             }
         }
         Stmt::Try { body, catches, fin, line } => {
@@ -339,16 +344,12 @@ pub(crate) fn check_stmt(ctx: &mut Ctx, s: &mut Stmt, errors: &mut Vec<String>) 
                 // 绑定变量进作用域
                 ctx.scopes.push(HashMap::new());
                 if let Some(binding) = &ca.binding {
-                    let bt = match ctx.infer(&mut Expr::new(ExprKind::Int(0), ca.line)) {
-                        Ok(_) => Ty::Unknown,
-                        Err(_) => Ty::Unknown,
-                    };
-                    let _ = bt;
-                    // 绑定类型由 body 的错误类型决定；简化记为 Unknown（后端按 I64 处理）
+                    // 异常值以 str 抛出（throw/raise 接受 str）；
+                    // 绑定类型记为 Str，避免下游 "未推断" 误报。
                     ctx.scopes
                         .last_mut()
                         .unwrap()
-                        .insert(binding.clone(), VarInfo { ty: Ty::Unknown, mutable: true, explicit: false });
+                        .insert(binding.clone(), VarInfo { ty: Ty::Str, mutable: true, explicit: false });
                 }
                 if let Some(g) = ca.guard.as_mut() {
                     if let Err(err) = ctx.infer(g) {

@@ -147,8 +147,17 @@ impl Ctx {
                 check_block(self, body, &mut Vec::new());
                 self.try_depth -= 1;
                 for ca in catches.iter_mut() {
+                    self.scopes.push(std::collections::HashMap::new());
+                    if let Some(binding) = &ca.binding {
+                        self.lookup_var_mut(binding);
+                        self.scopes.last_mut().unwrap().insert(
+                            binding.clone(),
+                            crate::sema::VarInfo { ty: Ty::Str, mutable: true, explicit: false },
+                        );
+                    }
                     if let Some(g) = ca.guard.as_mut() { let _ = self.infer(g); }
                     check_block(self, &mut ca.body, &mut Vec::new());
+                    self.scopes.pop();
                 }
                 if let Some(f) = fin { check_block(self, f, &mut Vec::new()); }
                 // 值类型取 body 末表达式（简化）

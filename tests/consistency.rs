@@ -3685,6 +3685,14 @@ fn string_and_num_edge_matches() {
 }
 
 #[test]
+fn throw_in_non_result_fn_is_rejected() {
+    assert_rejected(
+        "throw_non_result",
+        &["fn f() -> int { throw \"x\"  return 0 }", "fn main() { put(f()) }"],
+        "throw",
+    );
+}
+#[test]
 fn user_fn_shadows_builtin_match() {
     // 用户 fn sum 应遮蔽内置 math.sum
     assert_consistent_src(

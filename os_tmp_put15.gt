@@ -1,0 +1,18 @@
+fn main() {
+    m := map()
+    i := 0
+    while i < 20 {
+        m[i] = i * 10
+        i = i + 1
+    }
+    put(len(m))
+    put(m[0])
+    put(m[19])
+    s := set()
+    j := 0
+    while j < 20 {
+        insert(s, j)
+        j = j + 1
+    }
+    put(len(s))
+}
