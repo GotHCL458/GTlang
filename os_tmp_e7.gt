@@ -1,0 +1,11 @@
+enum Shape { Circle(f64), Rect(int, int) }
+fn area(s: Shape) -> f64 {
+    match s {
+        Shape::Circle(r) => { return 3.14 * r * r }
+        Shape::Rect(w, h) => { return f64(w * h) }
+    }
+}
+fn main() {
+    put(area(Shape::Circle(2.0)))
+    put(area(Shape::Rect(3, 4)))
+}

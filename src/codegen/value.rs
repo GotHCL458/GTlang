@@ -171,6 +171,26 @@ impl<'a> Codegen<'a> {
                 }
                 acc
             }
+            ExprKind::EnumLit(en, var, binds) => {
+                // 内层 enum 解构（如 E::Has(Shape::Circle(r))）：val 是内层 enum 的堆块句柄，
+                // 逐子模式从偏移 8 起取载荷并递归绑定。
+                let ptys: Vec<Ty> = self.enum_variants.get(en).and_then(|vs| vs.iter().find(|(n, _)| n == var).map(|(_, ts)| ts.clone())).unwrap_or_default();
+                // val 是内层 enum 的堆块句柄（i64 槽），先转成 ptr
+                let vp = self.new_reg();
+                self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr
+", vp, val));
+                for (i, bd) in binds.iter().enumerate() {
+                    let bty = ptys.get(i).cloned().unwrap_or(Ty::I64);
+                    let lp = self.new_reg();
+                    self.body.push_str(&format!("  {} = getelementptr i64, ptr {}, i64 {}
+", lp, vp, i + 1));
+                    let lv = self.new_reg();
+                    self.body.push_str(&format!("  {} = load i64, ptr {}
+", lv, lp));
+                    self.bind_pat_deep(&bty, &lv, bd, pending_binds);
+                }
+                None
+            }
             ExprKind::Call(n, args) if matches!(n.as_str(), "Some" | "Ok" | "Err") && args.len() == 1 => {
                 let inner_ty = match ty {
                     Ty::Result(t, e) => if n == "Ok" { (**t).clone() } else { (**e).clone() },
@@ -326,10 +346,12 @@ impl<'a> Codegen<'a> {
                                 let lv = self.new_reg();
                                 self.body.push_str(&format!("  {} = load i64, ptr {}\n", lv, lp));
                                 // inner tag check for destructuring payload (E::A(Some(v)) vs E::A(None))
+                                // 内层 enum 变体的真实 tag 从 enum_variants 取（不能一律当 0）。
                                 if !matches!(b.kind, ExprKind::Ident(_)) {
                                     let want_inner: i64 = match &b.kind {
                                         ExprKind::None | ExprKind::Err(_) => 1,
                                         ExprKind::Call(n, _) if n == "None" || n == "Err" => 1,
+                                        ExprKind::EnumLit(ien, ivar, _) => self.enum_variants.get(ien).and_then(|vs| vs.iter().position(|(n, _)| n == ivar)).map(|p| p as i64).unwrap_or(0),
                                         _ => 0,
                                     };
                                     let lvp = self.new_reg();

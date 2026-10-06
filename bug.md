@@ -348,9 +348,16 @@
 - **修复**：`collect_strs_block` 增加 `Stmt::Defer(e, _) => collect_strs(e, out)`。
 - **附带**：覆盖 void 函数末尾、`match` arm 的 `return`、多次 `defer` + `return` 三种路径。
 
+### 67. enum 作 struct 字段/数组元素/Option 载荷时打印成 `Color {}`
+
+- **现象**：`enum Color { Red, Green, Blue }`；`struct P { c: Color }`；`put(p.c)` 输出 `Color {}`（应为 `Color::Red`）。数组元素、`Option[Color]` 同理。
+- **根因**：类型系统用 `Ty::Struct(name)` 表示**所有具名类型**（含 enum），无法区分。AOT 的 `emit_print_v` 落入 `Ty::Struct` 分支按结构体打印；此外数组元素加载后 `Val::new_slot` 丢了 `is_ptr` 标记，导致 `ptr` 值被当 `i64` 再 `inttoptr`（AOT 非法 IR）。
+- **修复**：1) `emit_print_v`/`gen_print_v` 入口：若 `Ty::Struct(name)` 的 `name` 在 `enum_variants` 中，则按 `Ty::Enum` 打印；2) AOT `Ty::Array` 打印：`ptr` 类元素用 `Val::new_ptr` 保留标记。
+- **验证**：`P {c: Color::Red}` / `[Color::Red, Color::Blue]` / `Some(Color::Red)` 双端一致。
+
 ## 统计（第二轮）
 
-- 真实缺陷修复：**13 个**（累计 **66 个**）
+- 真实缺陷修复：**14 个**（累计 **67 个**）
 - 测试：**825 → 827**（单元 143、前端批量 522、双后端一致性 160→166）
 - 验证方式：对同一 `.gt` 分别跑 `gtc --run`（JIT）与 `gtc --c`（AOT 产物），断言 stdout **逐字节一致**
 - 覆盖：全类型 `put`、嵌套容器、全部语法糖/匹配、全部标准库模块、所有权/借用、高阶函数/闭包、运算符重载、泛型、CLI、大数/浮点/递归/位运算/短路/循环控制，以及综合场景（学生管理、栈式求值器、矩阵、单词计数、斐波那契记忆化、LRU 缓存、优先队列）

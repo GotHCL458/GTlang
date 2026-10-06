@@ -620,6 +620,19 @@ impl Ctx {
                             let ty = payload.get(i).cloned().unwrap_or(Ty::Unknown);
                             if let ExprKind::Ident(bn) = &b.kind {
                                 self.scopes.last_mut().unwrap().insert(bn.clone(), VarInfo { ty, mutable: false, explicit: false });
+                            } else if let ExprKind::EnumLit(ien, ivar, ibinds) = &b.kind {
+                                // 载荷本身是内层 enum 解构（如 E::Has(Shape::Circle(r))）：递归绑定
+                                let ipayload: Vec<Ty> = self.enums.get(ien).and_then(|vs| vs.iter().find(|(n, _)| n == ivar).map(|(_, ts)| ts.clone())).unwrap_or_default();
+                                for (k, ib) in ibinds.iter().enumerate() {
+                                    let ity = ipayload.get(k).cloned().unwrap_or(Ty::Unknown);
+                                    if let ExprKind::Ident(bn) = &ib.kind {
+                                        self.scopes.last_mut().unwrap().insert(bn.clone(), VarInfo { ty: ity, mutable: false, explicit: false });
+                                    } else {
+                                        for (bn, bty) in match_result_binds_deep(ib, &ity) {
+                                            self.scopes.last_mut().unwrap().insert(bn, VarInfo { ty: bty, mutable: false, explicit: false });
+                                        }
+                                    }
+                                }
                             } else {
                                 // 载荷本身是解构模式（如 E::A(Some(v)) / E::A(Ok(v))）：递归绑定
                                 for (bn, bty) in match_result_binds_deep(b, &ty) {

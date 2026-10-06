@@ -449,10 +449,11 @@ impl FnState {
 
     /// 递归判定解构模式的内层 tag（Result/Option）：`Some`/`Ok`→0，`None`/`Err`→1。
     /// 用于 `E::A(Some(v))` 与 `E::A(None)` 共存时区分内层。
-    fn pat_tag_cond(&mut self, b: &mut FunctionBuilder, ty: &Ty, val: Value, pat: &Expr) -> Value {
+    fn pat_tag_cond(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, ty: &Ty, val: Value, pat: &Expr) -> Value {
         let want_tag: i64 = match &pat.kind {
             ExprKind::None | ExprKind::Err(_) => 1,
             ExprKind::Call(n, _) if n == "None" || n == "Err" => 1,
+            ExprKind::EnumLit(ien, ivar, _) => jit.enum_variants.get(ien).and_then(|vs| vs.iter().position(|(n, _)| n == ivar)).map(|p| p as i64).unwrap_or(0),
             _ => 0,
         };
         let _ = ty;
@@ -460,9 +461,10 @@ impl FnState {
         b.ins().icmp_imm(IntCC::Equal, tag, want_tag)
     }
 
-    /// 递归绑定解构模式：`v` 直接绑；`Some(inner)`/`Ok(inner)`/`Err(inner)` 继续解构。
+    /// 递归绑定解构模式：`v` 直接绑；`Some(inner)`/`Ok(inner)`/`Err(inner)` 继续解构；
+    /// 内层 enum 解构（如 `E::Has(Shape::Circle(r))`）也递归。
     /// `val` 是当前层的载荷（Result/Option 的值槽，i64 或指针）。
-    fn bind_pat_deep(&mut self, b: &mut FunctionBuilder, ty: &Ty, val: Value, pat: &Expr) {
+    fn bind_pat_deep(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, ty: &Ty, val: Value, pat: &Expr) {
         match &pat.kind {
             ExprKind::Ident(bn) => {
                 let var = self.new_var(b, ty);
@@ -476,7 +478,7 @@ impl FnState {
                     _ => Ty::I64,
                 };
                 let lv = b.ins().load(cl_ty(&inner_ty), MemFlags::new(), val, 8);
-                self.bind_pat_deep(b, &inner_ty, lv, a);
+                self.bind_pat_deep(jit, b, &inner_ty, lv, a);
             }
             ExprKind::Call(n, args) if matches!(n.as_str(), "Some" | "Ok" | "Err") && args.len() == 1 => {
                 let inner_ty = match ty {
@@ -485,7 +487,17 @@ impl FnState {
                     _ => Ty::I64,
                 };
                 let lv = b.ins().load(cl_ty(&inner_ty), MemFlags::new(), val, 8);
-                self.bind_pat_deep(b, &inner_ty, lv, &args[0]);
+                self.bind_pat_deep(jit, b, &inner_ty, lv, &args[0]);
+            }
+            ExprKind::EnumLit(en, var, binds) => {
+                // 内层 enum 解构（如 E::Has(Shape::Circle(r))）：val 是内层 enum 堆块指针，
+                // 载荷从偏移 8 起；按内层变体声明顺序递归绑定每个子模式。
+                let ptys: Vec<Ty> = jit.enum_variants.get(en).and_then(|vs| vs.iter().find(|(n, _)| n == var).map(|(_, ts)| ts.clone())).unwrap_or_default();
+                for (i, bd) in binds.iter().enumerate() {
+                    let bty = ptys.get(i).cloned().unwrap_or(Ty::I64);
+                    let lv = b.ins().load(cl_ty(&bty), MemFlags::new(), val, ((i + 1) * 8) as i32);
+                    self.bind_pat_deep(jit, b, &bty, lv, bd);
+                }
             }
             _ => {}
         }
@@ -592,9 +604,9 @@ impl FnState {
                             b.def_var(var, lv);
                             self.scopes.last_mut().unwrap().push((bn.clone(), VarBind { var, ty: bty }));
                         } else {
-                            let teq = self.pat_tag_cond(b, &bty, lv, bd);
+                            let teq = self.pat_tag_cond(jit, b, &bty, lv, bd);
                             load_ok = Some(match load_ok { None => teq, Some(prev) => b.ins().band(prev, teq) });
-                            self.bind_pat_deep(b, &bty, lv, bd);
+                            self.bind_pat_deep(jit, b, &bty, lv, bd);
                         }
                     }
                 }
@@ -630,7 +642,7 @@ impl FnState {
                 };
                 if let Some(ip) = inner_pat {
                     if matches!(bty, Ty::Option(_) | Ty::Result(..)) {
-                        let itag = self.pat_tag_cond(b, &bty, lv, ip);
+                        let itag = self.pat_tag_cond(jit, b, &bty, lv, ip);
                         let lmiss = self.new_block(b);
                         let lok = self.new_block(b);
                         b.ins().brif(itag, lok, &[], lmiss, &[]);
@@ -640,7 +652,7 @@ impl FnState {
                         b.switch_to_block(lok); self.terminated = false;
                     }
                 }
-                self.bind_pat_deep(b, &bty, lv, &carg);
+                self.bind_pat_deep(jit, b, &bty, lv, &carg);
             }
             // 嵌套解构 arm 的 guard 在绑定生效后求值（避免 undefined variable）
             if let Some(g) = &arm.guard {

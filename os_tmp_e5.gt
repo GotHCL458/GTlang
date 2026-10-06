@@ -1,0 +1,10 @@
+enum Shape { Circle(f64), Rect(int, int) }
+enum E { Has(Shape), None }
+fn main() {
+    e := E::Has(Shape::Circle(3.0))
+    match e {
+        E::Has(Shape::Circle(r)) => { put(r) }
+        E::Has(Shape::Rect(w, h)) => { put(w * h) }
+        E::None => { put(0) }
+    }
+}

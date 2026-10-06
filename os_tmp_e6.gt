@@ -1,0 +1,14 @@
+enum Shape { Circle(f64), Rect(int, int) }
+enum E { Has(Shape), None }
+fn area(e: E) -> f64 {
+    match e {
+        E::Has(Shape::Circle(r)) => { return 3.14 * r * r }
+        E::Has(Shape::Rect(w, h)) => { return f64(w * h) }
+        E::None => { return 0.0 }
+    }
+}
+fn main() {
+    put(area(E::Has(Shape::Circle(2.0))))
+    put(area(E::Has(Shape::Rect(3, 4))))
+    put(area(E::None))
+}
