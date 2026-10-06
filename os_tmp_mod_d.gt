@@ -1,0 +1,5 @@
+import "os_tmp_mod_c.gt"
+fn main() {
+    c := os_tmp_mod_c.pick()
+    put(c)
+}

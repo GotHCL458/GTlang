@@ -44,11 +44,25 @@ impl Ctx {
                 }
                 let ets: Vec<Ty> = match self.enums.get(name) {
                     Some(vs) => vs.iter().find(|(n, _)| n == variant).map(|(_, ts)| ts.clone()).unwrap_or_default(),
-                    None => return Err(crate::lb!(e.line, "undefined enum '{}'", "未定义的枚举 '{}'", name)),
+                    None => {
+                        // 跨模块：短名 Color 可能对应 模块__Color
+                        let suffix = format!("__{}", name);
+                        match self.enums.iter().find(|(k, _)| k.ends_with(&suffix)) {
+                            Some((_, vs)) => vs.iter().find(|(n, _)| n == variant).map(|(_, ts)| ts.clone()).unwrap_or_default(),
+                            None => return Err(crate::lb!(e.line, "undefined enum '{}'", "未定义的枚举 '{}'", name)),
+                        }
+                    }
                 };
                 for a in args.iter_mut() { self.infer(a)?; }
                 let _ = ets;
-                Ty::Enum(name.clone())
+                // 若短名在 enums 里没有，但存在 模块__Name，则返回带前缀的全名
+                let full = if self.enums.contains_key(name) {
+                    name.clone()
+                } else {
+                    let suffix = format!("__{}", name);
+                    self.enums.keys().find(|k| k.ends_with(&suffix)).cloned().unwrap_or_else(|| name.clone())
+                };
+                Ty::Enum(full)
             }
             ExprKind::ListComp { expr, var, iter, cond } => {
                 let it = self.infer(iter)?;

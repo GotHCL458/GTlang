@@ -243,7 +243,10 @@ impl<'a> Codegen<'a> {
                 self.emit_puts_lit(if is_set { "}" } else { "]" });
             }
             Ty::Struct(sname) => {
-                let fields = self.structs.get(sname).cloned().unwrap_or_default();
+                let fields = self.structs.get(sname).cloned().or_else(|| {
+                    let suffix = format!("__{}", sname);
+                    self.structs.iter().find(|(k, _)| k.ends_with(&suffix)).map(|(_, v)| v.clone())
+                }).unwrap_or_default();
                 let display = match sname.rfind("__") {
                     Some(i) => &sname[i + 2..],
                     None => sname.as_str(),
@@ -388,7 +391,11 @@ impl<'a> Codegen<'a> {
                 let sp = self.as_ptr(v);
                 let tag = self.new_reg();
                 self.body.push_str(&format!("  {} = load i64, ptr {}\n", tag, sp));
-                let variants = self.enum_variants.get(ename).cloned().unwrap_or_default();
+                // 跨模块时 ename 可能是短名；回退到"后缀匹配 模块__Name"
+                let variants = self.enum_variants.get(ename).cloned().or_else(|| {
+                    let suffix = format!("__{}", ename);
+                    self.enum_variants.iter().find(|(k, _)| k.ends_with(&suffix)).map(|(_, v)| v.clone())
+                }).unwrap_or_default();
                 let l_end = self.new_label();
                 for (vi, (vname, payload_tys)) in variants.iter().enumerate() {
                     let l_match = self.new_label();
@@ -397,7 +404,8 @@ impl<'a> Codegen<'a> {
                     self.body.push_str(&format!("  {} = icmp eq i64 {}, {}\n", is_v, tag, vi));
                     self.body.push_str(&format!("  br i1 {}, label %{}, label %{}\n", is_v, l_match, l_next));
                     self.emit_label(&l_match);
-                    self.emit_puts_lit(&format!("{}::{}", ename, vname));
+                    let en_disp = match ename.rfind("__") { Some(i) => &ename[i + 2..], None => ename.as_str() };
+                    self.emit_puts_lit(&format!("{}::{}", en_disp, vname));
                     if !payload_tys.is_empty() {
                         self.emit_puts_lit("(");
                         for (pi, pt) in payload_tys.iter().enumerate() {

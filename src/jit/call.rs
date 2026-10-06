@@ -826,7 +826,10 @@ impl FnState {
             }
             Ty::Enum(ename) => {
                 let tag = b.ins().load(types::I64, MemFlags::new(), v.0, 0);
-                let variants = jit.enum_variants.get(ename).cloned().unwrap_or_default();
+                let variants = jit.enum_variants.get(ename).cloned().or_else(|| {
+                    let suffix = format!("__{}", ename);
+                    jit.enum_variants.iter().find(|(k, _)| k.ends_with(&suffix)).map(|(_, v)| v.clone())
+                }).unwrap_or_default();
                 let l_end = b.create_block();
                 for (vi, (vname, payload_tys)) in variants.iter().enumerate() {
                     let l_match = b.create_block();
@@ -834,7 +837,8 @@ impl FnState {
                     let is_v = b.ins().icmp_imm(IntCC::Equal, tag, vi as i64);
                     b.ins().brif(is_v, l_match, &[], l_next, &[]);
                     b.switch_to_block(l_match);
-                    let hdr = format!("{}::{}", ename, vname);
+                    let en_disp = match ename.rfind("__") { Some(i) => &ename[i + 2..], None => ename.as_str() };
+                    let hdr = format!("{}::{}", en_disp, vname);
                     put_lit!(&hdr);
                     if !payload_tys.is_empty() {
                         put_lit!("(");
