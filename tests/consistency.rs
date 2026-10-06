@@ -3685,6 +3685,20 @@ fn string_and_num_edge_matches() {
 }
 
 #[test]
+fn user_fn_shadows_builtin_match() {
+    // 用户 fn sum 应遮蔽内置 math.sum
+    assert_consistent_src(
+        "shadow_builtin",
+        &[
+            "fn sum(n: int) -> int {",
+            "    if n <= 0 { return 0 }",
+            "    return n + sum(n - 1)",
+            "}",
+            "fn main() { put(sum(5)) }",
+        ],
+    );
+}
+#[test]
 fn put_deep_nesting_match() {
     assert_consistent_src(
         "put_deep",
