@@ -443,6 +443,10 @@ impl<'a> Jit<'a> {
             decl(&mut self.module, "rt_sb_push_bool", &[types::I64, types::I64], None)?,
         );
         self.rt.insert(
+            "sb_pop",
+            decl(&mut self.module, "rt_sb_pop", &[types::I64], None)?,
+        );
+        self.rt.insert(
             "sb_finish",
             decl(&mut self.module, "rt_sb_finish", &[types::I64], Some(types::I64))?,
         );
