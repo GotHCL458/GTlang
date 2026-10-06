@@ -158,7 +158,12 @@ impl<'a> Codegen<'a> {
                     _ => "gt_sb_push_i64",
                 };
                 let argty = if v.ty == Ty::F64 { "double" } else if v.ty == Ty::Str { "ptr" } else { "i64" };
-                let av = if v.ty == Ty::Str { v.s.clone() } else { self.as_i64(&v) };
+                // F64 保留 double；Str 用 ptr；其余转 i64
+                let av = match v.ty {
+                    Ty::F64 => v.s.clone(),
+                    Ty::Str => v.s.clone(),
+                    _ => self.as_i64(&v),
+                };
                 self.declare(&format!("declare void @{}(i64, {})", fname, argty));
                 self.body.push_str(&format!("  call void @{}(i64 {}, {} {})\n", fname, hs, argty, av));
                 Ok(Val::new(&Ty::Void, "0"))

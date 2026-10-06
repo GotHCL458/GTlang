@@ -1,0 +1,10 @@
+fn main() {
+    s := ""
+    i := 0
+    while i < 20 {
+        s = s + str(i) + ","
+        i = i + 1
+    }
+    put(len(s))
+    put(s)
+}

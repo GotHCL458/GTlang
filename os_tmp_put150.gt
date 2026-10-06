@@ -1,0 +1,11 @@
+fn main() {
+    b := sb_new()
+    i := 0
+    while i < 10 {
+        sb_push_str(b, str(i))
+        sb_push_str(b, ",")
+        i = i + 1
+    }
+    s := sb_finish(b)
+    put(s)
+}
