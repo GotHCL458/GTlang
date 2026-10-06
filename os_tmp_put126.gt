@@ -1,8 +1,0 @@
-struct Inner { v: int }
-struct Outer { inner: Option[Inner] }
-fn main() {
-    a := Outer { inner: Some(Inner { v: 42 }) }
-    put(a.inner?.v)
-    b := Outer { inner: None }
-    put(b.inner?.v)
-}
