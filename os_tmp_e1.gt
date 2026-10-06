@@ -1,0 +1,7 @@
+enum Color { Red, Green, Blue }
+struct P { c: Color }
+fn main() {
+    p := P { c: Color::Red }
+    put(p)
+    put(p.c)
+}

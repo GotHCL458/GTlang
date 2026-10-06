@@ -1,0 +1,10 @@
+enum Color { Red, Green, Blue }
+fn main() {
+    xs := list()
+    push(xs, Color::Red)
+    push(xs, Color::Blue)
+    put(xs)
+    m := map()
+    m["c"] = Color::Green
+    put(m)
+}

@@ -655,6 +655,17 @@ impl FnState {
 
     /// 打印一个已算好的值（按类型递归格式化，与 AOT 的 emit_print_v 对齐）。
     pub(crate) fn gen_print_v(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, v: &(Value, Ty)) -> Result<(), String> {
+        // 类型系统用 Ty::Struct 表示"具名类型"，无法区分 struct 与 enum；
+        // 这里若名字在 enum_variants 中，则按 enum 打印（与 AOT 对齐）。
+        if let Ty::Struct(n) = &v.1 {
+            let is_enum = jit.enum_variants.contains_key(n) || {
+                let suffix = format!("__{}", n);
+                jit.enum_variants.keys().any(|k| k.ends_with(&suffix))
+            };
+            if is_enum {
+                return self.gen_print_v(jit, b, &(v.0, Ty::Enum(n.clone())));
+            }
+        }
         // 输出一个字面量片段（动态 intern，无需预置）
         macro_rules! put_lit {
             ($s:expr) => {{

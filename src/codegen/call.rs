@@ -166,6 +166,17 @@ impl<'a> Codegen<'a> {
     /// 按类型打印一个已算好的值（支持递归：容器元素按其 `Ty` 分派）。
     pub(crate) fn emit_print_v(&mut self, v: &Val, ty: &Ty) -> Result<(), String> {
         self.declare("declare i32 @gt_printf(ptr, ...)");
+        // 类型系统用 Ty::Struct 表示"具名类型"，无法区分 struct 与 enum；
+        // 这里若名字在 enum_variants 中，则按 enum 打印（否则会显示成 "Color {}"）。
+        if let Ty::Struct(n) = ty {
+            let is_enum = self.enum_variants.contains_key(n) || {
+                let suffix = format!("__{}", n);
+                self.enum_variants.keys().any(|k| k.ends_with(&suffix))
+            };
+            if is_enum {
+                return self.emit_print_v(v, &Ty::Enum(n.clone()));
+            }
+        }
         match ty {
             Ty::F64 => { let f = self.intern(b"%g"); self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, double {})\n", f, v.s)); }
             Ty::Str => { let f = self.intern(b"%s"); self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, ptr {})\n", f, v.s)); }
@@ -191,7 +202,8 @@ impl<'a> Codegen<'a> {
                         _ if etll == "ptr" => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load ptr, ptr {}\n", r, ptr)); (r, (**elem).clone()) }
                         _ => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n", r, ptr)); (r, (**elem).clone()) }
                     };
-                    let sub = Val::new_slot(&ety, ev);
+                    // ptr 类元素需保留 is_ptr 标记（否则后续按 i64 再 inttoptr）
+                    let sub = if ety.llvm() == "ptr" { Val::new_ptr(&ety, ev) } else { Val::new_slot(&ety, ev) };
                     self.emit_print_v(&sub, &ety)?;
                 }
                 self.emit_puts_lit("]");

@@ -341,9 +341,16 @@
 - **根因**：`ForEach` 的 codegen/JIT 均把 `els` 忽略（`els: _`）。
 - **修复**：双端在循环 `exit` 块追加判定——索引等于长度（正常结束）才执行 `else`，`break` 时跳过。
 
+### 66. JIT 的 defer 不执行（字符串未 intern）
+
+- **现象**：`fn f() { defer put("d1") ... }` JIT 只输出 `body`，缺 `d1`（AOT 正确）。
+- **根因**：`jit/call.rs` 的 `collect_strs_block` 缺 `Stmt::Defer` 分支 → `defer` 内字符串字面量未登记进数据段 → 生成期报 `string constant not interned`，被 `let _ = gen_expr` 静默吞掉。
+- **修复**：`collect_strs_block` 增加 `Stmt::Defer(e, _) => collect_strs(e, out)`。
+- **附带**：覆盖 void 函数末尾、`match` arm 的 `return`、多次 `defer` + `return` 三种路径。
+
 ## 统计（第二轮）
 
-- 真实缺陷修复：**12 个**（累计 **65 个**）
+- 真实缺陷修复：**13 个**（累计 **66 个**）
 - 测试：**825 → 827**（单元 143、前端批量 522、双后端一致性 160→166）
 - 验证方式：对同一 `.gt` 分别跑 `gtc --run`（JIT）与 `gtc --c`（AOT 产物），断言 stdout **逐字节一致**
 - 覆盖：全类型 `put`、嵌套容器、全部语法糖/匹配、全部标准库模块、所有权/借用、高阶函数/闭包、运算符重载、泛型、CLI、大数/浮点/递归/位运算/短路/循环控制，以及综合场景（学生管理、栈式求值器、矩阵、单词计数、斐波那契记忆化、LRU 缓存、优先队列）
