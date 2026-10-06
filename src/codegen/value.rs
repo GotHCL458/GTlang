@@ -86,7 +86,8 @@ impl<'a> Codegen<'a> {
     /// 递归绑定解构模式（Result/Option 嵌套）：把 `val`（i64 槽）按模式写入 `pending_binds`。
     /// - `Ident(b)` → 绑定 b = val
     /// - `Some(inner)` / `Ok(inner)` / `Err(inner)` → 取内层载荷，递归
-    fn bind_pat_deep(&mut self, ty: &Ty, val: &str, pat: &Expr, pending_binds: &mut Vec<(String, Local)>) {
+    /// 递归绑定解构模式，并返回"内层 tag 检查"的额外条件（用于嵌套 Some(Ok(v)) 等）。
+    fn bind_pat_deep(&mut self, ty: &Ty, val: &str, pat: &Expr, pending_binds: &mut Vec<(String, Local)>) -> Option<String> {
         match &pat.kind {
             ExprKind::Ident(bn) => {
                 let slot = self.new_alloca(ty);
@@ -107,16 +108,68 @@ impl<'a> Codegen<'a> {
 ", val, slot));
                 }
                 pending_binds.push((bn.clone(), Local { ptr: slot, ty: ty.clone() }));
+                None
             }
             ExprKind::Some(a) | ExprKind::Ok(a) | ExprKind::Err(a) => {
                 let is_ok = matches!(pat.kind, ExprKind::Ok(_));
+                let is_none = false;
                 let inner_ty = match ty {
                     Ty::Result(t, e) => if is_ok { (**t).clone() } else { (**e).clone() },
                     Ty::Option(t) => (**t).clone(),
                     _ => Ty::I64,
                 };
+                let _ = is_none;
+                // 内层若仍是 Option/Result 模式，先比对内层 tag
+                let is_or_ctor = |k: &ExprKind| -> bool {
+                    match k {
+                        ExprKind::Some(_) | ExprKind::Ok(_) | ExprKind::Err(_) | ExprKind::None => true,
+                        ExprKind::Call(n, _) => matches!(n.as_str(), "Some" | "Ok" | "Err" | "None"),
+                        _ => false,
+                    }
+                };
+                // 当前模式（Ok/Some/Err）自身也要比对 val 的 tag
+                let self_cond = {
+                    self.declare("declare i64 @gt_result_tag(ptr)");
+                    let p = self.new_reg();
+                    self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, val));
+                    let it = self.new_reg();
+                    self.body.push_str(&format!("  {} = call i64 @gt_result_tag(ptr {})\n", it, p));
+                    let want: i64 = if matches!(pat.kind, ExprKind::Err(_)) { 1 } else { 0 };
+                    let c = self.new_reg();
+                    self.body.push_str(&format!("  {} = icmp eq i64 {}, {}\n", c, it, want));
+                    Some(c)
+                };
+                let inner_cond = match &a.kind {
+                    k if is_or_ctor(k) => {
+                        if matches!(inner_ty, Ty::Option(_) | Ty::Result(..)) {
+                            self.declare("declare i64 @gt_result_tag(ptr)");
+                            let p = self.new_reg();
+                            self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, val));
+                            let it = self.new_reg();
+                            self.body.push_str(&format!("  {} = call i64 @gt_result_tag(ptr {})\n", it, p));
+                            let want: i64 = match &a.kind {
+                                ExprKind::None | ExprKind::Err(_) => 1,
+                                ExprKind::Call(n, _) if n == "None" || n == "Err" => 1,
+                                _ => 0,
+                            };
+                            let c = self.new_reg();
+                            self.body.push_str(&format!("  {} = icmp eq i64 {}, {}\n", c, it, want));
+                            Some(c)
+                        } else { None }
+                    }
+                    _ => None,
+                };
                 let v2 = self.recv_val_load(val);
-                self.bind_pat_deep(&inner_ty, &v2, a, pending_binds);
+                let deeper = self.bind_pat_deep(&inner_ty, &v2, a, pending_binds);
+                let mut acc = self_cond;
+                let _ = &mut acc;
+                for c in [inner_cond, deeper].into_iter().flatten() {
+                    acc = Some(match acc {
+                        None => c,
+                        Some(prev) => { let r = self.new_reg(); self.body.push_str(&format!("  {} = and i1 {}, {}\n", r, prev, c)); r }
+                    });
+                }
+                acc
             }
             ExprKind::Call(n, args) if matches!(n.as_str(), "Some" | "Ok" | "Err") && args.len() == 1 => {
                 let inner_ty = match ty {
@@ -124,10 +177,50 @@ impl<'a> Codegen<'a> {
                     Ty::Option(t) => (**t).clone(),
                     _ => Ty::I64,
                 };
+                // 当前构造器（Ok/Some/Err）的 tag 检查
+                let self_cond = {
+                    self.declare("declare i64 @gt_result_tag(ptr)");
+                    let p = self.new_reg();
+                    self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, val));
+                    let it = self.new_reg();
+                    self.body.push_str(&format!("  {} = call i64 @gt_result_tag(ptr {})\n", it, p));
+                    let want: i64 = if n == "Err" { 1 } else { 0 };
+                    let c = self.new_reg();
+                    self.body.push_str(&format!("  {} = icmp eq i64 {}, {}\n", c, it, want));
+                    Some(c)
+                };
+                let inner_cond = match &args[0].kind {
+                    ExprKind::Some(_) | ExprKind::Ok(_) | ExprKind::Err(_) | ExprKind::None => {
+                        if matches!(inner_ty, Ty::Option(_) | Ty::Result(..)) {
+                            self.declare("declare i64 @gt_result_tag(ptr)");
+                            let p = self.new_reg();
+                            self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, val));
+                            let it = self.new_reg();
+                            self.body.push_str(&format!("  {} = call i64 @gt_result_tag(ptr {})\n", it, p));
+                            let want: i64 = match &args[0].kind {
+                                ExprKind::None | ExprKind::Err(_) => 1,
+                                ExprKind::Call(n, _) if n == "None" || n == "Err" => 1,
+                                _ => 0,
+                            };
+                            let c = self.new_reg();
+                            self.body.push_str(&format!("  {} = icmp eq i64 {}, {}\n", c, it, want));
+                            Some(c)
+                        } else { None }
+                    }
+                    _ => None,
+                };
                 let v2 = self.recv_val_load(val);
-                self.bind_pat_deep(&inner_ty, &v2, &args[0], pending_binds);
+                let deeper = self.bind_pat_deep(&inner_ty, &v2, &args[0], pending_binds);
+                let mut acc = self_cond;
+                for c in [inner_cond, deeper].into_iter().flatten() {
+                    acc = Some(match acc {
+                        None => c,
+                        Some(prev) => { let r = self.new_reg(); self.body.push_str(&format!("  {} = and i1 {}, {}\n", r, prev, c)); r }
+                    });
+                }
+                acc
             }
-            _ => {}
+            _ => None,
         }
     }
 
@@ -192,6 +285,7 @@ impl<'a> Codegen<'a> {
                             self.body.push_str(&format!("  {} = call i64 @gt_result_tag(ptr {})\n", tag, sp));
                             let eq = self.new_reg();
                             self.body.push_str(&format!("  {} = icmp eq i64 {}, {}\n", eq, tag, want_tag));
+                            let mut cond = eq;
                             if let Some(carg) = carg {
                                 // 递归绑定：支持嵌套解构（Some(Some(v)) 等）。
                                 let bty = match &subj.ty {
@@ -202,12 +296,16 @@ impl<'a> Codegen<'a> {
                                 self.declare("declare i64 @gt_result_val(ptr)");
                                 let val = self.new_reg();
                                 self.body.push_str(&format!("  {} = call i64 @gt_result_val(ptr {})\n", val, sp));
-                                self.bind_pat_deep(&bty, &val, carg, &mut pending_binds);
+                                if let Some(inner_cond) = self.bind_pat_deep(&bty, &val, carg, &mut pending_binds) {
+                                    let r2 = self.new_reg();
+                                    self.body.push_str(&format!("  {} = and i1 {}, {}\n", r2, cond, inner_cond));
+                                    cond = r2;
+                                }
                             }
                             // guard 可能引用载荷绑定（Some(v) if v > 0）：先临时注入作用域
                             self.push_scope();
                             for (n2, l2) in &pending_binds { self.scopes.last_mut().unwrap().insert(n2.clone(), l2.clone()); }
-                            let gres = match &arm.guard { None => eq, Some(g) => { let gv = self.cond(g)?; let r = self.new_reg(); self.body.push_str(&format!("  {} = and i1 {}, {}\n", r, eq, gv)); r } };
+                            let gres = match &arm.guard { None => cond, Some(g) => { let gv = self.cond(g)?; let r = self.new_reg(); self.body.push_str(&format!("  {} = and i1 {}, {}\n", r, cond, gv)); r } };
                             self.pop_scope();
                             gres
                         } else if let ExprKind::EnumLit(en, var, binds) = &p.kind {
