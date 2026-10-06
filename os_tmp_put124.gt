@@ -1,0 +1,9 @@
+fn f() {
+    put(1)
+    defer put(2)
+    defer put(3)
+    put(4)
+}
+fn main() {
+    f()
+}

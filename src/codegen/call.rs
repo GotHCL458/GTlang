@@ -103,7 +103,7 @@ impl<'a> Codegen<'a> {
     }
     pub(crate) fn from_slot(&mut self, s: &str, ty: &Ty) -> String {
         match ty {
-            Ty::Str | Ty::List(..) | Ty::Set(..) | Ty::Map(..) | Ty::Array(..) | Ty::Struct(_) | Ty::Dyn(_) | Ty::Enum(_) | Ty::Tuple(_) | Ty::Closure(..) => { let r = self.new_reg(); self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", r, s)); r }
+            Ty::Str | Ty::List(..) | Ty::Set(..) | Ty::Map(..) | Ty::Array(..) | Ty::Struct(_) | Ty::Dyn(_) | Ty::Enum(_) | Ty::Tuple(_) | Ty::Closure(..) | Ty::Option(_) | Ty::Result(..) => { let r = self.new_reg(); self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", r, s)); r }
             Ty::F64 => { let r = self.new_reg(); self.body.push_str(&format!("  {} = bitcast i64 {} to double\n", r, s)); r }
             Ty::Bool => { let r = self.new_reg(); self.body.push_str(&format!("  {} = trunc i64 {} to i1\n", r, s)); r }
             _ => s.to_string(),

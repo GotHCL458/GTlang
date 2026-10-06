@@ -1,8 +1,0 @@
-fn f(n: int) -> int { return n * 2 }
-struct P { x: int }
-fn g(p: P) -> str { return str(p.x) }
-fn main() {
-    put("f(5) = ${f(5)}")
-    p := P { x: 9 }
-    put("g = ${g(p)}")
-}

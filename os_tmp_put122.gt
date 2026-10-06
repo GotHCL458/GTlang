@@ -1,0 +1,9 @@
+fn main() {
+    c := 0
+    loop 3 { c = c + 1 }
+    put(c)
+    // loop 0 不执行
+    n := 0
+    loop 0 { n = n + 1 }
+    put(n)
+}
