@@ -1,0 +1,7 @@
+struct K { id: int }
+fn main() {
+    s := set()
+    insert(s, K { id: 1 })
+    insert(s, K { id: 2 })
+    put(s)
+}

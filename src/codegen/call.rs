@@ -244,7 +244,11 @@ impl<'a> Codegen<'a> {
             }
             Ty::Struct(sname) => {
                 let fields = self.structs.get(sname).cloned().unwrap_or_default();
-                self.emit_puts_lit(&format!("{} {{", sname));
+                let display = match sname.rfind("__") {
+                    Some(i) => &sname[i + 2..],
+                    None => sname.as_str(),
+                };
+                self.emit_puts_lit(&format!("{} {{", display));
                 let sp = self.as_ptr(v);
                 for (i, (fname, fty)) in fields.iter().enumerate() {
                     if i > 0 { self.emit_puts_lit(", "); }

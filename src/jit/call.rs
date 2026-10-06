@@ -762,7 +762,12 @@ impl FnState {
             Ty::Struct(sname) => {
                 // `Name { f: v, ... }`（字段名+类型来自 jit.structs，偏移 i*8）
                 let fields: Vec<(String, Ty)> = jit.structs.get(sname).cloned().unwrap_or_default();
-                let hdr = format!("{} {{", sname);
+                // 去掉跨模块前缀 `模块__`
+                let display = match sname.rfind("__") {
+                    Some(i) => &sname[i + 2..],
+                    None => sname.as_str(),
+                };
+                let hdr = format!("{} {{", display);
                 put_lit!(&hdr);
                 for (i, (fname, fty)) in fields.iter().enumerate() {
                     if i > 0 { put_lit!(", "); }

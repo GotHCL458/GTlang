@@ -3685,6 +3685,29 @@ fn string_and_num_edge_matches() {
 }
 
 #[test]
+fn put_container_of_structs_match() {
+    assert_consistent_src(
+        "put_cont_structs",
+        &[
+            "struct K { id: int, name: str }",
+            "fn main() {",
+            "    xs := list()",
+            "    push(xs, K { id: 1, name: \"a\" })",
+            "    push(xs, K { id: 2, name: \"b\" })",
+            "    put(xs)",
+            "    s := set()",
+            "    insert(s, K { id: 3, name: \"c\" })",
+            "    put(s)",
+            "    m := map()",
+            "    m[1] = K { id: 4, name: \"d\" }",
+            "    put(m)",
+            "    o := Some(K { id: 5, name: \"e\" })",
+            "    put(o)",
+            "}",
+        ],
+    );
+}
+#[test]
 fn put_all_types_match() {
     assert_consistent_src(
         "put_all_types",
