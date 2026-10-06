@@ -3685,6 +3685,44 @@ fn string_and_num_edge_matches() {
 }
 
 #[test]
+fn put_all_types_match() {
+    assert_consistent_src(
+        "put_all_types",
+        &[
+            "enum Color { Red Green Blue }",
+            "enum Shape { Circle(f64) Rect(f64, f64) Unit }",
+            "struct Point { x: int, y: int }",
+            "struct Wrap { p: Point, tag: str }",
+            "fn main() {",
+            "    put([1, 2, 3])",
+            "    xs := list()",
+            "    push(xs, 1)",
+            "    push(xs, 2)",
+            "    put(xs)",
+            "    s := set()",
+            "    insert(s, 1)",
+            "    put(s)",
+            "    m := map()",
+            "    m[1] = 100",
+            "    put(m)",
+            "    p := Point { x: 1, y: 2 }",
+            "    put(p)",
+            "    w := Wrap { p: p, tag: \"w\" }",
+            "    put(w)",
+            "    put(Color::Green)",
+            "    put(Shape::Circle(3.14))",
+            "    put(Shape::Rect(1.0, 2.0))",
+            "    put(Shape::Unit)",
+            "    put((1, \"two\", 3.0))",
+            "    put(Some(42))",
+            "    put(None)",
+            "    put(Ok(7))",
+            "    put(Err(\"bad\"))",
+            "}",
+        ],
+    );
+}
+#[test]
 fn throw_in_non_result_fn_is_rejected() {
     assert_rejected(
         "throw_non_result",
