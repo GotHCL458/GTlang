@@ -1,0 +1,8 @@
+fn f() -> int {
+    defer put("deferred")
+    put("before")
+    return 42
+}
+fn main() {
+    put(f())
+}

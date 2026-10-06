@@ -531,6 +531,9 @@ impl<'a> Codegen<'a> {
                 self.emit_label(&lend);
             }
             Stmt::Return(e, _) => {
+                // 返回前逆序执行本函数已登记的 defer
+                let defers: Vec<Expr> = self.defer_stack.drain(..).rev().collect();
+                for d in &defers { let _ = self.expr(d); }
                 if self.is_main_fn {
                     // main 的 IR 签名是 i32：无论 return 有无值都返回 0
                     self.body.push_str("  ret i32 0\n");
