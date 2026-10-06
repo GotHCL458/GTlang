@@ -1,8 +1,0 @@
-import ast
-fn main() {
-    put("start")
-    c := ast_binary(43, 0, 0)
-    put("c ok")
-    ast_free(c)
-    put("done")
-}

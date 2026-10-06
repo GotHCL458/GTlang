@@ -1,7 +1,0 @@
-enum Shape { Circle(f64), Rect(int, int), Empty }
-struct Fig { s: Shape, name: str }
-fn main() {
-    put(Fig { s: Shape::Circle(3.14), name: "c" })
-    put(Fig { s: Shape::Rect(2, 3), name: "r" })
-    put(Fig { s: Shape::Empty, name: "e" })
-}

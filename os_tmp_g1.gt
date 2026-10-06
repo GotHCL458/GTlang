@@ -1,8 +1,0 @@
-trait Show { fn show(self) -> str }
-impl[T] Show for T {
-    fn show(self) -> str { return "<" + str(self) + ">" }
-}
-fn main() {
-    put(42.show())
-    put("hi".show())
-}

@@ -170,6 +170,8 @@ pub(crate) fn type_join(a: &Ty, b: &Ty) -> Ty {
     if let (Ty::List(x), Ty::List(y)) = (a, b) { return Ty::List(Box::new(type_join(x, y))); }
     if let (Ty::Set(x), Ty::Set(y)) = (a, b) { return Ty::Set(Box::new(type_join(x, y))); }
     if let (Ty::Option(x), Ty::Option(y)) = (a, b) { return Ty::Option(Box::new(type_join(x, y))); }
+    // 定长数组：元素类型 join；长度不同时取 a 的长度（仅用于类型槽，运行时值仍各自完整）
+    if let (Ty::Array(x, n), Ty::Array(y, _)) = (a, b) { return Ty::Array(Box::new(type_join(x, y)), *n); }
     Ty::Unknown
 }
 

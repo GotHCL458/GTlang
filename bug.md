@@ -377,9 +377,16 @@
 - **修复**：1) `block_yields`/`infer_block_ret` 增加 `Try`（body/catches 递归）；2) codegen/JIT 各加 `fily_stack`：进入 try body / catch body 时 push `fin`，`return` 时逆序执行栈内所有 `fily`。
 - **验证**：`f(5)`→finally/10，`f(-1)`→caught: neg/finally/-1，双端一致。
 
+### 71. `ast` 库 AOT 产物依赖 `ast.dll`（缺 `ast_static.lib`）
+
+- **现象**：`import ast; put(ast_dump(ast_lit_int(42)))` 用 `--c` 编译后运行报 `3221225781`（STATUS_DLL_NOT_FOUND）。
+- **根因**：`build.bat` 对 C 语言 gtlib 模块（`ast.c`）只产出 `.dll`（`-shared`），不产出 `_static.lib`；`find_std_libs_for` 优先找 `ast_static.lib`（不存在）→ 回退到 `ast.lib`（dll 导入库）→ 产物依赖 `ast.dll`。
+- **修复**：`build.bat` 的 C 模块循环追加 `lld-link /lib` 产出 `<mod>_static.lib`。另将 `ast.c` 的 `int op` 形参改为 `int64_t op`（与 GTLang 侧 `i64` 调用约定一致，更稳妥）。
+- **验证**：`ast_lit_int`/`ast_binary`/`ast_dump`/`ast_free` 的 AOT 产物独立运行，与 JIT 一致。
+
 ## 统计（第二轮）
 
-- 真实缺陷修复：**17 个**（累计 **70 个**）
+- 真实缺陷修复：**18 个**（累计 **71 个**）
 - 测试：**825 → 827**（单元 143、前端批量 522、双后端一致性 160→166）
 - 验证方式：对同一 `.gt` 分别跑 `gtc --run`（JIT）与 `gtc --c`（AOT 产物），断言 stdout **逐字节一致**
 - 覆盖：全类型 `put`、嵌套容器、全部语法糖/匹配、全部标准库模块、所有权/借用、高阶函数/闭包、运算符重载、泛型、CLI、大数/浮点/递归/位运算/短路/循环控制，以及综合场景（学生管理、栈式求值器、矩阵、单词计数、斐波那契记忆化、LRU 缓存、优先队列）
