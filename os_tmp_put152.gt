@@ -1,9 +1,0 @@
-fn main() {
-    b := sb_new()
-    i := 65
-    while i < 70 {
-        sb_push_char(b, i)
-        i = i + 1
-    }
-    put(sb_finish(b))
-}

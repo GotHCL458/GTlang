@@ -1,7 +1,0 @@
-fn main() {
-    b := sb_new()
-    sb_push_str(b, "hello")
-    sb_pop(b)
-    sb_pop(b)
-    put(sb_finish(b))
-}

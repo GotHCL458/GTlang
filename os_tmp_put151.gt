@@ -1,9 +1,0 @@
-fn main() {
-    b := sb_new()
-    sb_push_int(b, 42)
-    sb_push_str(b, "-")
-    sb_push_f64(b, 3.14)
-    sb_push_str(b, "-")
-    sb_push_bool(b, true)
-    put(sb_finish(b))
-}

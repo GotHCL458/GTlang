@@ -147,9 +147,12 @@ impl<'a> Codegen<'a> {
                 if let Some(ca) = catches.first() {
                     self.push_scope();
                     if let Some(binding) = &ca.binding {
-                        let bslot = self.new_alloca(&Ty::I64);
-                        self.body.push_str(&format!("  store i64 {}, ptr {}\n", errv, bslot));
-                        self.scopes.last_mut().unwrap().insert(binding.clone(), Local { ptr: bslot, ty: Ty::I64 });
+                        // 异常值以 str（ptr）语义暴露给 e；槽按 ptr 存
+                        let bslot = self.new_alloca(&Ty::Str);
+                        let ep = self.new_reg();
+                        self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", ep, errv));
+                        self.body.push_str(&format!("  store ptr {}, ptr {}\n", ep, bslot));
+                        self.scopes.last_mut().unwrap().insert(binding.clone(), Local { ptr: bslot, ty: Ty::Str });
                     }
                     let hv = self.block_ret(&ca.body, &Ty::I64)?;
                     if let Some(hv) = hv {
