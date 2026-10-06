@@ -435,6 +435,10 @@ impl<'a> Jit<'a> {
             decl(&mut self.module, "rt_sb_push_f64", &[types::I64, types::F64], None)?,
         );
         self.rt.insert(
+            "sb_push_char",
+            decl(&mut self.module, "rt_sb_push_char", &[types::I64, types::I64], None)?,
+        );
+        self.rt.insert(
             "sb_push_bool",
             decl(&mut self.module, "rt_sb_push_bool", &[types::I64, types::I64], None)?,
         );
