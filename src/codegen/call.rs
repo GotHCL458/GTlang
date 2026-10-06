@@ -187,7 +187,7 @@ impl<'a> Codegen<'a> {
                     // 元素按其 LLVM 类型加载：ptr / double / i1 / i64
                     let (ev, ety) = match &**elem {
                         Ty::F64 => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load double, ptr {}\n", r, ptr)); (r, Ty::F64) }
-                        Ty::Bool => { let r = self.new_reg(); let t = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n  {} = trunc i64 {} to i1\n", r, ptr, t, r)); (t, Ty::Bool) }
+                        Ty::Bool => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load i1, ptr {}\n", r, ptr)); (r, Ty::Bool) }
                         _ if etll == "ptr" => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load ptr, ptr {}\n", r, ptr)); (r, (**elem).clone()) }
                         _ => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n", r, ptr)); (r, (**elem).clone()) }
                     };
@@ -225,11 +225,15 @@ impl<'a> Codegen<'a> {
                 self.emit_label(&l_nosep);
                 let ev = self.new_reg();
                 self.body.push_str(&format!("  {} = call i64 @gt_list_at(i64 {}, i64 {})\n", ev, vslot, iv));
-                // list 元素以 i64 位模式存储；f64 需 bitcast 回 double
+                // list 元素以 i64 位模式存储；f64 需 bitcast 回 double，bool 需 trunc 到 i1
                 let (ev2, ety) = if matches!(**elem, Ty::F64) {
                     let r = self.new_reg();
                     self.body.push_str(&format!("  {} = bitcast i64 {} to double\n", r, ev));
                     (r, Ty::F64)
+                } else if matches!(**elem, Ty::Bool) {
+                    let r = self.new_reg();
+                    self.body.push_str(&format!("  {} = trunc i64 {} to i1\n", r, ev));
+                    (r, Ty::Bool)
                 } else {
                     (ev, (**elem).clone())
                 };
@@ -301,13 +305,21 @@ impl<'a> Codegen<'a> {
                 let kv = self.new_reg();
                 self.body.push_str(&format!("  {} = call i64 @gt_map_key_at(i64 {}, i64 {})\n", kv, vslot, iv));
                 // key 按类型打印
-                let ksub = if kt.llvm() == "ptr" { let p = self.new_reg(); self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, kv)); Val::new_ptr(&kt, p) } else { Val::new_slot(&kt, kv) };
+                let ksub = if kt.llvm() == "ptr" {
+                    let p = self.new_reg(); self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, kv)); Val::new_ptr(&kt, p)
+                } else if matches!(kt, Ty::Bool) {
+                    let t = self.new_reg(); self.body.push_str(&format!("  {} = trunc i64 {} to i1\n", t, kv)); Val::new_slot(&kt, t)
+                } else { Val::new_slot(&kt, kv) };
                 self.emit_print_v(&ksub, &kt)?;
                 self.emit_puts_lit(": ");
                 let vv = self.new_reg();
                 self.body.push_str(&format!("  {} = call i64 @gt_map_val_at(i64 {}, i64 {})\n", vv, vslot, iv));
                 // value 按类型打印
-                let vsub = if vt.llvm() == "ptr" { let p = self.new_reg(); self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, vv)); Val::new_ptr(&vt, p) } else { Val::new_slot(&vt, vv) };
+                let vsub = if vt.llvm() == "ptr" {
+                    let p = self.new_reg(); self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, vv)); Val::new_ptr(&vt, p)
+                } else if matches!(vt, Ty::Bool) {
+                    let t = self.new_reg(); self.body.push_str(&format!("  {} = trunc i64 {} to i1\n", t, vv)); Val::new_slot(&vt, t)
+                } else { Val::new_slot(&vt, vv) };
                 self.emit_print_v(&vsub, &vt)?;
                 let nx = self.new_reg();
                 self.body.push_str(&format!("  {} = add i64 {}, 1\n", nx, iv));
@@ -336,6 +348,10 @@ impl<'a> Codegen<'a> {
                     let p = self.new_reg();
                     self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, pvv));
                     Val::new_ptr(&ity, p)
+                } else if matches!(ity, Ty::Bool) {
+                    let t = self.new_reg();
+                    self.body.push_str(&format!("  {} = trunc i64 {} to i1\n", t, pvv));
+                    Val::new_slot(&ity, t)
                 } else { Val::new_slot(&ity, pvv) };
                 self.emit_print_v(&psub, &ity)?;
                 self.emit_puts_lit(")");
@@ -365,6 +381,10 @@ impl<'a> Codegen<'a> {
                     let p = self.new_reg();
                     self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, pvv));
                     Val::new_ptr(&pty, p)
+                } else if matches!(pty, Ty::Bool) {
+                    let t2 = self.new_reg();
+                    self.body.push_str(&format!("  {} = trunc i64 {} to i1\n", t2, pvv));
+                    Val::new_slot(&pty, t2)
                 } else { Val::new_slot(&pty, pvv) };
                 self.emit_print_v(&sub, &pty)?;
                 self.emit_puts_lit(")");
@@ -380,6 +400,10 @@ impl<'a> Codegen<'a> {
                     let p = self.new_reg();
                     self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, pvv2));
                     Val::new_ptr(&ety2, p)
+                } else if matches!(ety2, Ty::Bool) {
+                    let t2 = self.new_reg();
+                    self.body.push_str(&format!("  {} = trunc i64 {} to i1\n", t2, pvv2));
+                    Val::new_slot(&ety2, t2)
                 } else { Val::new_slot(&ety2, pvv2) };
                 self.emit_print_v(&sub2, &ety2)?;
                 self.emit_puts_lit(")");
@@ -414,6 +438,7 @@ impl<'a> Codegen<'a> {
                             self.body.push_str(&format!("  {} = getelementptr i8, ptr {}, i64 {}\n", fp, sp, (pi + 1) * 8));
                             let (pv, is_ptr_f) = match pt {
                                 Ty::F64 => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load double, ptr {}\n", r, fp)); (r, false) }
+                                Ty::Bool => { let r = self.new_reg(); let t = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n  {} = trunc i64 {} to i1\n", r, fp, t, r)); (t, false) }
                                 t if t.llvm() == "ptr" => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load ptr, ptr {}\n", r, fp)); (r, true) }
                                 _ => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n", r, fp)); (r, false) }
                             };
@@ -441,6 +466,7 @@ impl<'a> Codegen<'a> {
                     self.body.push_str(&format!("  {} = getelementptr i8, ptr {}, i64 {}\n", fp, sp, i * 8));
                     let (ev, is_ptr_field) = match et {
                         Ty::F64 => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load double, ptr {}\n", r, fp)); (r, false) }
+                        Ty::Bool => { let r = self.new_reg(); let t = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n  {} = trunc i64 {} to i1\n", r, fp, t, r)); (t, false) }
                         t if t.llvm() == "ptr" => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load ptr, ptr {}\n", r, fp)); (r, true) }
                         _ => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n", r, fp)); (r, false) }
                     };

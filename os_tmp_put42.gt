@@ -1,0 +1,10 @@
+enum Tree { Leaf(int) Node(list[int]) }
+fn main() {
+    l := Tree::Leaf(1)
+    put(l)
+    xs := list()
+    push(xs, 1)
+    push(xs, 2)
+    n := Tree::Node(xs)
+    put(n)
+}

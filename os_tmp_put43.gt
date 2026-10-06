@@ -1,0 +1,8 @@
+struct P { x: int, y: int }
+enum E { Wrap(P) Empty }
+fn main() {
+    w := E::Wrap(P { x: 1, y: 2 })
+    put(w)
+    e := E::Empty
+    put(e)
+}

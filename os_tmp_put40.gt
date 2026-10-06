@@ -1,0 +1,11 @@
+struct P { x: int }
+fn main() {
+    a := list()
+    b := list()
+    c := list()
+    push(c, P { x: 1 })
+    push(c, P { x: 2 })
+    push(b, c)
+    push(a, b)
+    put(a)
+}
