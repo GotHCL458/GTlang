@@ -778,8 +778,8 @@ impl FnState {
                 }
                 put_lit!("}");
             }
-            Ty::Option(_) => {
-                // `Some(v)` / `None`：tag 0=Some
+            Ty::Option(inner) => {
+                // `Some(v)` / `None`：tag 0=Some；payload 按 inner 类型分派
                 let tag = b.ins().load(types::I64, MemFlags::new(), v.0, 0);
                 let isz = b.ins().icmp_imm(IntCC::Equal, tag, 0);
                 let ls = b.create_block();
@@ -789,8 +789,7 @@ impl FnState {
                 b.switch_to_block(ls);
                 put_lit!("Some(");
                 let pv = b.ins().load(types::I64, MemFlags::new(), v.0, 8);
-                let pf = self.rt_ref(jit, b, "put_i64")?;
-                b.ins().call(pf, &[pv]);
+                self.gen_print_v(jit, b, &(pv, (**inner).clone()))?;
                 put_lit!(")");
                 b.ins().jump(lend, &[]);
                 b.switch_to_block(ln);

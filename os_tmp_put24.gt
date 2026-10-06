@@ -1,0 +1,12 @@
+struct K { id: int }
+fn main() {
+    o := Some(K { id: 42 })
+    put(o)
+    n := None
+    put(n)
+    // Option 嵌套在 list 里
+    xs := list()
+    push(xs, Some(1))
+    push(xs, None)
+    put(xs)
+}

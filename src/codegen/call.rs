@@ -309,7 +309,7 @@ impl<'a> Codegen<'a> {
                 self.emit_label(&le);
                 self.emit_puts_lit("}");
             }
-            Ty::Option(_) => {
+            Ty::Option(inner) => {
                 let sp = self.as_ptr(v);
                 let tag = self.new_reg();
                 self.body.push_str(&format!("  {} = load i64, ptr {}\n", tag, sp));
@@ -323,8 +323,14 @@ impl<'a> Codegen<'a> {
                 self.body.push_str(&format!("  {} = getelementptr i64, ptr {}, i64 1\n", pv, sp));
                 let pvv = self.new_reg();
                 self.body.push_str(&format!("  {} = load i64, ptr {}\n", pvv, pv));
-                let pf = self.intern(b"%lld");
-                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, i64 {})\n", pf, pvv));
+                // payload 按 inner 的类型分派
+                let ity = (**inner).clone();
+                let psub = if ity.llvm() == "ptr" {
+                    let p = self.new_reg();
+                    self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, pvv));
+                    Val::new_ptr(&ity, p)
+                } else { Val::new_slot(&ity, pvv) };
+                self.emit_print_v(&psub, &ity)?;
                 self.emit_puts_lit(")");
                 self.body.push_str(&format!("  br label %{}\n", lend));
                 self.emit_label(&ln);
