@@ -415,7 +415,7 @@ impl<'a> Codegen<'a> {
                     self.terminated = false;
                 }
             }
-            Stmt::ForEach { var, iter, body, els: _, line } => {
+            Stmt::ForEach { var, iter, body, els, line } => {
                 let arr = self.expr(iter)?;
                 let is_list = matches!(&arr.ty, Ty::List(_));
                 let is_str = matches!(&arr.ty, Ty::Str);
@@ -529,6 +529,28 @@ impl<'a> Codegen<'a> {
                 self.body.push_str(&format!("  store i64 {}, ptr {}\n", nx, idx));
                 self.body.push_str(&format!("  br label %{}\n", lcond));
                 self.emit_label(&lend);
+                // for-else：正常结束（索引达到长度）才执行 else（break 时不执行）
+                if let Some(els) = els {
+                    let lsel = self.new_label();
+                    let lskip = self.new_label();
+                    let ci = self.new_reg();
+                    self.body.push_str(&format!("  {} = load i64, ptr {}\n", ci, idx));
+                    let done = self.new_reg();
+                    let lim = match &len_reg { Some(lr) => lr.clone(), None => self.new_reg() };
+                    if len_reg.is_none() {
+                        self.body.push_str(&format!("  {} = add i64 0, {}\n", lim, n));
+                    }
+                    self.body.push_str(&format!("  {} = icmp eq i64 {}, {}\n", done, ci, lim));
+                    self.body.push_str(&format!("  br i1 {}, label %{}, label %{}\n", done, lsel, lskip));
+                    self.emit_label(&lsel);
+                    self.terminated = false;
+                    self.push_scope();
+                    self.block(els)?;
+                    self.pop_scope();
+                    if !self.terminated { self.body.push_str(&format!("  br label %{}\n", lskip)); }
+                    self.emit_label(&lskip);
+                    self.terminated = false;
+                }
             }
             Stmt::Return(e, _) => {
                 // 返回前逆序执行本函数已登记的 defer

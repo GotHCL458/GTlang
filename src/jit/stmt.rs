@@ -277,7 +277,7 @@ impl FnState {
                     b.switch_to_block(skip_blk); self.terminated = false;
                 }
             }
-            Stmt::ForEach { var, iter, body, els: _, line } => {
+            Stmt::ForEach { var, iter, body, els, line } => {
                 let arr = self.gen_expr(jit, b, iter)?;
                 let is_list = matches!(&arr.1, Ty::List(_));
                 let is_str = matches!(&arr.1, Ty::Str);
@@ -360,6 +360,23 @@ impl FnState {
                 let c2 = b.use_var(idx); let nx = b.ins().iadd_imm(c2, 1); b.def_var(idx, nx);
                 b.ins().jump(header, &[]);
                 b.switch_to_block(exit); self.terminated = false;
+                // for-else：正常结束（i == len）才执行 else（break 时不执行）
+                if let Some(els) = els {
+                    let lsel = self.new_block(b);
+                    let lskip = self.new_block(b);
+                    let ci = b.use_var(idx);
+                    let done = match len_val {
+                        Some(lv) => b.ins().icmp(IntCC::Equal, ci, lv),
+                        None => b.ins().icmp_imm(IntCC::Equal, ci, n_const),
+                    };
+                    b.ins().brif(done, lsel, &[], lskip, &[]);
+                    b.switch_to_block(lsel); self.terminated = false;
+                    self.push_scope();
+                    self.gen_block(jit, b, els)?;
+                    self.pop_scope();
+                    if !self.terminated { b.ins().jump(lskip, &[]); }
+                    b.switch_to_block(lskip); self.terminated = false;
+                }
             }
             Stmt::Return(Some(e), _) => {
                 // 先执行 defer（逆序）
