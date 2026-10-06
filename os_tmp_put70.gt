@@ -1,0 +1,14 @@
+fn describe(o: Option[int]) -> str {
+    match o {
+        Some(v) if v > 0 => { return "pos" }
+        Some(v) if v == 0 => { return "zero" }
+        Some(v) => { return "neg" }
+        None => { return "none" }
+    }
+}
+fn main() {
+    put(describe(Some(5)))
+    put(describe(Some(0)))
+    put(describe(Some(-3)))
+    put(describe(None))
+}

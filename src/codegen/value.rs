@@ -204,7 +204,12 @@ impl<'a> Codegen<'a> {
                                 self.body.push_str(&format!("  {} = call i64 @gt_result_val(ptr {})\n", val, sp));
                                 self.bind_pat_deep(&bty, &val, carg, &mut pending_binds);
                             }
-                            match &arm.guard { None => eq, Some(g) => { let gv = self.cond(g)?; let r = self.new_reg(); self.body.push_str(&format!("  {} = and i1 {}, {}\n", r, eq, gv)); r } }
+                            // guard 可能引用载荷绑定（Some(v) if v > 0）：先临时注入作用域
+                            self.push_scope();
+                            for (n2, l2) in &pending_binds { self.scopes.last_mut().unwrap().insert(n2.clone(), l2.clone()); }
+                            let gres = match &arm.guard { None => eq, Some(g) => { let gv = self.cond(g)?; let r = self.new_reg(); self.body.push_str(&format!("  {} = and i1 {}, {}\n", r, eq, gv)); r } };
+                            self.pop_scope();
+                            gres
                         } else if let ExprKind::EnumLit(en, var, binds) = &p.kind {
                             // 枚举解构：比较 tag 并暂存载荷
                             let vidx = self.enum_variants.get(en).and_then(|vs| vs.iter().position(|(n, _)| n == var)).unwrap_or(0);

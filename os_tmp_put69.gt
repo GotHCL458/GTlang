@@ -1,0 +1,14 @@
+fn classify(n: int) -> str {
+    match n {
+        a if a < 0 => { return "neg" }
+        b if b == 0 => { return "zero" }
+        c if c < 10 => { return "small" }
+        _ => { return "big" }
+    }
+}
+fn main() {
+    put(classify(-5))
+    put(classify(0))
+    put(classify(5))
+    put(classify(100))
+}
