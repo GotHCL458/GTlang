@@ -1,0 +1,15 @@
+enum E { Num(int) Tag(str) }
+fn describe(e: E) -> str {
+    match e {
+        E::Num(n) if n > 0 => { return "pos" }
+        E::Num(n) if n == 0 => { return "zero" }
+        E::Num(n) => { return "neg" }
+        E::Tag(s) => { return s }
+    }
+}
+fn main() {
+    put(describe(E::Num(5)))
+    put(describe(E::Num(0)))
+    put(describe(E::Num(-3)))
+    put(describe(E::Tag("hi")))
+}

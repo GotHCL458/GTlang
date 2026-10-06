@@ -481,6 +481,7 @@ impl FnState {
         for (i, arm) in arms.iter().enumerate() {
             // 每个 arm 的绑定作用域：arm 结束时回滚，避免模式绑定泄漏到后续 arm
             let scope_mark = self.scopes.last().map(|s| s.len()).unwrap_or(0);
+            let mut nested_gate: Option<Value> = None;
             let arm_blk = self.new_block(b); let next_blk = self.new_block(b);
             let cond = if let Some((lo, hi)) = &arm.range {
                 let lov = self.gen_expr(jit, b, lo)?;
@@ -506,18 +507,30 @@ impl FnState {
                             let want_tag: i64 = if cname == "Err" || cname == "None" { 1 } else { 0 };
                             let tag = b.ins().load(types::I64, MemFlags::new(), subj.0, 0);
                             let eq = b.ins().icmp_imm(IntCC::Equal, tag, want_tag);
+                            let cond = eq;
+                            // 内层嵌套模式（Some(Ok(v))）的 tag 检查推迟到 arm 块内，
+                            // 避免 None/Err 时读不存在的载荷。
                             if let Some(carg) = carg {
-                                // 递归绑定：支持嵌套解构（Some(Some(v)) / Ok(Some(v)) 等）。
                                 let bty = match &subj.1 {
                                     Ty::Result(t, e) => match cname { "Ok" => (**t).clone(), "Err" => (**e).clone(), _ => Ty::Unknown },
                                     Ty::Option(t) => (**t).clone(),
                                     _ => Ty::I64,
                                 };
-                                // 载荷值（i64 槽）
                                 let lv = b.ins().load(cl_ty(&bty), MemFlags::new(), subj.0, 8);
+                                let inner_pat = match &carg.kind {
+                                    ExprKind::Some(_) | ExprKind::Ok(_) | ExprKind::Err(_) | ExprKind::None => Some(carg),
+                                    ExprKind::Call(n, _) if matches!(n.as_str(), "Some" | "Ok" | "Err" | "None") => Some(carg),
+                                    _ => None,
+                                };
+                                if let Some(ip) = inner_pat {
+                                    if matches!(bty, Ty::Option(_) | Ty::Result(..)) {
+                                        let itag = self.pat_tag_cond(b, &bty, lv, ip);
+                                        nested_gate = Some(itag);
+                                    }
+                                }
                                 self.bind_pat_deep(b, &bty, lv, carg);
                             }
-                            match &arm.guard { None => eq, Some(g) => { let gv = self.gen_cond(jit, b, g)?; b.ins().band(eq, gv) } }
+                            match &arm.guard { None => cond, Some(g) => { let gv = self.gen_cond(jit, b, g)?; b.ins().band(cond, gv) } }
                         } else if let ExprKind::EnumLit(en, var, _binds) = &p.kind {
                             // 枚举解构：tag 比较并绑定载荷
                             let vidx = jit.enum_variants.get(en).and_then(|vs| vs.iter().position(|(n, _)| n == var)).unwrap_or(0);
@@ -583,6 +596,9 @@ impl FnState {
             }
             // 内层 tag 判定与 guard 都在 arm 块内做：任一不满足 → 走 next_blk。
             let mut gate: Option<Value> = load_ok;
+            if let Some(gv) = nested_gate {
+                gate = Some(match gate { None => gv, Some(p) => b.ins().band(p, gv) });
+            }
             if let Some(gv) = guard_ok {
                 gate = Some(match gate { None => gv, Some(p) => b.ins().band(p, gv) });
             }
