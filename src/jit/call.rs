@@ -752,7 +752,11 @@ impl FnState {
                     let lbl = format!("{}: ", fname);
                     put_lit!(&lbl);
                     let ptr = b.ins().iadd_imm(v.0, (i * 8) as i64);
-                    let fv = b.ins().load(types::I64, MemFlags::new(), ptr, 0);
+                    let fv = if matches!(fty, Ty::F64) {
+                        b.ins().load(types::F64, MemFlags::new(), ptr, 0)
+                    } else {
+                        b.ins().load(types::I64, MemFlags::new(), ptr, 0)
+                    };
                     self.gen_print_v(jit, b, &(fv, fty.clone()))?;
                 }
                 put_lit!("}");
@@ -777,9 +781,39 @@ impl FnState {
                 b.ins().jump(lend, &[]);
                 b.switch_to_block(lend);
             }
-            Ty::Result(..) | Ty::Enum(_) | Ty::Tuple(_) => {
-                let f = self.rt_ref(jit, b, "put_i64")?;
-                b.ins().call(f, &[v.0]);
+            Ty::Result(t, ety) => {
+                // Ok(v) / Err(e)：tag 0=Ok, 1=Err；payload 按内层类型打印
+                let tag = b.ins().load(types::I64, MemFlags::new(), v.0, 0);
+                let isz = b.ins().icmp_imm(IntCC::Equal, tag, 0);
+                let ls = b.create_block();
+                let ln = b.create_block();
+                let lend = b.create_block();
+                b.ins().brif(isz, ls, &[], ln, &[]);
+                b.switch_to_block(ls);
+                put_lit!("Ok(");
+                let pv = b.ins().load(types::I64, MemFlags::new(), v.0, 8);
+                self.gen_print_v(jit, b, &(pv, (**t).clone()))?;
+                put_lit!(")");
+                b.ins().jump(lend, &[]);
+                b.switch_to_block(ln);
+                put_lit!("Err(");
+                let pv2 = b.ins().load(types::I64, MemFlags::new(), v.0, 8);
+                self.gen_print_v(jit, b, &(pv2, (**ety).clone()))?;
+                put_lit!(")");
+                b.ins().jump(lend, &[]);
+                b.switch_to_block(lend);
+            }
+            Ty::Enum(ename) => {
+                let tag = b.ins().load(types::I64, MemFlags::new(), v.0, 0);
+                let hdr = format!("{}(", ename);
+                put_lit!(&hdr);
+                let pf = self.rt_ref(jit, b, "put_i64")?;
+                b.ins().call(pf, &[tag]);
+                put_lit!(")");
+            }
+            Ty::Tuple(_) => {
+                put_lit!("(");
+                put_lit!(")");
             }
             _ => {
                 let f = self.rt_ref(jit, b, "put_i64")?;

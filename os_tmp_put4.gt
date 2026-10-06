@@ -1,0 +1,15 @@
+enum Color { Red Green Blue }
+struct Big { a: int, b: str, c: bool, d: f64 }
+fn main() {
+    // 枚举（无载荷）
+    c := Color::Green
+    put(c)
+    // 大结构体（混合类型）
+    b := Big { a: 1, b: "hi", c: true, d: 2.5 }
+    put(b)
+    // Result
+    r := Ok(42)
+    put(r)
+    e := Err("oops")
+    put(e)
+}

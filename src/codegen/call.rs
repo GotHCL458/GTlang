@@ -251,9 +251,14 @@ impl<'a> Codegen<'a> {
                     self.emit_puts_lit(&format!("{}: ", fname));
                     let fp = self.new_reg();
                     self.body.push_str(&format!("  {} = getelementptr i8, ptr {}, i64 {}\n", fp, sp, i * 8));
-                    let fv = self.new_reg();
-                    self.body.push_str(&format!("  {} = load i64, ptr {}\n", fv, fp));
-                    let sub = Val::new_slot(fty, fv);
+                    // 字段按 fty 的 LLVM 类型加载（结构体字段一律 8 字节对齐）
+                    let (fv, is_ptr_field) = match fty {
+                        Ty::F64 => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load double, ptr {}\n", r, fp)); (r, false) }
+                        Ty::Bool => { let r = self.new_reg(); let t = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n  {} = trunc i64 {} to i1\n", r, fp, t, r)); (t, false) }
+                        t if t.llvm() == "ptr" => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load ptr, ptr {}\n", r, fp)); (r, true) }
+                        _ => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n", r, fp)); (r, false) }
+                    };
+                    let sub = if is_ptr_field { Val::new_ptr(fty, fv) } else { Val::new_slot(fty, fv) };
                     self.emit_print_v(&sub, fty)?;
                 }
                 self.emit_puts_lit("}");
@@ -322,6 +327,66 @@ impl<'a> Codegen<'a> {
                 self.emit_puts_lit("None");
                 self.body.push_str(&format!("  br label %{}\n", lend));
                 self.emit_label(&lend);
+            }
+            Ty::Result(t, ety) => {
+                // Ok(v) / Err(e)：tag 0=Ok, 1=Err；payload 按内层类型打印
+                let sp = self.as_ptr(v);
+                let tag = self.new_reg();
+                self.body.push_str(&format!("  {} = load i64, ptr {}\n", tag, sp));
+                let isz = self.new_reg();
+                self.body.push_str(&format!("  {} = icmp eq i64 {}, 0\n", isz, tag));
+                let ls = self.new_label(); let ln = self.new_label(); let lend = self.new_label();
+                self.body.push_str(&format!("  br i1 {}, label %{}, label %{}\n", isz, ls, ln));
+                self.emit_label(&ls);
+                self.emit_puts_lit("Ok(");
+                let pv = self.new_reg();
+                self.body.push_str(&format!("  {} = getelementptr i64, ptr {}, i64 1\n", pv, sp));
+                let pvv = self.new_reg();
+                self.body.push_str(&format!("  {} = load i64, ptr {}\n", pvv, pv));
+                let pty = (**t).clone();
+                let sub = if pty.llvm() == "ptr" {
+                    let p = self.new_reg();
+                    self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, pvv));
+                    Val::new_ptr(&pty, p)
+                } else { Val::new_slot(&pty, pvv) };
+                self.emit_print_v(&sub, &pty)?;
+                self.emit_puts_lit(")");
+                self.body.push_str(&format!("  br label %{}\n", lend));
+                self.emit_label(&ln);
+                self.emit_puts_lit("Err(");
+                let pv2 = self.new_reg();
+                self.body.push_str(&format!("  {} = getelementptr i64, ptr {}, i64 1\n", pv2, sp));
+                let pvv2 = self.new_reg();
+                self.body.push_str(&format!("  {} = load i64, ptr {}\n", pvv2, pv2));
+                let ety2 = (**ety).clone();
+                let sub2 = if ety2.llvm() == "ptr" {
+                    let p = self.new_reg();
+                    self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, pvv2));
+                    Val::new_ptr(&ety2, p)
+                } else { Val::new_slot(&ety2, pvv2) };
+                self.emit_print_v(&sub2, &ety2)?;
+                self.emit_puts_lit(")");
+                self.body.push_str(&format!("  br label %{}\n", lend));
+                self.emit_label(&lend);
+            }
+            Ty::Enum(ename) => {
+                // 变体名(tag) + 载荷
+                let sp = self.as_ptr(v);
+                let tag = self.new_reg();
+                self.body.push_str(&format!("  {} = load i64, ptr {}\n", tag, sp));
+                let variants = self.enum_variants.get(ename).cloned().unwrap_or_default();
+                // 简单：打印 枚举名(变体索引)
+                self.emit_puts_lit(&format!("{}(", ename));
+                let pf = self.intern(b"%lld");
+                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, i64 {})\n", pf, tag));
+                self.emit_puts_lit(")");
+            }
+            Ty::Tuple(_) => {
+                // 元组：(a, b, ...)
+                self.emit_puts_lit("(");
+                // 元组元素类型未知（Ty::Tuple 无内层类型），按 i64 打印
+                let sp = self.as_ptr(v);
+                self.emit_puts_lit(")");
             }
             _ => {
                 let iv = self.as_i64(v);

@@ -3685,6 +3685,26 @@ fn string_and_num_edge_matches() {
 }
 
 #[test]
+fn put_enum_result_match() {
+    assert_consistent_src(
+        "put_enum_result",
+        &[
+            "enum Color { Red Green Blue }",
+            "struct Big { a: int, b: str, c: bool, d: f64 }",
+            "fn main() {",
+            "    c := Color::Green",
+            "    put(c)",
+            "    b := Big { a: 1, b: \"hi\", c: true, d: 2.5 }",
+            "    put(b)",
+            "    r := Ok(42)",
+            "    put(r)",
+            "    e := Err(\"oops\")",
+            "    put(e)",
+            "}",
+        ],
+    );
+}
+#[test]
 fn put_element_types_match() {
     assert_consistent_src(
         "put_elem_types",
