@@ -43,6 +43,24 @@ impl FnState {
             return Ok((b.inst_results(call)[0], Ty::I64));
         }
         let arg_tys: Vec<Ty> = args.iter().map(|a| a.ty.clone()).collect();
+        // 用户函数优先于内置/标准库（同名时遮蔽）
+        if jit.fns.contains_key(name) {
+            let (fid, params, ret) = {
+                let info = jit.fns.get(name).unwrap();
+                (info.fid, info.params.clone(), info.ret.clone())
+            };
+            let fref = jit.module.declare_func_in_func(fid, b.func);
+            let mut vals: Vec<Value> = Vec::new();
+            for (i, a) in args.iter().enumerate() {
+                let want = params.get(i).cloned().unwrap_or(Ty::I64);
+                let v = self.gen_expr(jit, b, a)?;
+                let cv = self.convert(b, &v, &want);
+                vals.push(cv);
+            }
+            let call = b.ins().call(fref, &vals);
+            if ret == Ty::Void { return Ok((b.ins().iconst(types::I64, 0), Ty::Void)); }
+            return Ok((b.inst_results(call)[0], ret));
+        }
         if let Some(r) = builtin_ret(name, &arg_tys) { r.map_err(|why| crate::lb!(line, "{}", "{}", why))?; }
         match name {
             "Ok" => {

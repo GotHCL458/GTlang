@@ -68,7 +68,7 @@ impl<'a> Codegen<'a> {
 
 
         // 用户函数优先于内置/标准库（同名时遮蔽）
-        if self.fns.contains_key(name) && !crate::types::type_gtlib::is_builtin_name(name) {
+        if self.fns.contains_key(name) {
             if let Some(info) = self.fns.get(name).cloned() {
                 let mut ops = Vec::new();
                 for (i, a) in args.iter().enumerate() { let want = info.params.get(i).cloned().unwrap_or(Ty::I64); let v = self.expr(a)?; let v = self.coerce(&v, &want)?; ops.push(format!("{} {}", want.llvm(), v.s)); }
