@@ -1,8 +1,0 @@
-struct K { id: int }
-struct V { val: int }
-fn main() {
-    m := map()
-    m[1] = V { val: 100 }
-    m[2] = V { val: 200 }
-    put(m)
-}

@@ -1,4 +1,0 @@
-import "os_tmp_mod_e.gt"
-fn main() {
-    os_tmp_mod_e.make_map()
-}

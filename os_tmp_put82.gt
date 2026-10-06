@@ -1,6 +1,0 @@
-fn main() {
-    s := set()
-    insert(s, 1.5)
-    insert(s, 2.5)
-    put(s)
-}

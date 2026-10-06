@@ -1,6 +1,0 @@
-enum Color { Red Green Blue }
-struct Car { name: str, color: Color }
-fn main() {
-    c := Car { name: "x", color: Color::Green }
-    put(c)
-}

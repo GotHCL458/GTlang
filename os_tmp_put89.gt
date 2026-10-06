@@ -1,7 +1,0 @@
-struct P { x: int }
-fn main() {
-    p := P { x: 42 }
-    put("p.x = $p.x")
-    put("val = ${p.x + 1}")
-    put("str = $p")
-}

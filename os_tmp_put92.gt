@@ -1,7 +1,0 @@
-struct Node { val: int, next: Option[int] }
-fn main() {
-    a := Node { val: 1, next: Some(2) }
-    put(a)
-    b := Node { val: 3, next: None }
-    put(b)
-}

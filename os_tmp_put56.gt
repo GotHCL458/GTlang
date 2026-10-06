@@ -1,5 +1,0 @@
-fn main() {
-    m := map()
-    m["key"] = 1
-    put(m)
-}

@@ -1,8 +1,0 @@
-fn show[T](x: T) { put(x) }
-struct P { x: int, y: int }
-fn main() {
-    show(42)
-    show("hi")
-    show(P { x: 1, y: 2 })
-    show([1, 2, 3])
-}

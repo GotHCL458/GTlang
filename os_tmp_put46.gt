@@ -1,6 +1,0 @@
-fn main() {
-    xs := list()
-    push(xs, true)
-    push(xs, false)
-    put(xs)
-}

@@ -1,8 +1,0 @@
-struct 点 { x: int, y: int }
-struct 人 { 姓名: str, 年龄: int }
-fn main() {
-    p := 点 { x: 1, y: 2 }
-    put(p)
-    人甲 := 人 { 姓名: "张三", 年龄: 30 }
-    put(人甲)
-}

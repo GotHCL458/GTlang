@@ -1,6 +1,0 @@
-struct K { id: int }
-fn main() {
-    m := map()
-    m[K { id: 1 }] = 10
-    put(m)
-}

@@ -1,3 +1,0 @@
-pub struct Point { x: int, y: int }
-pub fn make(x: int, y: int) -> Point { return Point { x: x, y: y } }
-pub fn show(p: Point) { put(p) }

@@ -1,8 +1,0 @@
-enum E { Flag(bool) Off }
-fn main() {
-    put(E::Flag(true))
-    put(Some(true))
-    put(Ok(false))
-    put((true, 1))
-    put([true, false])
-}

@@ -1,6 +1,0 @@
-fn make_ok(n: int) -> Result[int, str] { return Ok(n) }
-struct Resp { code: int, data: Result[int, str] }
-fn main() {
-    a := Resp { code: 200, data: make_ok(42) }
-    put(a)
-}

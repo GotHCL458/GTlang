@@ -1,5 +1,0 @@
-struct F { ok: bool, name: str }
-fn main() {
-    f := F { ok: true, name: "x" }
-    put(f)
-}

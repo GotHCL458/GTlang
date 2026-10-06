@@ -1,8 +1,0 @@
-struct Node { name: str, kids: list[int], ok: bool }
-fn main() {
-    ks := list()
-    push(ks, 1)
-    push(ks, 2)
-    n := Node { name: "root", kids: ks, ok: true }
-    put(n)
-}

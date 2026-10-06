@@ -1,6 +1,0 @@
-fn main() {
-    mix := list()
-    push(mix, 1)
-    push(mix, "two")
-    put(mix)
-}

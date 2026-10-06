@@ -1,9 +1,0 @@
-struct P { x: int }
-fn main() {
-    t := (1, "two", P { x: 3 })
-    put(t)
-    xs := list()
-    push(xs, 1)
-    u := (xs, true)
-    put(u)
-}

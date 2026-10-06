@@ -1,2 +1,0 @@
-pub enum Color { Red Green Blue }
-pub fn pick() -> Color { return Color::Green }

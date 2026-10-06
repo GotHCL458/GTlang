@@ -1,5 +1,0 @@
-fn bad(n: int) -> int {
-    throw "oops"
-    return 0
-}
-fn main() { put(bad(1)) }

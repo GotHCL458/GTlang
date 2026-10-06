@@ -1,8 +1,0 @@
-enum E { F(f64) Off }
-fn main() {
-    put(E::F(3.14))
-    put(Some(2.5))
-    put(Ok(1.5))
-    put((1.5, 2))
-    put([1.5, 2.5])
-}

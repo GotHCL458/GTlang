@@ -1,7 +1,0 @@
-trait Shape { fn area(self) -> f64 }
-struct Circle { r: f64 }
-impl Shape for Circle { fn area(self) -> f64 { return 3.14 * self.r * self.r } }
-fn show(s: dyn Shape) { put(s.area()) }
-fn main() {
-    show(Circle { r: 2.0 })
-}

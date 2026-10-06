@@ -1,9 +1,0 @@
-@derive(Debug, Clone, PartialEq)
-struct Point { x: int, y: int }
-fn main() {
-    p := Point { x: 1, y: 2 }
-    put(p)
-    q := p.clone()
-    put(q)
-    put(p == q)
-}

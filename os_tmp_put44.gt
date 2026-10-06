@@ -1,9 +1,0 @@
-enum Maybe { Has(Option[int]) Nothing }
-fn main() {
-    a := Maybe::Has(Some(5))
-    put(a)
-    b := Maybe::Has(None)
-    put(b)
-    c := Maybe::Nothing
-    put(c)
-}

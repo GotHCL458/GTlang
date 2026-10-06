@@ -1,8 +1,0 @@
-enum E { S(str) Off }
-fn main() {
-    put(E::S("hi"))
-    put(Some("s"))
-    put(Ok("ok"))
-    put(("a", "b"))
-    put(["x", "y"])
-}

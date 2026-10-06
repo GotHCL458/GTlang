@@ -1,6 +1,0 @@
-pub fn make_map() -> int {
-    m := map()
-    m[1] = 100
-    put(m)
-    return 0
-}

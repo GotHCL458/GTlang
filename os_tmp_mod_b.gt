@@ -1,6 +1,0 @@
-import "os_tmp_mod_a.gt"
-fn main() {
-    p := os_tmp_mod_a.make(3, 4)
-    os_tmp_mod_a.show(p)
-    put(p)
-}

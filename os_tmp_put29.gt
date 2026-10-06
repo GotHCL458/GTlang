@@ -1,9 +1,0 @@
-struct P { x: int, y: int }
-fn show(p: &P) { put(p) }
-fn bump(p: &mut P) { p.x = p.x + 1 }
-fn main() {
-    p := P { x: 1, y: 2 }
-    show(&p)
-    bump(&mut p)
-    put(p)
-}

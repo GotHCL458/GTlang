@@ -1,6 +1,0 @@
-@derive(Debug)
-struct P { x: int, y: int }
-fn main() {
-    p := P { x: 1, y: 2 }
-    put("p = $p")
-}

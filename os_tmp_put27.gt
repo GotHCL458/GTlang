@@ -1,9 +1,0 @@
-enum Shape { Circle(f64) Rect(f64, f64) Unit }
-fn main() {
-    c := Shape::Circle(3.14)
-    put(c)
-    r := Shape::Rect(2.0, 3.0)
-    put(r)
-    u := Shape::Unit
-    put(u)
-}

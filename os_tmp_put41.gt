@@ -1,9 +1,0 @@
-struct P { x: int }
-fn main() {
-    m := map()
-    inner := list()
-    push(inner, P { x: 1 })
-    push(inner, P { x: 2 })
-    m[1] = inner
-    put(m)
-}

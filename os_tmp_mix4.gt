@@ -1,6 +1,0 @@
-fn main() {
-    m := map()
-    m[1] = 100
-    m[2] = "two"
-    put(m)
-}
