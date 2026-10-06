@@ -1,0 +1,7 @@
+import json
+fn main() {
+    put(json_dumps("hello"))
+    put(json_loads("42"))
+    put(json_valid("{\"a\":1}"))
+    put(json_valid("bad"))
+}

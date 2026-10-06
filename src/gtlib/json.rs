@@ -181,7 +181,26 @@ pub extern "C" fn py_json_valid(s: *const c_char) -> std::os::raw::c_int {
             _ => {}
         }
     }
-    if in_str || depth != 0 { 0 } else { 1 }
+    if in_str || depth != 0 { return 0; }
+    // 粗略校验通过后，再检查顶层是合法 JSON 值（拒绝裸标识符如 "bad"）
+    let t = v.trim();
+    if t.is_empty() { return 0; }
+    let first = t.chars().next().unwrap();
+    let ok = match first {
+        '{' | '[' | '"' => true,
+        't' => t.starts_with("true"),
+        'f' => t.starts_with("false"),
+        'n' => t.starts_with("null"),
+        c if c == '-' || c.is_ascii_digit() => t.parse::<f64>().is_ok(),
+        _ => false,
+    };
+    if !ok { return 0; }
+    // 若以 true/false/null 开头，后面只能是空白
+    if matches!(first, 't' | 'f' | 'n') {
+        let lit = if first == 't' { "true" } else if first == 'f' { "false" } else { "null" };
+        if t != lit { return 0; }
+    }
+    1
 }
 
 /// json.escape(s) -> str：转义为 JSON 字符串（带引号）

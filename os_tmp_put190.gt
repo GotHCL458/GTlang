@@ -1,0 +1,10 @@
+import math
+fn main() {
+    put(sqrt(16.0))
+    put(pow(2.0, 10.0))
+    put(floor(3.7))
+    put(ceil(3.2))
+    put(abs(-5))
+    put(min(3, 7))
+    put(max(3, 7))
+}

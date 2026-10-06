@@ -1,0 +1,6 @@
+import file
+import os
+fn main() {
+    put(path_exists("."))
+    put(getcwd())
+}

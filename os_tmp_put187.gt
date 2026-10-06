@@ -1,0 +1,11 @@
+fn main() {
+    a := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    put(a)
+    put(len(a))
+    // 大 list
+    xs := list()
+    i := 0
+    while i < 50 { push(xs, i)  i = i + 1 }
+    put(len(xs))
+    put(xs[49])
+}
