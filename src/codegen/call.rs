@@ -83,6 +83,12 @@ impl<'a> Codegen<'a> {
             Ty::I64 => v.s.clone(),
             Ty::Bool => { let r = self.new_reg(); self.body.push_str(&format!("  {} = zext i1 {} to i64\n", r, v.s)); r }
             Ty::F64 => { let r = self.new_reg(); self.body.push_str(&format!("  {} = fptosi double {} to i64\n", r, v.s)); r }
+            // ptr 类类型（容器/字符串/结构体/枚举）：ptrtoint 成 i64
+            _ if v.ty.llvm() == "ptr" || v.is_ptr => {
+                let r = self.new_reg();
+                self.body.push_str(&format!("  {} = ptrtoint ptr {} to i64\n", r, v.s));
+                r
+            }
             _ => v.s.clone(),
         }
     }
@@ -148,9 +154,16 @@ impl<'a> Codegen<'a> {
         Ok(r)
     }
     pub(crate) fn emit_print(&mut self, e: &Expr, newline: bool) -> Result<(), String> {
-        let v = self.expr(e)?;
+        self.emit_print_val(e)?;
+        if newline { let f = self.intern(b"\n"); self.declare("declare i32 @gt_printf(ptr, ...)"); self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", f)); }
+        Ok(())
+    }
+
+    /// 打印一个值（按类型递归格式化）。
+    pub(crate) fn emit_print_val(&mut self, e: &Expr) -> Result<(), String> {
         self.declare("declare i32 @gt_printf(ptr, ...)");
-        match v.ty {
+        let v = self.expr(e)?;
+        match &v.ty {
             Ty::F64 => { let f = self.intern(b"%g"); self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, double {})\n", f, v.s)); }
             Ty::Str => { let f = self.intern(b"%s"); self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, ptr {})\n", f, v.s)); }
             Ty::Bool => {
@@ -160,9 +173,79 @@ impl<'a> Codegen<'a> {
                 let f = self.intern(b"%s");
                 self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, ptr {})\n", f, r));
             }
-            _ => { let f = self.intern(b"%lld"); self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, i64 {})\n", f, v.s)); }
+            Ty::Array(elem, n) => {
+                // 定长数组：`[a, b, c]`（长度 n 编译期已知）
+                let open = self.intern(b"[");
+                let close = self.intern(b"]");
+                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", open));
+                let _ = elem;
+                let n = *n;
+                for i in 0..n {
+                    if i > 0 {
+                        let comma = self.intern(b", ");
+                        self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", comma));
+                    }
+                    let ptr = self.new_reg();
+                    self.body.push_str(&format!("  {} = getelementptr inbounds [{} x i64], ptr {}, i64 0, i64 {}\n", ptr, n, v.s, i));
+                    let ev = self.new_reg();
+                    self.body.push_str(&format!("  {} = load i64, ptr {}\n", ev, ptr));
+                    let f = self.intern(b"%lld");
+                    self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, i64 {})\n", f, ev));
+                }
+                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", close));
+            }
+            Ty::List(elem) | Ty::Set(elem) => {
+                // `[a, b, c]` 或 `{a, b, c}`
+                let open = if matches!(v.ty, Ty::Set(_)) { self.intern(b"{") } else { self.intern(b"[") };
+                let close = if matches!(v.ty, Ty::Set(_)) { self.intern(b"}") } else { self.intern(b"]") };
+                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", open));
+                self.declare("declare i64 @gt_list_len(i64)");
+                self.declare("declare i64 @gt_list_at(i64, i64)");
+                let vslot = self.as_i64(&v);   // 容器句柄（i64 slot）
+                let n = self.new_reg();
+                self.body.push_str(&format!("  {} = call i64 @gt_list_len(i64 {})\n", n, vslot));
+                let _ = elem;
+                let i = self.new_alloca(&Ty::I64);
+                self.body.push_str(&format!("  store i64 0, ptr {}\n", i));
+                let lt = self.new_label(); let le = self.new_label(); let lc = self.new_label();
+                self.body.push_str(&format!("  br label %{}\n", lt));
+                self.emit_label(&lt);
+                let iv = self.new_reg();
+                self.body.push_str(&format!("  {} = load i64, ptr {}\n", iv, i));
+                let cnd = self.new_reg();
+                self.body.push_str(&format!("  {} = icmp slt i64 {}, {}\n", cnd, iv, n));
+                self.body.push_str(&format!("  br i1 {}, label %{}, label %{}\n", cnd, lc, le));
+                self.emit_label(&lc);
+                // 逗号分隔（i > 0）
+                let pos = self.new_reg();
+                self.body.push_str(&format!("  {} = icmp sgt i64 {}, 0\n", pos, iv));
+                let l_sep = self.new_label(); let l_nosep = self.new_label();
+                self.body.push_str(&format!("  br i1 {}, label %{}, label %{}\n", pos, l_sep, l_nosep));
+                self.emit_label(&l_sep);
+                let comma = self.intern(b", ");
+                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", comma));
+                self.body.push_str(&format!("  br label %{}\n", l_nosep));
+                self.emit_label(&l_nosep);
+                // 取元素（当作 i64 打印；嵌套容器暂按 i64）
+                let ev = self.new_reg();
+                self.body.push_str(&format!("  {} = call i64 @gt_list_at(i64 {}, i64 {})\n", ev, vslot, iv));
+                let f2 = self.intern(b"%lld");
+                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, i64 {})\n", f2, ev));
+                let nx = self.new_reg();
+                self.body.push_str(&format!("  {} = add i64 {}, 1\n", nx, iv));
+                self.body.push_str(&format!("  store i64 {}, ptr {}\n", nx, i));
+                self.body.push_str(&format!("  br label %{}\n", lt));
+                self.emit_label(&le);
+                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", close));
+            }
+            Ty::Option(_) | Ty::Result(..) | Ty::Map(..) | Ty::Struct(_) | Ty::Enum(_) | Ty::Tuple(_) => {
+                // 复杂类型：按 i64 句柄输出（简化）
+                let iv = self.as_i64(&v);
+                let f = self.intern(b"%lld");
+                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, i64 {})\n", f, iv));
+            }
+            _ => { let iv = self.as_i64(&v); let f = self.intern(b"%lld"); self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, i64 {})\n", f, iv)); }
         }
-        if newline { let f = self.intern(b"\n"); self.declare("declare i32 @gt_printf(ptr, ...)"); self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", f)); }
         Ok(())
     }
 

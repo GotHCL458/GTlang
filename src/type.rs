@@ -379,8 +379,8 @@ pub fn check_annotation(site: &str, annotated: &Ty, actual: &Ty) -> Result<(), S
 
 /// 内置函数是否可打印（数组需要遍历，void 无值）
 pub fn is_printable(t: &Ty) -> bool {
-    // 容器/数组/Result/元组不支持直接 put（无内置序列化），仅标量可打印
-    !matches!(t, Ty::Void | Ty::Array(..) | Ty::List(..) | Ty::Set(..) | Ty::Map(..) | Ty::Result(..) | Ty::Option(_))
+    // 现在所有类型都可打印（容器/结构体/枚举/Option/Result 走运行时格式化）
+    !matches!(t, Ty::Void)
 }
 
 /// 查询内置函数的返回类型。

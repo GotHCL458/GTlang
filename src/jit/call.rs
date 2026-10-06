@@ -616,9 +616,13 @@ impl FnState {
 
     pub(crate) fn gen_print(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, e: &Expr) -> Result<(), String> {
         let v = self.gen_expr(jit, b, e)?;
-        let key = match v.1 { Ty::Str => "put_str", Ty::F64 => "put_f64", Ty::Bool => "put_bool", _ => "put_i64" };
-        let f = self.rt_ref(jit, b, key)?;
-        b.ins().call(f, &[v.0]);
+        match &v.1 {
+            _ => {
+                let key = match v.1 { Ty::Str => "put_str", Ty::F64 => "put_f64", Ty::Bool => "put_bool", _ => "put_i64" };
+                let f = self.rt_ref(jit, b, key)?;
+                b.ins().call(f, &[v.0]);
+            }
+        }
         Ok(())
     }
 
