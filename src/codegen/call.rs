@@ -199,11 +199,12 @@ impl<'a> Codegen<'a> {
             Ty::List(elem) | Ty::Set(elem) => {
                 let is_set = matches!(ty, Ty::Set(_));
                 self.emit_puts_lit(if is_set { "{" } else { "[" });
-                self.declare("declare i64 @gt_list_len(i64)");
-                self.declare("declare i64 @gt_list_at(i64, i64)");
+                self.declare("declare i64 @gt_list_len(ptr)");
+                self.declare("declare i64 @gt_list_at(ptr, i64)");
                 let vslot = self.as_i64(v);
+                let vptr0 = self.as_ptr(v);
                 let n = self.new_reg();
-                self.body.push_str(&format!("  {} = call i64 @gt_list_len(i64 {})\n", n, vslot));
+                self.body.push_str(&format!("  {} = call i64 @gt_list_len(ptr {})\n", n, vptr0));
                 let i = self.new_alloca(&Ty::I64);
                 self.body.push_str(&format!("  store i64 0, ptr {}\n", i));
                 let lt = self.new_label(); let le = self.new_label(); let lc = self.new_label();
@@ -224,7 +225,8 @@ impl<'a> Codegen<'a> {
                 self.body.push_str(&format!("  br label %{}\n", l_nosep));
                 self.emit_label(&l_nosep);
                 let ev = self.new_reg();
-                self.body.push_str(&format!("  {} = call i64 @gt_list_at(i64 {}, i64 {})\n", ev, vslot, iv));
+                let vptr = self.as_ptr(v);
+                self.body.push_str(&format!("  {} = call i64 @gt_list_at(ptr {}, i64 {})\n", ev, vptr, iv));
                 // list 元素以 i64 位模式存储；按 elem 类型还原
                 let et_llvm = elem.llvm();
                 if matches!(**elem, Ty::F64) {
@@ -283,12 +285,13 @@ impl<'a> Codegen<'a> {
             }
             Ty::Map(_, _) => {
                 self.emit_puts_lit("{");
-                self.declare("declare i64 @gt_map_len(i64)");
-                self.declare("declare i64 @gt_map_key_at(i64, i64)");
-                self.declare("declare i64 @gt_map_val_at(i64, i64)");
+                self.declare("declare i64 @gt_map_len(ptr)");
+                self.declare("declare i64 @gt_map_key_at(ptr, i64)");
+                self.declare("declare i64 @gt_map_val_at(ptr, i64)");
                 let vslot = self.as_i64(v);
+                let vptr0 = self.as_ptr(v);
                 let n = self.new_reg();
-                self.body.push_str(&format!("  {} = call i64 @gt_map_len(i64 {})\n", n, vslot));
+                self.body.push_str(&format!("  {} = call i64 @gt_map_len(ptr {})\n", n, vptr0));
                 let i = self.new_alloca(&Ty::I64);
                 self.body.push_str(&format!("  store i64 0, ptr {}\n", i));
                 let lt = self.new_label(); let le = self.new_label(); let lc = self.new_label();
@@ -310,7 +313,7 @@ impl<'a> Codegen<'a> {
                 self.emit_label(&l_nosep);
                 let (kt, vt) = match ty { Ty::Map(k, v) => ((**k).clone(), (**v).clone()), _ => (Ty::I64, Ty::I64) };
                 let kv = self.new_reg();
-                self.body.push_str(&format!("  {} = call i64 @gt_map_key_at(i64 {}, i64 {})\n", kv, vslot, iv));
+                self.body.push_str(&format!("  {} = call i64 @gt_map_key_at(ptr {}, i64 {})\n", kv, vptr0, iv));
                 // key 按类型打印
                 let ksub = if kt.llvm() == "ptr" {
                     let p = self.new_reg(); self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, kv)); Val::new_ptr(&kt, p)
@@ -322,7 +325,7 @@ impl<'a> Codegen<'a> {
                 self.emit_print_v(&ksub, &kt)?;
                 self.emit_puts_lit(": ");
                 let vv = self.new_reg();
-                self.body.push_str(&format!("  {} = call i64 @gt_map_val_at(i64 {}, i64 {})\n", vv, vslot, iv));
+                self.body.push_str(&format!("  {} = call i64 @gt_map_val_at(ptr {}, i64 {})\n", vv, vptr0, iv));
                 // value 按类型打印
                 let vsub = if vt.llvm() == "ptr" {
                     let p = self.new_reg(); self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, vv)); Val::new_ptr(&vt, p)
