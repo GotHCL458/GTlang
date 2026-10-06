@@ -747,7 +747,7 @@ fn builtin_check(name: &str, args: &[Ty]) -> Result<Ty, String> {
 
 
 #[path = "type_gtlib.rs"]
-mod type_gtlib;
+pub(crate) mod type_gtlib;
 pub use type_gtlib::*;
 // ============================================================
 // 单元测试：类型规则必须稳定，两个后端共用

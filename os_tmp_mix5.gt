@@ -1,0 +1,7 @@
+fn main() {
+    xs := list()
+    push(xs, 1)
+    push(xs, 2)
+    xs[0] = "bad"
+    put(xs)
+}

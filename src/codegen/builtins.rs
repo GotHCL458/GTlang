@@ -67,6 +67,19 @@ impl<'a> Codegen<'a> {
 
 
 
+        // 用户函数优先于内置/标准库（同名时遮蔽）
+        if self.fns.contains_key(name) && !crate::types::type_gtlib::is_builtin_name(name) {
+            if let Some(info) = self.fns.get(name).cloned() {
+                let mut ops = Vec::new();
+                for (i, a) in args.iter().enumerate() { let want = info.params.get(i).cloned().unwrap_or(Ty::I64); let v = self.expr(a)?; let v = self.coerce(&v, &want)?; ops.push(format!("{} {}", want.llvm(), v.s)); }
+                let argstr = ops.join(", ");
+                if info.ret == Ty::Void { self.body.push_str(&format!("  call void @{}({})\n", info.cname, argstr)); return Ok(Val::new(&Ty::Void, "0")); }
+                let r = self.new_reg();
+                self.body.push_str(&format!("  {} = call {} @{}({})\n", r, info.ret.llvm(), info.cname, argstr));
+                return Ok(Val::new(&info.ret, r));
+            }
+        }
+
         // 内置函数的"哪些调用合法"由 type.rs 统一判定，这里只负责生成代码
         if let Some(r) = builtin_ret(name, &args.iter().map(|a| a.ty.clone()).collect::<Vec<_>>()) {
             r.map_err(|why| crate::lb!(line, "{}", "{}", why))?;

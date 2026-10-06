@@ -1,0 +1,14 @@
+fn main() {
+    xs := [10, 20, 30]
+    for x in xs { put(x) }
+    s := set()
+    insert(s, 1)
+    insert(s, 2)
+    for v in s { put(v) }
+    m := map()
+    m[1] = 100
+    m[2] = 200
+    for k in m { put(k) }
+    ss := "abc"
+    for ch in ss { put(ch) }
+}

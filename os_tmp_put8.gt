@@ -1,0 +1,21 @@
+enum Shape { Circle(f64) Rect(f64, f64) }
+fn main() {
+    // match 解构后 put
+    s := Shape::Circle(3.14)
+    match s {
+        Shape::Circle(r) => { put(r) }
+        Shape::Rect(w, h) => { put(w)  put(h) }
+    }
+    // Option 解构
+    o := Some(42)
+    match o {
+        Some(v) => { put(v) }
+        None => { put(-1) }
+    }
+    // Result 解构
+    r := Ok(99)
+    match r {
+        Ok(v) => { put(v) }
+        Err(e) => { put(e) }
+    }
+}
