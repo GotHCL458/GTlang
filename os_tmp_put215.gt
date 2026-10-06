@@ -1,0 +1,8 @@
+fn main() {
+    s := set()
+    i := 0
+    while i < 100 { insert(s, i)  i = i + 1 }
+    put(len(s))
+    put(has(s, 50))
+    put(has(s, 200))
+}
