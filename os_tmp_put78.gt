@@ -1,0 +1,16 @@
+enum Shape { Circle(f64) Square(f64) }
+enum E { Has(Shape) Empty }
+fn main() {
+    a := E::Has(Shape::Circle(3.14))
+    match a {
+        E::Has(Shape::Circle(r)) => { put(r) }
+        E::Has(Shape::Square(s)) => { put(s) }
+        E::Empty => { put("empty") }
+    }
+    b := E::Has(Shape::Square(2.0))
+    match b {
+        E::Has(Shape::Circle(r)) => { put(r) }
+        E::Has(Shape::Square(s)) => { put(s) }
+        E::Empty => { put("empty") }
+    }
+}

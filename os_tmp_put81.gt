@@ -1,0 +1,14 @@
+fn main() {
+    m := map()
+    xs := list()
+    push(xs, 1)
+    push(xs, 2)
+    m["a"] = xs
+    put(m)
+    // map 键是 str，值是 map
+    inner := map()
+    inner[1] = 10
+    n := map()
+    n["k"] = inner
+    put(n)
+}

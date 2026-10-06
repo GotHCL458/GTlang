@@ -316,6 +316,8 @@ impl<'a> Codegen<'a> {
                     let p = self.new_reg(); self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, kv)); Val::new_ptr(&kt, p)
                 } else if matches!(kt, Ty::Bool) {
                     let t = self.new_reg(); self.body.push_str(&format!("  {} = trunc i64 {} to i1\n", t, kv)); Val::new_slot(&kt, t)
+                } else if matches!(kt, Ty::F64) {
+                    let d = self.new_reg(); self.body.push_str(&format!("  {} = bitcast i64 {} to double\n", d, kv)); Val::new_slot(&kt, d)
                 } else { Val::new_slot(&kt, kv) };
                 self.emit_print_v(&ksub, &kt)?;
                 self.emit_puts_lit(": ");
@@ -326,6 +328,8 @@ impl<'a> Codegen<'a> {
                     let p = self.new_reg(); self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, vv)); Val::new_ptr(&vt, p)
                 } else if matches!(vt, Ty::Bool) {
                     let t = self.new_reg(); self.body.push_str(&format!("  {} = trunc i64 {} to i1\n", t, vv)); Val::new_slot(&vt, t)
+                } else if matches!(vt, Ty::F64) {
+                    let d = self.new_reg(); self.body.push_str(&format!("  {} = bitcast i64 {} to double\n", d, vv)); Val::new_slot(&vt, d)
                 } else { Val::new_slot(&vt, vv) };
                 self.emit_print_v(&vsub, &vt)?;
                 let nx = self.new_reg();

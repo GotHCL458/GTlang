@@ -669,7 +669,12 @@ impl FnState {
             }};
         }
         match &v.1 {
-            Ty::F64 => { let f = self.rt_ref(jit, b, "put_f64")?; b.ins().call(f, &[v.0]); }
+            Ty::F64 => {
+                let f = self.rt_ref(jit, b, "put_f64")?;
+                // v.0 可能是 i64（位模式槽）；统一转成 F64
+                let dv = if b.func.dfg.value_type(v.0) == types::F64 { v.0 } else { b.ins().bitcast(types::F64, MemFlags::new(), v.0) };
+                b.ins().call(f, &[dv]);
+            }
             Ty::Str => { let f = self.rt_ref(jit, b, "put_str")?; b.ins().call(f, &[v.0]); }
             Ty::Bool => { let f = self.rt_ref(jit, b, "put_bool")?; b.ins().call(f, &[v.0]); }
             Ty::Array(elem, n) => {
