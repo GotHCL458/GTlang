@@ -1,0 +1,12 @@
+struct Vec { x: int }
+impl Vec {
+    fn add(self, o: Vec) -> Vec { return Vec { x: self.x + o.x } }
+    fn mul(self, n: int) -> Vec { return Vec { x: self.x * n } }
+}
+fn main() {
+    a := Vec { x: 1 }
+    b := Vec { x: 2 }
+    c := Vec { x: 3 }
+    put(a + b + c)
+    put(a * 5)
+}

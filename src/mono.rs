@@ -1040,13 +1040,19 @@ fn lower_expr(
     // 运算符重载：`a + b`（a 是结构体且有 add 方法）→ `类型__add(a, b)`
     if let ExprKind::Binary(op, a, b) = &e.kind {
         if let Some(m) = crate::types::op_method(*op) {
-            if let ExprKind::Ident(v) = &a.kind {
-                if let Some(ty) = vars.get(v) {
-                    if methods.get(ty).map_or(false, |ms| ms.contains(&m.to_string())) {
-                        let lhs = (**a).clone();
-                        let rhs = (**b).clone();
-                        e.kind = ExprKind::Call(format!("{}__{}", ty, m), vec![lhs, rhs]);
-                    }
+            // a 是裸标识符时查 vars（变量名→类型名）；否则从 a.ty 取结构体名（支持链式 a+b+c）
+            let ty_name: Option<String> = match &a.kind {
+                ExprKind::Ident(v) => match vars.get(v) {
+                    Some(t) => Some(t.clone()),
+                    None => match &a.ty { Ty::Struct(n) => Some(n.clone()), _ => None },
+                },
+                _ => match &a.ty { Ty::Struct(n) => Some(n.clone()), _ => None },
+            };
+            if let Some(ty) = ty_name {
+                if methods.get(&ty).map_or(false, |ms| ms.contains(&m.to_string())) {
+                    let lhs = (**a).clone();
+                    let rhs = (**b).clone();
+                    e.kind = ExprKind::Call(format!("{}__{}", ty, m), vec![lhs, rhs]);
                 }
             }
         }
