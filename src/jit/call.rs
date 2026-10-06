@@ -827,8 +827,18 @@ impl FnState {
                 b.ins().call(pf, &[tag]);
                 put_lit!(")");
             }
-            Ty::Tuple(_) => {
+            Ty::Tuple(ts) => {
                 put_lit!("(");
+                for (i, et) in ts.iter().enumerate() {
+                    if i > 0 { put_lit!(", "); }
+                    let off = (i * 8) as i32;
+                    let ev = if matches!(et, Ty::F64) {
+                        b.ins().load(types::F64, MemFlags::new(), v.0, off)
+                    } else {
+                        b.ins().load(types::I64, MemFlags::new(), v.0, off)
+                    };
+                    self.gen_print_v(jit, b, &(ev, et.clone()))?;
+                }
                 put_lit!(")");
             }
             _ => {

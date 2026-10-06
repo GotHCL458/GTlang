@@ -391,11 +391,22 @@ impl<'a> Codegen<'a> {
                 self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, i64 {})\n", pf, tag));
                 self.emit_puts_lit(")");
             }
-            Ty::Tuple(_) => {
-                // 元组：(a, b, ...)
+            Ty::Tuple(ts) => {
+                // 元组：(a, b, ...)；堆块 [elem0, elem1, ...]，各元素 8 字节
                 self.emit_puts_lit("(");
-                // 元组元素类型未知（Ty::Tuple 无内层类型），按 i64 打印
                 let sp = self.as_ptr(v);
+                for (i, et) in ts.iter().enumerate() {
+                    if i > 0 { self.emit_puts_lit(", "); }
+                    let fp = self.new_reg();
+                    self.body.push_str(&format!("  {} = getelementptr i8, ptr {}, i64 {}\n", fp, sp, i * 8));
+                    let (ev, is_ptr_field) = match et {
+                        Ty::F64 => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load double, ptr {}\n", r, fp)); (r, false) }
+                        t if t.llvm() == "ptr" => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load ptr, ptr {}\n", r, fp)); (r, true) }
+                        _ => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n", r, fp)); (r, false) }
+                    };
+                    let sub = if is_ptr_field { Val::new_ptr(et, ev) } else { Val::new_slot(et, ev) };
+                    self.emit_print_v(&sub, et)?;
+                }
                 self.emit_puts_lit(")");
             }
             _ => {
