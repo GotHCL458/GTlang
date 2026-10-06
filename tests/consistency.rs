@@ -3685,6 +3685,28 @@ fn string_and_num_edge_matches() {
 }
 
 #[test]
+fn put_element_types_match() {
+    assert_consistent_src(
+        "put_elem_types",
+        &[
+            "fn main() {",
+            "    bs := [true, false, true]",
+            "    put(bs)",
+            "    ss := [\"a\", \"bb\", \"ccc\"]",
+            "    put(ss)",
+            "    fs := [1.5, 2.5]",
+            "    put(fs)",
+            "    em := map()",
+            "    put(em)",
+            "    big := list()",
+            "    i := 0",
+            "    while i < 5 { push(big, i)  i = i + 1 }",
+            "    put(big)",
+            "}",
+        ],
+    );
+}
+#[test]
 fn put_nested_containers_match() {
     assert_consistent_src(
         "put_nested",

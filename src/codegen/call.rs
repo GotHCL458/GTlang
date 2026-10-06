@@ -181,12 +181,18 @@ impl<'a> Codegen<'a> {
                 let n = *n;
                 for i in 0..n {
                     if i > 0 { self.emit_puts_lit(", "); }
+                    let etll = elem.llvm();
                     let ptr = self.new_reg();
-                    self.body.push_str(&format!("  {} = getelementptr inbounds [{} x i64], ptr {}, i64 0, i64 {}\n", ptr, n, v.s, i));
-                    let ev = self.new_reg();
-                    self.body.push_str(&format!("  {} = load i64, ptr {}\n", ev, ptr));
-                    let sub = Val::new_slot(elem, ev);
-                    self.emit_print_v(&sub, elem)?;
+                    self.body.push_str(&format!("  {} = getelementptr inbounds [{} x {}], ptr {}, i64 0, i64 {}\n", ptr, n, etll, v.s, i));
+                    // 元素按其 LLVM 类型加载：ptr / double / i1 / i64
+                    let (ev, ety) = match &**elem {
+                        Ty::F64 => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load double, ptr {}\n", r, ptr)); (r, Ty::F64) }
+                        Ty::Bool => { let r = self.new_reg(); let t = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n  {} = trunc i64 {} to i1\n", r, ptr, t, r)); (t, Ty::Bool) }
+                        _ if etll == "ptr" => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load ptr, ptr {}\n", r, ptr)); (r, (**elem).clone()) }
+                        _ => { let r = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n", r, ptr)); (r, (**elem).clone()) }
+                    };
+                    let sub = Val::new_slot(&ety, ev);
+                    self.emit_print_v(&sub, &ety)?;
                 }
                 self.emit_puts_lit("]");
             }
@@ -219,8 +225,16 @@ impl<'a> Codegen<'a> {
                 self.emit_label(&l_nosep);
                 let ev = self.new_reg();
                 self.body.push_str(&format!("  {} = call i64 @gt_list_at(i64 {}, i64 {})\n", ev, vslot, iv));
-                let sub = Val::new_slot(elem, ev);
-                self.emit_print_v(&sub, elem)?;
+                // list 元素以 i64 位模式存储；f64 需 bitcast 回 double
+                let (ev2, ety) = if matches!(**elem, Ty::F64) {
+                    let r = self.new_reg();
+                    self.body.push_str(&format!("  {} = bitcast i64 {} to double\n", r, ev));
+                    (r, Ty::F64)
+                } else {
+                    (ev, (**elem).clone())
+                };
+                let sub = Val::new_slot(&ety, ev2);
+                self.emit_print_v(&sub, &ety)?;
                 let nx = self.new_reg();
                 self.body.push_str(&format!("  {} = add i64 {}, 1\n", nx, iv));
                 self.body.push_str(&format!("  store i64 {}, ptr {}\n", nx, i));

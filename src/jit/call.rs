@@ -645,8 +645,15 @@ impl FnState {
                 for i in 0..*n {
                     if i > 0 { put_lit!(", "); }
                     let ptr = b.ins().iadd_imm(v.0, (i * 8) as i64);
-                    let ev = b.ins().load(types::I64, MemFlags::new(), ptr, 0);
-                    self.gen_print_v(jit, b, &(ev, (**elem).clone()))?;
+                    // 元素按其 LLVM 类型加载：ptr / double / i64
+                    let (ev, ety) = if matches!(**elem, Ty::F64) {
+                        (b.ins().load(types::F64, MemFlags::new(), ptr, 0), Ty::F64)
+                    } else if elem.llvm() == "ptr" {
+                        (b.ins().load(types::I64, MemFlags::new(), ptr, 0), (**elem).clone())
+                    } else {
+                        (b.ins().load(types::I64, MemFlags::new(), ptr, 0), (**elem).clone())
+                    };
+                    self.gen_print_v(jit, b, &(ev, ety))?;
                 }
                 put_lit!("]");
             }
@@ -678,8 +685,14 @@ impl FnState {
                 b.ins().jump(nosep, &[]);
                 b.switch_to_block(nosep);
                 let ca = b.ins().call(fa, &[v.0, iv]);
-                let ev = b.inst_results(ca)[0];
-                self.gen_print_v(jit, b, &(ev, (**elem).clone()))?;
+                let raw = b.inst_results(ca)[0];
+                // list 元素以 i64 位模式存储；f64 需 bitcast 回 double
+                let (ev, ety) = if matches!(**elem, Ty::F64) {
+                    (b.ins().bitcast(types::F64, MemFlags::new(), raw), Ty::F64)
+                } else {
+                    (raw, (**elem).clone())
+                };
+                self.gen_print_v(jit, b, &(ev, ety))?;
                 let one = b.ins().iconst(types::I64, 1);
                 let nx = b.ins().iadd(iv, one);
                 b.def_var(idx, nx);
