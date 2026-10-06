@@ -1,0 +1,7 @@
+fn main() {
+    // set 混合
+    s := set()
+    insert(s, 1)
+    insert(s, "two")
+    put(s)
+}

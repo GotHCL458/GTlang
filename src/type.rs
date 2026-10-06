@@ -578,7 +578,23 @@ fn builtin_check(name: &str, args: &[Ty]) -> Result<Ty, String> {
                 return Err(crate::te!("insert() expects 2 or 3 arguments, got {}", "insert() 需要 2 或 3 个参数，实际给了 {}", args.len()));
             }
             match &args[0] {
-                Ty::Map(..) | Ty::Set(..) | Ty::Unknown => Ok(Ty::Void),
+                Ty::Set(e) => {
+                    if !matches!(**e, Ty::Unknown) && !crate::sema::sema_const::compatible(e, &args[1]) {
+                        return Err(crate::te!("insert() element type mismatch: set of {}, got {}", "insert() 元素类型不匹配：set 元素为 {}，实际为 {}", e, args[1]));
+                    }
+                    Ok(Ty::Void)
+                }
+                Ty::Map(k, v) => {
+                    if args.len() != 3 { return Err(crate::te!("insert() on a map needs (map, key, value)", "map 上的 insert() 需要 (map, key, value)")); }
+                    if !matches!(**k, Ty::Unknown) && !crate::sema::sema_const::compatible(k, &args[1]) {
+                        return Err(crate::te!("insert() key type mismatch: map key {}, got {}", "insert() 键类型不匹配：map 键为 {}，实际为 {}", k, args[1]));
+                    }
+                    if !matches!(**v, Ty::Unknown) && !crate::sema::sema_const::compatible(v, &args[2]) {
+                        return Err(crate::te!("insert() value type mismatch: map value {}, got {}", "insert() 值类型不匹配：map 值为 {}，实际为 {}", v, args[2]));
+                    }
+                    Ok(Ty::Void)
+                }
+                Ty::Unknown => Ok(Ty::Void),
                 other => Err(crate::te!("insert() expects a map/set, found {}", "insert() 需要 map/set，实际是 {}", other)),
             }
         }
