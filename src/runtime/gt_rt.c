@@ -1197,6 +1197,10 @@ long long gt_map_key_at(GtMap *m, long long i) {
     if (!m || i < 0 || i >= m->len) return 0;
     return m->keys[i];
 }
+long long gt_map_val_at(GtMap *m, long long i) {
+    if (!m || i < 0 || i >= m->len) return 0;
+    return m->vals[i];
+}
 
 /* 字符串拼接：返回新分配的 NUL 结尾字符串 */
 
