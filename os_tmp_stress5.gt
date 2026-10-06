@@ -1,0 +1,26 @@
+fn main() {
+    s := set()
+    i := 0
+    while i < 20 {
+        insert(s, i)
+        insert(s, i)
+        i = i + 1
+    }
+    put(len(s))
+    remove(s, 5)
+    put(has(s, 5))
+    put(has(s, 6))
+    m := map()
+    j := 0
+    while j < 10 {
+        m[j] = j * j
+        j = j + 1
+    }
+    put(len(m))
+    sum := 0
+    for k in m { sum = sum + m[k] }
+    put(sum)
+    remove(m, 0)
+    put(has(m, 0))
+    put(len(m))
+}

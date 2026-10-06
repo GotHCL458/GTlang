@@ -1,0 +1,18 @@
+import string
+import math
+fn fib(n: int) -> int {
+    if n < 2 { return n }
+    return fib(n - 1) + fib(n - 2)
+}
+fn main() {
+    s := "0\n1\n4\n9\n16"
+    put(join_list("-", s))
+    put(fib(15))
+    put(sqrt(2.0))
+    m := map()
+    m["a"] = 1
+    m["b"] = 2
+    total := 0
+    for k in m { total = total + m[k] }
+    put(total)
+}

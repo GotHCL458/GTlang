@@ -1,0 +1,23 @@
+fn make_multiplier(factor: int) {
+    return |x: int| x * factor
+}
+fn apply_twice(f, x: int) -> int {
+    return f(f(x))
+}
+fn sum_list(xs: list[int]) -> int {
+    s := 0
+    for x in xs { s = s + x }
+    return s
+}
+fn main() {
+    triple := make_multiplier(3)
+    put(triple(5))
+    put(apply_twice(triple, 2))
+    xs := list()
+    i := 1
+    while i <= 10 { push(xs, i)  i = i + 1 }
+    put(sum_list(xs))
+    // 组合
+    add1 := make_multiplier(1)
+    put(apply_twice(add1, 10))
+}
