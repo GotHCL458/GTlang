@@ -1,0 +1,27 @@
+fn main() {
+    // 空容器
+    e := list()
+    put(e)
+    em := map()
+    put(em)
+    // 嵌套：list 内的 list（当前按 i64 打印，预期是句柄或展开）
+    inner := list()
+    push(inner, 1)
+    outer := list()
+    push(outer, inner)
+    put(outer)
+    // 循环里 put
+    i := 0
+    while i < 3 {
+        put(i)
+        i = i + 1
+    }
+    // 负数/大数
+    put(-42)
+    put(0)
+    // 字符串
+    put("hello")
+    // 数组求和后打印
+    a := [10, 20, 30]
+    put(a)
+}

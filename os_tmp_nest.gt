@@ -1,0 +1,7 @@
+struct Inner { a: int, b: int }
+struct Outer { p: Inner, q: int }
+fn main() {
+    inner := Inner { a: 10, b: 20 }
+    outer := Outer { p: inner, q: 30 }
+    put(outer)
+}

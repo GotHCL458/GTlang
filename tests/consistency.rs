@@ -3683,3 +3683,30 @@ fn string_and_num_edge_matches() {
         ],
     );
 }
+
+#[test]
+fn put_nested_containers_match() {
+    assert_consistent_src(
+        "put_nested",
+        &[
+            "struct Inner { a: int, b: int }",
+            "struct Outer { p: Inner, q: int }",
+            "fn main() {",
+            "    xs := list()",
+            "    ys := list()",
+            "    push(ys, 1)",
+            "    push(ys, 2)",
+            "    push(xs, ys)",
+            "    put(xs)",
+            "    inner := Inner { a: 10, b: 20 }",
+            "    outer := Outer { p: inner, q: 30 }",
+            "    put(outer)",
+            "    m := map()",
+            "    m[5] = 50",
+            "    put(m)",
+            "    empty := list()",
+            "    put(empty)",
+            "}",
+        ],
+    );
+}

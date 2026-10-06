@@ -1104,6 +1104,12 @@ pub(crate) extern "C" fn rt_map_key_at(p: i64, i: i64) -> i64 {
         m.keys[i as usize]
     }
 }
+pub(crate) extern "C" fn rt_map_val_at(p: i64, i: i64) -> i64 {
+    unsafe {
+        let m = &*(p as *const RtMap);
+        m.vals[i as usize]
+    }
+}
 fn rt_alloc_empty() -> i64 {
     let p = unsafe { libc_malloc(1) };
     unsafe { *p = 0; }

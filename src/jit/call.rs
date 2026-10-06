@@ -119,7 +119,7 @@ impl FnState {
             }
             "put" | "print" => {
                 if args.is_empty() { return Err(crate::lb!(line, "{}() requires 1 argument", "{}() 需要 1 个参数", name)); }
-                self.gen_print(jit, b, &args[0])?;
+                self.gen_print_val(jit, b, &args[0])?;
                 if name == "put" {
                     let nl = jit.data_id_of(b"\n").ok_or_else(|| "内部错误：换行符未预置".to_string())?;
                     let p = data_ptr(jit, b, nl);
@@ -614,12 +614,162 @@ impl FnState {
         b.ins().bitcast(types::I64, MemFlags::new(), x)
     }
 
-    pub(crate) fn gen_print(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, e: &Expr) -> Result<(), String> {
+
+    /// 打印一个值（求值后按类型递归格式化）。
+    pub(crate) fn gen_print_val(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, e: &Expr) -> Result<(), String> {
         let v = self.gen_expr(jit, b, e)?;
+        self.gen_print_v(jit, b, &v)
+    }
+
+    /// 打印一个已算好的值（按类型递归格式化，与 AOT 的 emit_print_v 对齐）。
+    pub(crate) fn gen_print_v(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, v: &(Value, Ty)) -> Result<(), String> {
+        // 输出一个字面量片段（动态 intern，无需预置）
+        macro_rules! put_lit {
+            ($s:expr) => {{
+                let bytes: &[u8] = $s.as_bytes();
+                let id = match jit.data_id_of(bytes) {
+                    Some(i) => i,
+                    None => jit.intern(bytes)?,
+                };
+                let fp = self.rt_ref(jit, b, "put_str")?;
+                let p = data_ptr(jit, b, id);
+                b.ins().call(fp, &[p]);
+            }};
+        }
         match &v.1 {
+            Ty::F64 => { let f = self.rt_ref(jit, b, "put_f64")?; b.ins().call(f, &[v.0]); }
+            Ty::Str => { let f = self.rt_ref(jit, b, "put_str")?; b.ins().call(f, &[v.0]); }
+            Ty::Bool => { let f = self.rt_ref(jit, b, "put_bool")?; b.ins().call(f, &[v.0]); }
+            Ty::Array(elem, n) => {
+                put_lit!("[");
+                for i in 0..*n {
+                    if i > 0 { put_lit!(", "); }
+                    let ptr = b.ins().iadd_imm(v.0, (i * 8) as i64);
+                    let ev = b.ins().load(types::I64, MemFlags::new(), ptr, 0);
+                    self.gen_print_v(jit, b, &(ev, (**elem).clone()))?;
+                }
+                put_lit!("]");
+            }
+            Ty::List(elem) | Ty::Set(elem) => {
+                let is_set = matches!(v.1, Ty::Set(_));
+                put_lit!(if is_set { "{" } else { "[" });
+                let fl = self.rt_ref(jit, b, "list_len")?;
+                let cl = b.ins().call(fl, &[v.0]);
+                let n = b.inst_results(cl)[0];
+                let fa = self.rt_ref(jit, b, "list_at")?;
+                let idx = self.new_var(b, &Ty::I64);
+                let zero = b.ins().iconst(types::I64, 0);
+                b.def_var(idx, zero);
+                let header = b.create_block();
+                let body = b.create_block();
+                let exit = b.create_block();
+                b.ins().jump(header, &[]);
+                b.switch_to_block(header);
+                let iv = b.use_var(idx);
+                let lt = b.ins().icmp(IntCC::SignedLessThan, iv, n);
+                b.ins().brif(lt, body, &[], exit, &[]);
+                b.switch_to_block(body);
+                let pos = b.ins().icmp_imm(IntCC::SignedGreaterThan, iv, 0);
+                let sep = b.create_block();
+                let nosep = b.create_block();
+                b.ins().brif(pos, sep, &[], nosep, &[]);
+                b.switch_to_block(sep);
+                put_lit!(", ");
+                b.ins().jump(nosep, &[]);
+                b.switch_to_block(nosep);
+                let ca = b.ins().call(fa, &[v.0, iv]);
+                let ev = b.inst_results(ca)[0];
+                self.gen_print_v(jit, b, &(ev, (**elem).clone()))?;
+                let one = b.ins().iconst(types::I64, 1);
+                let nx = b.ins().iadd(iv, one);
+                b.def_var(idx, nx);
+                b.ins().jump(header, &[]);
+                b.switch_to_block(exit);
+                put_lit!(if is_set { "}" } else { "]" });
+            }
+            Ty::Map(_, _) => {
+                put_lit!("{");
+                let fl = self.rt_ref(jit, b, "map_len")?;
+                let cl = b.ins().call(fl, &[v.0]);
+                let n = b.inst_results(cl)[0];
+                let fk = self.rt_ref(jit, b, "map_key_at")?;
+                let fv = self.rt_ref(jit, b, "map_val_at")?;
+                let idx = self.new_var(b, &Ty::I64);
+                let zero = b.ins().iconst(types::I64, 0);
+                b.def_var(idx, zero);
+                let header = b.create_block();
+                let body = b.create_block();
+                let exit = b.create_block();
+                b.ins().jump(header, &[]);
+                b.switch_to_block(header);
+                let iv = b.use_var(idx);
+                let lt = b.ins().icmp(IntCC::SignedLessThan, iv, n);
+                b.ins().brif(lt, body, &[], exit, &[]);
+                b.switch_to_block(body);
+                let pos = b.ins().icmp_imm(IntCC::SignedGreaterThan, iv, 0);
+                let sep = b.create_block();
+                let nosep = b.create_block();
+                b.ins().brif(pos, sep, &[], nosep, &[]);
+                b.switch_to_block(sep);
+                put_lit!(", ");
+                b.ins().jump(nosep, &[]);
+                b.switch_to_block(nosep);
+                let ck = b.ins().call(fk, &[v.0, iv]);
+                let kv = b.inst_results(ck)[0];
+                let fpi = self.rt_ref(jit, b, "put_i64")?;
+                b.ins().call(fpi, &[kv]);
+                put_lit!(": ");
+                let cv = b.ins().call(fv, &[v.0, iv]);
+                let vv = b.inst_results(cv)[0];
+                b.ins().call(fpi, &[vv]);
+                let one = b.ins().iconst(types::I64, 1);
+                let nx = b.ins().iadd(iv, one);
+                b.def_var(idx, nx);
+                b.ins().jump(header, &[]);
+                b.switch_to_block(exit);
+                put_lit!("}");
+            }
+            Ty::Struct(sname) => {
+                // `Name { f: v, ... }`（字段名+类型来自 jit.structs，偏移 i*8）
+                let fields: Vec<(String, Ty)> = jit.structs.get(sname).cloned().unwrap_or_default();
+                let hdr = format!("{} {{", sname);
+                put_lit!(&hdr);
+                for (i, (fname, fty)) in fields.iter().enumerate() {
+                    if i > 0 { put_lit!(", "); }
+                    let lbl = format!("{}: ", fname);
+                    put_lit!(&lbl);
+                    let ptr = b.ins().iadd_imm(v.0, (i * 8) as i64);
+                    let fv = b.ins().load(types::I64, MemFlags::new(), ptr, 0);
+                    self.gen_print_v(jit, b, &(fv, fty.clone()))?;
+                }
+                put_lit!("}");
+            }
+            Ty::Option(_) => {
+                // `Some(v)` / `None`：tag 0=Some
+                let tag = b.ins().load(types::I64, MemFlags::new(), v.0, 0);
+                let isz = b.ins().icmp_imm(IntCC::Equal, tag, 0);
+                let ls = b.create_block();
+                let ln = b.create_block();
+                let lend = b.create_block();
+                b.ins().brif(isz, ls, &[], ln, &[]);
+                b.switch_to_block(ls);
+                put_lit!("Some(");
+                let pv = b.ins().load(types::I64, MemFlags::new(), v.0, 8);
+                let pf = self.rt_ref(jit, b, "put_i64")?;
+                b.ins().call(pf, &[pv]);
+                put_lit!(")");
+                b.ins().jump(lend, &[]);
+                b.switch_to_block(ln);
+                put_lit!("None");
+                b.ins().jump(lend, &[]);
+                b.switch_to_block(lend);
+            }
+            Ty::Result(..) | Ty::Enum(_) | Ty::Tuple(_) => {
+                let f = self.rt_ref(jit, b, "put_i64")?;
+                b.ins().call(f, &[v.0]);
+            }
             _ => {
-                let key = match v.1 { Ty::Str => "put_str", Ty::F64 => "put_f64", Ty::Bool => "put_bool", _ => "put_i64" };
-                let f = self.rt_ref(jit, b, key)?;
+                let f = self.rt_ref(jit, b, "put_i64")?;
                 b.ins().call(f, &[v.0]);
             }
         }

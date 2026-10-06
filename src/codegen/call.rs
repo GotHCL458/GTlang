@@ -73,8 +73,8 @@ impl<'a> Codegen<'a> {
             Ty::I64 => v.s.clone(),
             Ty::Bool => { let r = self.new_reg(); self.body.push_str(&format!("  {} = zext i1 {} to i64\n", r, v.s)); r }
             Ty::F64 => { let r = self.new_reg(); self.body.push_str(&format!("  {} = fptosi double {} to i64\n", r, v.s)); r }
-            // ptr 类类型（容器/字符串/结构体/枚举）：ptrtoint 成 i64
-            _ if v.ty.llvm() == "ptr" || v.is_ptr => {
+            // 值是 LLVM ptr 时做 ptrtoint；已是 i64（slot）则原样返回
+            _ if v.is_ptr => {
                 let r = self.new_reg();
                 self.body.push_str(&format!("  {} = ptrtoint ptr {} to i64\n", r, v.s));
                 r
@@ -149,11 +149,24 @@ impl<'a> Codegen<'a> {
         Ok(())
     }
 
-    /// 打印一个值（按类型递归格式化）。
+    /// 打印一个表达式（求值后按类型递归格式化）。
     pub(crate) fn emit_print_val(&mut self, e: &Expr) -> Result<(), String> {
-        self.declare("declare i32 @gt_printf(ptr, ...)");
         let v = self.expr(e)?;
-        match &v.ty {
+        let ty = v.ty.clone();
+        self.emit_print_v(&v, &ty)
+    }
+
+    /// 打印一个字面量字符串片段。
+    fn emit_puts_lit(&mut self, s: &str) {
+        let g = self.intern(s.as_bytes());
+        self.declare("declare i32 @gt_printf(ptr, ...)");
+        self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", g));
+    }
+
+    /// 按类型打印一个已算好的值（支持递归：容器元素按其 `Ty` 分派）。
+    pub(crate) fn emit_print_v(&mut self, v: &Val, ty: &Ty) -> Result<(), String> {
+        self.declare("declare i32 @gt_printf(ptr, ...)");
+        match ty {
             Ty::F64 => { let f = self.intern(b"%g"); self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, double {})\n", f, v.s)); }
             Ty::Str => { let f = self.intern(b"%s"); self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, ptr {})\n", f, v.s)); }
             Ty::Bool => {
@@ -164,37 +177,27 @@ impl<'a> Codegen<'a> {
                 self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, ptr {})\n", f, r));
             }
             Ty::Array(elem, n) => {
-                // 定长数组：`[a, b, c]`（长度 n 编译期已知）
-                let open = self.intern(b"[");
-                let close = self.intern(b"]");
-                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", open));
-                let _ = elem;
+                self.emit_puts_lit("[");
                 let n = *n;
                 for i in 0..n {
-                    if i > 0 {
-                        let comma = self.intern(b", ");
-                        self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", comma));
-                    }
+                    if i > 0 { self.emit_puts_lit(", "); }
                     let ptr = self.new_reg();
                     self.body.push_str(&format!("  {} = getelementptr inbounds [{} x i64], ptr {}, i64 0, i64 {}\n", ptr, n, v.s, i));
                     let ev = self.new_reg();
                     self.body.push_str(&format!("  {} = load i64, ptr {}\n", ev, ptr));
-                    let f = self.intern(b"%lld");
-                    self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, i64 {})\n", f, ev));
+                    let sub = Val::new_slot(elem, ev);
+                    self.emit_print_v(&sub, elem)?;
                 }
-                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", close));
+                self.emit_puts_lit("]");
             }
             Ty::List(elem) | Ty::Set(elem) => {
-                // `[a, b, c]` 或 `{a, b, c}`
-                let open = if matches!(v.ty, Ty::Set(_)) { self.intern(b"{") } else { self.intern(b"[") };
-                let close = if matches!(v.ty, Ty::Set(_)) { self.intern(b"}") } else { self.intern(b"]") };
-                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", open));
+                let is_set = matches!(ty, Ty::Set(_));
+                self.emit_puts_lit(if is_set { "{" } else { "[" });
                 self.declare("declare i64 @gt_list_len(i64)");
                 self.declare("declare i64 @gt_list_at(i64, i64)");
-                let vslot = self.as_i64(&v);   // 容器句柄（i64 slot）
+                let vslot = self.as_i64(v);
                 let n = self.new_reg();
                 self.body.push_str(&format!("  {} = call i64 @gt_list_len(i64 {})\n", n, vslot));
-                let _ = elem;
                 let i = self.new_alloca(&Ty::I64);
                 self.body.push_str(&format!("  store i64 0, ptr {}\n", i));
                 let lt = self.new_label(); let le = self.new_label(); let lc = self.new_label();
@@ -206,62 +209,47 @@ impl<'a> Codegen<'a> {
                 self.body.push_str(&format!("  {} = icmp slt i64 {}, {}\n", cnd, iv, n));
                 self.body.push_str(&format!("  br i1 {}, label %{}, label %{}\n", cnd, lc, le));
                 self.emit_label(&lc);
-                // 逗号分隔（i > 0）
                 let pos = self.new_reg();
                 self.body.push_str(&format!("  {} = icmp sgt i64 {}, 0\n", pos, iv));
                 let l_sep = self.new_label(); let l_nosep = self.new_label();
                 self.body.push_str(&format!("  br i1 {}, label %{}, label %{}\n", pos, l_sep, l_nosep));
                 self.emit_label(&l_sep);
-                let comma = self.intern(b", ");
-                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", comma));
+                self.emit_puts_lit(", ");
                 self.body.push_str(&format!("  br label %{}\n", l_nosep));
                 self.emit_label(&l_nosep);
-                // 取元素（当作 i64 打印；嵌套容器暂按 i64）
                 let ev = self.new_reg();
                 self.body.push_str(&format!("  {} = call i64 @gt_list_at(i64 {}, i64 {})\n", ev, vslot, iv));
-                let f2 = self.intern(b"%lld");
-                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, i64 {})\n", f2, ev));
+                let sub = Val::new_slot(elem, ev);
+                self.emit_print_v(&sub, elem)?;
                 let nx = self.new_reg();
                 self.body.push_str(&format!("  {} = add i64 {}, 1\n", nx, iv));
                 self.body.push_str(&format!("  store i64 {}, ptr {}\n", nx, i));
                 self.body.push_str(&format!("  br label %{}\n", lt));
                 self.emit_label(&le);
-                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", close));
+                self.emit_puts_lit(if is_set { "}" } else { "]" });
             }
             Ty::Struct(sname) => {
-                // `Name { f: v, ... }`（编译期字段名 + 偏移）
                 let fields = self.structs.get(sname).cloned().unwrap_or_default();
-                let pre = self.intern(format!("{} {{", sname).as_bytes());
-                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", pre));
-                let sp = self.as_ptr(&v);
+                self.emit_puts_lit(&format!("{} {{", sname));
+                let sp = self.as_ptr(v);
                 for (i, (fname, fty)) in fields.iter().enumerate() {
-                    if i > 0 {
-                        let comma = self.intern(b", ");
-                        self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", comma));
-                    }
-                    let label = self.intern(format!("{}: ", fname).as_bytes());
-                    self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", label));
-                    // 字段 i 在 offset i*8
+                    if i > 0 { self.emit_puts_lit(", "); }
+                    self.emit_puts_lit(&format!("{}: ", fname));
                     let fp = self.new_reg();
                     self.body.push_str(&format!("  {} = getelementptr i8, ptr {}, i64 {}\n", fp, sp, i * 8));
                     let fv = self.new_reg();
                     self.body.push_str(&format!("  {} = load i64, ptr {}\n", fv, fp));
-                    let _ = fty;
-                    let ffmt = self.intern(b"%lld");
-                    self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, i64 {})\n", ffmt, fv));
+                    let sub = Val::new_slot(fty, fv);
+                    self.emit_print_v(&sub, fty)?;
                 }
-                let close = self.intern(b"}");
-                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", close));
+                self.emit_puts_lit("}");
             }
             Ty::Map(_, _) => {
-                // `{k: v, k2: v2}`
-                let open = self.intern(b"{");
-                let close = self.intern(b"}");
-                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", open));
+                self.emit_puts_lit("{");
                 self.declare("declare i64 @gt_map_len(i64)");
                 self.declare("declare i64 @gt_map_key_at(i64, i64)");
                 self.declare("declare i64 @gt_map_val_at(i64, i64)");
-                let vslot = self.as_i64(&v);
+                let vslot = self.as_i64(v);
                 let n = self.new_reg();
                 self.body.push_str(&format!("  {} = call i64 @gt_map_len(i64 {})\n", n, vslot));
                 let i = self.new_alloca(&Ty::I64);
@@ -280,8 +268,7 @@ impl<'a> Codegen<'a> {
                 let l_sep = self.new_label(); let l_nosep = self.new_label();
                 self.body.push_str(&format!("  br i1 {}, label %{}, label %{}\n", pos, l_sep, l_nosep));
                 self.emit_label(&l_sep);
-                let comma = self.intern(b", ");
-                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", comma));
+                self.emit_puts_lit(", ");
                 self.body.push_str(&format!("  br label %{}\n", l_nosep));
                 self.emit_label(&l_nosep);
                 let kv = self.new_reg();
@@ -297,41 +284,36 @@ impl<'a> Codegen<'a> {
                 self.body.push_str(&format!("  store i64 {}, ptr {}\n", nx, i));
                 self.body.push_str(&format!("  br label %{}\n", lt));
                 self.emit_label(&le);
-                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", close));
+                self.emit_puts_lit("}");
             }
-            Ty::Option(inner) => {
-                // `Some(v)` / `None`：tag 0=Some
-                let _ = inner;
-                let some_l = self.intern(b"Some(");
-                let none_l = self.intern(b"None");
-                let rp = self.intern(b")");
+            Ty::Option(_) => {
+                let sp = self.as_ptr(v);
                 let tag = self.new_reg();
-                self.body.push_str(&format!("  {} = load i64, ptr {}\n", tag, v.s));
+                self.body.push_str(&format!("  {} = load i64, ptr {}\n", tag, sp));
                 let isz = self.new_reg();
                 self.body.push_str(&format!("  {} = icmp eq i64 {}, 0\n", isz, tag));
                 let ls = self.new_label(); let ln = self.new_label(); let lend = self.new_label();
                 self.body.push_str(&format!("  br i1 {}, label %{}, label %{}\n", isz, ls, ln));
                 self.emit_label(&ls);
-                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", some_l));
+                self.emit_puts_lit("Some(");
                 let pv = self.new_reg();
-                self.body.push_str(&format!("  {} = getelementptr i64, ptr {}, i64 1\n", pv, v.s));
+                self.body.push_str(&format!("  {} = getelementptr i64, ptr {}, i64 1\n", pv, sp));
                 let pvv = self.new_reg();
                 self.body.push_str(&format!("  {} = load i64, ptr {}\n", pvv, pv));
                 let pf = self.intern(b"%lld");
                 self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, i64 {})\n", pf, pvv));
-                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", rp));
+                self.emit_puts_lit(")");
                 self.body.push_str(&format!("  br label %{}\n", lend));
                 self.emit_label(&ln);
-                self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {})\n", none_l));
+                self.emit_puts_lit("None");
                 self.body.push_str(&format!("  br label %{}\n", lend));
                 self.emit_label(&lend);
             }
-            Ty::Result(..) | Ty::Enum(_) | Ty::Tuple(_) => {
-                let iv = self.as_i64(&v);
+            _ => {
+                let iv = self.as_i64(v);
                 let f = self.intern(b"%lld");
                 self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, i64 {})\n", f, iv));
             }
-            _ => { let iv = self.as_i64(&v); let f = self.intern(b"%lld"); self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, i64 {})\n", f, iv)); }
         }
         Ok(())
     }
@@ -494,4 +476,5 @@ impl<'a> Codegen<'a> {
         Ok(Val::new(&e.ty.clone(), base))
     }
 }
+
 
