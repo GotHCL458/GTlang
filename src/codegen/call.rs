@@ -225,20 +225,27 @@ impl<'a> Codegen<'a> {
                 self.emit_label(&l_nosep);
                 let ev = self.new_reg();
                 self.body.push_str(&format!("  {} = call i64 @gt_list_at(i64 {}, i64 {})\n", ev, vslot, iv));
-                // list 元素以 i64 位模式存储；f64 需 bitcast 回 double，bool 需 trunc 到 i1
-                let (ev2, ety) = if matches!(**elem, Ty::F64) {
+                // list 元素以 i64 位模式存储；按 elem 类型还原
+                let et_llvm = elem.llvm();
+                if matches!(**elem, Ty::F64) {
                     let r = self.new_reg();
                     self.body.push_str(&format!("  {} = bitcast i64 {} to double\n", r, ev));
-                    (r, Ty::F64)
+                    let sub = Val::new_slot(&Ty::F64, r);
+                    self.emit_print_v(&sub, &Ty::F64)?;
                 } else if matches!(**elem, Ty::Bool) {
                     let r = self.new_reg();
                     self.body.push_str(&format!("  {} = trunc i64 {} to i1\n", r, ev));
-                    (r, Ty::Bool)
+                    let sub = Val::new_slot(&Ty::Bool, r);
+                    self.emit_print_v(&sub, &Ty::Bool)?;
+                } else if et_llvm == "ptr" {
+                    let r = self.new_reg();
+                    self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", r, ev));
+                    let sub = Val::new_ptr(elem, r);
+                    self.emit_print_v(&sub, elem)?;
                 } else {
-                    (ev, (**elem).clone())
-                };
-                let sub = Val::new_slot(&ety, ev2);
-                self.emit_print_v(&sub, &ety)?;
+                    let sub = Val::new_slot(elem, ev);
+                    self.emit_print_v(&sub, elem)?;
+                }
                 let nx = self.new_reg();
                 self.body.push_str(&format!("  {} = add i64 {}, 1\n", nx, iv));
                 self.body.push_str(&format!("  store i64 {}, ptr {}\n", nx, i));

@@ -1,0 +1,7 @@
+struct P { x: int }
+fn main() {
+    xs := list()
+    push(xs, 1)
+    t := (42, "hi", 3.14, true, P { x: 1 }, xs)
+    put(t)
+}
