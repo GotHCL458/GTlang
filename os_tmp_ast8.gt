@@ -1,0 +1,12 @@
+import ast
+fn main() {
+    a := ast_lit_int(3)
+    put("a ok")
+    b := ast_lit_int(4)
+    put("b ok")
+    c := ast_binary(43, a, b)
+    put("c ok")
+    put(ast_dump(c))
+    ast_free(c)
+    put("done")
+}

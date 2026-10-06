@@ -77,8 +77,8 @@ GT_API int64_t gto_ast_lit_str(const char *s){ GtAst*n=ast_new(GT_NODE_LIT,0); n
 GT_API int64_t gto_ast_lit_char(int64_t ch){ GtAst*n=ast_new(GT_NODE_LIT,0); n->tag=3; n->ival=ch; return (int64_t)(void*)n; }
 GT_API int64_t gto_ast_lit_bool(int64_t v){ GtAst*n=ast_new(GT_NODE_LIT,0); n->tag=4; n->ival=v; return (int64_t)(void*)n; }
 GT_API int64_t gto_ast_id(const char *name){ GtAst*n=ast_new(GT_NODE_ID,0); n->name=gt_dup(name); return (int64_t)(void*)n; }
-GT_API int64_t gto_ast_binary(int op, int64_t l, int64_t r){ GtAst*n=ast_new(GT_NODE_BINARY,0); n->tag=op; n->a=(GtAst*)(void*)l; n->b=(GtAst*)(void*)r; return (int64_t)(void*)n; }
-GT_API int64_t gto_ast_unary(int op, int64_t v){ GtAst*n=ast_new(GT_NODE_UNARY,0); n->tag=op; n->a=(GtAst*)(void*)v; return (int64_t)(void*)n; }
+GT_API int64_t gto_ast_binary(int64_t op, int64_t l, int64_t r){ GtAst*n=ast_new(GT_NODE_BINARY,0); n->tag=(int)op; n->a=(GtAst*)(void*)l; n->b=(GtAst*)(void*)r; return (int64_t)(void*)n; }
+GT_API int64_t gto_ast_unary(int64_t op, int64_t v){ GtAst*n=ast_new(GT_NODE_UNARY,0); n->tag=(int)op; n->a=(GtAst*)(void*)v; return (int64_t)(void*)n; }
 GT_API int64_t gto_ast_call(int64_t callee, int64_t arg0){
     GtAst*n=ast_new(GT_NODE_CALL,0);
     n->a=(GtAst*)(void*)callee;

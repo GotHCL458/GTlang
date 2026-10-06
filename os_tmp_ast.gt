@@ -1,0 +1,6 @@
+import ast
+fn main() {
+    n := ast_lit_int(42)
+    put(ast_dump(n))
+    ast_free(n)
+}

@@ -1,0 +1,11 @@
+import ast
+fn main() {
+    a := ast_lit_int(3)
+    b := ast_lit_int(4)
+    c := ast_binary(43, a, b)
+    put("made")
+    put(ast_dump(c))
+    ast_free(a)
+    ast_free(b)
+    ast_free(c)
+}

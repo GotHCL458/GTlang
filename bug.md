@@ -370,9 +370,16 @@
 - **验证**：`42.show()`→`int(42)`、`"hi".show()`→`str(hi)`，双端一致。
 - **未覆盖**：泛型 blanket impl（`impl[T] Show for T`）仍报 "missing method"（见待办）。
 
+### 70. `fily`（finally）在 `return` 时不执行
+
+- **现象**：`fn f(x:int)->int { try { return g(x) } expt e { return -1 } fily { put("finally") } }` 不打印 `finally`（JIT/AOT 都错）。且 sema 先报"函数缺返回值"。
+- **根因**：1) `sema.rs` 的 `block_yields`/`infer_block_ret` 未识别 `Stmt::Try`（`try` 内的 `return` 不算返回值路径）；2) codegen/JIT 的 `fily` 只挂在 try 的 `l_end` 块，而 `return` 直接 `ret`，`l_end` 无前驱 → `fily` 被优化掉。
+- **修复**：1) `block_yields`/`infer_block_ret` 增加 `Try`（body/catches 递归）；2) codegen/JIT 各加 `fily_stack`：进入 try body / catch body 时 push `fin`，`return` 时逆序执行栈内所有 `fily`。
+- **验证**：`f(5)`→finally/10，`f(-1)`→caught: neg/finally/-1，双端一致。
+
 ## 统计（第二轮）
 
-- 真实缺陷修复：**16 个**（累计 **69 个**）
+- 真实缺陷修复：**17 个**（累计 **70 个**）
 - 测试：**825 → 827**（单元 143、前端批量 522、双后端一致性 160→166）
 - 验证方式：对同一 `.gt` 分别跑 `gtc --run`（JIT）与 `gtc --c`（AOT 产物），断言 stdout **逐字节一致**
 - 覆盖：全类型 `put`、嵌套容器、全部语法糖/匹配、全部标准库模块、所有权/借用、高阶函数/闭包、运算符重载、泛型、CLI、大数/浮点/递归/位运算/短路/循环控制，以及综合场景（学生管理、栈式求值器、矩阵、单词计数、斐波那契记忆化、LRU 缓存、优先队列）

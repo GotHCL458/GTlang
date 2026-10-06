@@ -77,6 +77,9 @@ for %%F in ("%ROOT%src\gtlib\*.c") do (
     "%GTC_CLANG%" -c -O2 -o "!COBJ!" "!CFILE!"
     if errorlevel 1 ( echo [ERROR] gtlib !MOD! ^(c^) compile failed. & exit /b 1 )
     "%GTC_CLANG%" -shared -O2 -o "%STDOUT%\!MOD!.dll" "!COBJ!"
+    if errorlevel 1 ( echo [ERROR] gtlib !MOD! ^(c^) dll failed. & exit /b 1 )
+    REM 静态库（供 AOT 独立链接；与 Rust 模块的 _static.lib 对齐）
+    if exist "%LLD_LINK%" "%LLD_LINK%" /lib /out:"%STDOUT%\!MOD!_static.lib" "!COBJ!" >nul 2>nul
     del /q "!COBJ!" 2>nul
 )
 
@@ -131,3 +134,4 @@ if exist "%LLD_LINK%" "%LLD_LINK%" /lib /out:"%RES%\lib\gt_rt.lib" "%RES%\runtim
 echo.
 echo [OK] Build complete.
 echo      res : %RES%\
+
