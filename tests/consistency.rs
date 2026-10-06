@@ -3685,6 +3685,33 @@ fn string_and_num_edge_matches() {
 }
 
 #[test]
+fn nested_destructure_guard_match() {
+    assert_consistent_src(
+        "nested_destructure_guard",
+        &[
+            "fn f(n: int) -> Option[Result[int, str]] {",
+            "    if n < -10 { return None }",
+            "    if n < 0 { return Some(Err(\"neg\")) }",
+            "    return Some(Ok(n))",
+            "}",
+            "fn describe(o: Option[Result[int, str]]) -> str {",
+            "    match o {",
+            "        Some(Ok(v)) if v > 0 => { return \"pos-ok\" }",
+            "        Some(Ok(v)) => { return \"zero-ok\" }",
+            "        Some(Err(e)) => { return \"err:\" + e }",
+            "        None => { return \"none\" }",
+            "    }",
+            "}",
+            "fn main() {",
+            "    put(describe(f(5)))",
+            "    put(describe(f(0)))",
+            "    put(describe(f(-1)))",
+            "    put(describe(f(-20)))",
+            "}",
+        ],
+    );
+}
+#[test]
 fn put_container_of_structs_match() {
     assert_consistent_src(
         "put_cont_structs",
