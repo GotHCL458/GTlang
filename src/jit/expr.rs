@@ -77,6 +77,20 @@ impl FnState {
                         }
                         StrPart::Expr(inner) => {
                             let v = self.gen_expr(jit, b, inner)?;
+                            // 结构体：优先调 to_str（@derive(Debug) 生成）
+                            if let Ty::Struct(sname) = &v.1 {
+                                let m = format!("{}__to_str", sname);
+                                if let Some(info) = jit.fns.get(&m) {
+                                    let fid = info.fid;
+                                    let fref = jit.module.declare_func_in_func(fid, b.func);
+                                    let arg = self.convert(b, &v, &Ty::I64);
+                                    let call = b.ins().call(fref, &[arg]);
+                                    let sv = b.inst_results(call)[0];
+                                    let f = self.rt_ref(jit, b, "sb_push_str")?;
+                                    b.ins().call(f, &[h, sv]);
+                                    continue;
+                                }
+                            }
                             let key = match v.1 { Ty::F64 => "sb_push_f64", Ty::Str => "sb_push_str", Ty::Bool => "sb_push_bool", _ => "sb_push_i64" };
                             let f = self.rt_ref(jit, b, key)?;
                             b.ins().call(f, &[h, v.0]);
