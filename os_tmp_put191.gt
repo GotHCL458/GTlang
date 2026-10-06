@@ -1,9 +1,0 @@
-import string
-fn main() {
-    put(capitalize("hello"))
-    put(title("hello world"))
-    put(zfill("5", 3))
-    put(strip("  x  ", " "))
-    put(index("hello", "ll"))
-    put(replace_all("aXbXc", "X", "-"))
-}
