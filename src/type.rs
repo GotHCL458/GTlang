@@ -777,10 +777,10 @@ mod tests {
         assert_eq!(builtin_ret("int", &[Ty::Str]).unwrap().unwrap(), Ty::I64);
         assert_eq!(builtin_ret("f64", &[Ty::I64]).unwrap().unwrap(), Ty::F64);
         assert_eq!(builtin_ret("bool", &[Ty::F64]).unwrap().unwrap(), Ty::Bool);
-        // 数组不可转换、不可打印
+        // 数组不可转换；但可打印（完整 put 支持容器）
         let arr = Ty::Array(Box::new(Ty::I64), 2);
         assert!(builtin_ret("int", &[arr.clone()]).unwrap().is_err());
-        assert!(builtin_ret("put", &[arr]).unwrap().is_err());
+        assert!(builtin_ret("put", &[arr]).unwrap().is_ok());
         // 用户函数名不在内置表里
         assert!(builtin_ret("my_fn", &[Ty::I64]).is_none());
     }
@@ -882,6 +882,11 @@ mod tests {
         assert!(is_printable(&Ty::Bool));
         assert!(is_printable(&Ty::Str));
         assert!(is_printable(&Ty::Unknown));
+        // 完整 put：容器/结构体/枚举也可打印
+        assert!(is_printable(&Ty::Array(Box::new(Ty::I64), 2)));
+        assert!(is_printable(&Ty::List(Box::new(Ty::I64))));
+        assert!(is_printable(&Ty::Map(Box::new(Ty::I64), Box::new(Ty::I64))));
+        assert!(!is_printable(&Ty::Void));
     }
 
     #[test]
