@@ -535,7 +535,21 @@ fn builtin_check(name: &str, args: &[Ty]) -> Result<Ty, String> {
         "push" | "append" => {
             arity(2)?;
             match &args[0] {
-                Ty::List(_) | Ty::Unknown => Ok(Ty::Void),
+                Ty::List(elem) => {
+                    // 元素类型已知（非 Unknown）时，第二参数须兼容
+                    if !matches!(**elem, Ty::Unknown) {
+                        let e = (**elem).clone();
+                        let v = &args[1];
+                        if !crate::sema::sema_const::compatible(&e, v) {
+                            return Err(crate::te!(
+                                "{}() element type mismatch: list of {}, got {}",
+                                "{}() 元素类型不匹配：list 元素为 {}，实际为 {}", name, e, v
+                            ));
+                        }
+                    }
+                    Ok(Ty::Void)
+                }
+                Ty::Unknown => Ok(Ty::Void),
                 other => Err(crate::te!("{}() expects a list, found {}", "{}() 需要 list，实际是 {}", name, other)),
             }
         }

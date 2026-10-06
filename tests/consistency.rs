@@ -3685,6 +3685,29 @@ fn string_and_num_edge_matches() {
 }
 
 #[test]
+fn put_deep_nesting_match() {
+    assert_consistent_src(
+        "put_deep",
+        &[
+            "struct A { v: int }",
+            "struct B { a: A, b: A }",
+            "struct C { b: B, tag: str }",
+            "fn main() {",
+            "    c := C { b: B { a: A { v: 1 }, b: A { v: 2 } }, tag: \"deep\" }",
+            "    put(c)",
+            "    ps := list()",
+            "    push(ps, A { v: 10 })",
+            "    push(ps, A { v: 20 })",
+            "    put(ps)",
+            "    m := map()",
+            "    m[1] = 100",
+            "    m[2] = 200",
+            "    put(m)",
+            "}",
+        ],
+    );
+}
+#[test]
 fn put_enum_result_match() {
     assert_consistent_src(
         "put_enum_result",

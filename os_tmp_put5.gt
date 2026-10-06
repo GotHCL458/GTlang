@@ -1,0 +1,20 @@
+struct P { x: int, y: int }
+fn make(n: int) -> P { return P { x: n, y: n * 2 } }
+fn main() {
+    // 函数返回结构体
+    put(make(5))
+    // 循环里构造
+    i := 0
+    while i < 3 {
+        p := P { x: i, y: i + 1 }
+        put(p)
+        i = i + 1
+    }
+    // 条件表达式
+    a := if true { [1, 2] } else { [3, 4] }
+    put(a)
+    // 方法调用结果
+    xs := list()
+    push(xs, 9)
+    put(xs)
+}

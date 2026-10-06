@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use crate::ast::*;
 
 #[path = "sema_const.rs"]
-mod sema_const;
+pub(crate) mod sema_const;
 #[path = "sema_infer.rs"]
 mod sema_infer;
 #[path = "sema_match.rs"]
