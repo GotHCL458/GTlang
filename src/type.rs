@@ -268,6 +268,9 @@ pub fn unary_result(op: UnOp, t: &Ty) -> Result<Ty, String> {
         UnOp::Neg => {
             if t.is_num() {
                 Ok(t.clone())
+            } else if matches!(t, Ty::Struct(_)) {
+                // 一元运算符重载：-Vec → Vec__neg(Vec)，结果仍为该结构体
+                Ok(t.clone())
             } else if *t == Ty::Unknown {
                 Ok(Ty::I64)
             } else {
