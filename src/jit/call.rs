@@ -975,6 +975,7 @@ pub(crate) fn collect_strs_block(b: &[Stmt], out: &mut Vec<Vec<u8>>) {
                 if let Some(f) = fin { collect_strs_block(f, out); }
             }
             Stmt::Go { args, .. } => for a in args { collect_strs(a, out); },
+            Stmt::Defer(e, _) => collect_strs(e, out),
             Stmt::LocalFn(_) => {}
             _ => {}
         }

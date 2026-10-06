@@ -1,0 +1,10 @@
+fn f() -> int {
+    defer put("a")
+    i := 0
+    while i < 2 {
+        defer put(i)
+        i = i + 1
+    }
+    return 99
+}
+fn main() { put(f()) }

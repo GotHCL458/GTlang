@@ -1,0 +1,6 @@
+fn f() {
+    defer put("d1")
+    defer put("d2")
+    put("body")
+}
+fn main() { f() }
