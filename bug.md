@@ -430,6 +430,7 @@
 - **注释里的 `\n`**：`// ... \n ...` 会在 `\n` 处被当作换行，注释提前结束、后续文本被当代码；注释里避免写反斜杠转义。
 - **同名方法（重载）/ 重复顶层函数**：`--check` 通过，codegen 报内部错误（Duplicate definition of identifier）；建议前端加"重复定义"诊断。
 - **`map` 的 enum 键**：按指针（句柄）比较，非内容（与 struct 键同）。
+- **无标注 `map()` 的 `str` 键**：`m := map(); m[k] = v`（k 为 str）——因 `map()` 的键类型在构造处未知（`Unknown`），`key_str` 标记为 0，动态 str 键仍按指针；**显式标注 `let mut m: map[str, int] = map()` 后正常**。
 - **`@derive(Eq)` 对 enum 不生成 `eq`**（仅生成 `to_str` 的 Debug）；enum 的 `==` 靠 codegen 的 tag 比较。
 
 ### 73. 泛型 struct 多实例区分（Pair[i64,str] vs Pair[str,i64]）
