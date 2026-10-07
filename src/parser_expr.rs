@@ -46,7 +46,8 @@ impl Parser {
             if self.at_punct("??") && min_prec == 0 {
                 let line = self.line();
                 self.bump();
-                let fallback = self.expr(1)?;
+                // 右结合：a ?? b ?? c 解析为 a ?? (b ?? c)（避免左结合时内层 ?? 的 arm 类型不一致）
+                let fallback = self.expr(0)?;
                 let v = format!("__qq_v{}", line);
                 let vexpr = || Expr::new(ExprKind::Ident(v.clone()), line);
                 let some_pat = Expr::new(ExprKind::Call("Some".to_string(), vec![vexpr()]), line);
