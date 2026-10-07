@@ -424,6 +424,7 @@
 - **`go` 的 callee 只接函数名**：`go f(5)`（f 是闭包变量）报 undefined function；用顶层函数名 `go 顶层名(args)`。
 - **`list(容器/str)`**：`list("abc")`、`list([1,2,3])` 均返回空 list（多余参数被忽略），不报错也不转换；用 `for` 循环或 `split_str`。
 - **字符串重复**：`"ab" * 3` 报"需数值"，且 string 库无 `repeat`；用循环拼接或 `str_builder`。
+- **`str + 非str`**：`"n=" + 5` 报"需数值"；用 `str(5)` 或插值 `"n=$n"`（`$n` 自动转字符串）。
 - **同名方法（重载）/ 重复顶层函数**：`--check` 通过，codegen 报内部错误（Duplicate definition of identifier）；建议前端加"重复定义"诊断。
 - **`map` 的 enum 键**：按指针（句柄）比较，非内容（与 struct 键同）。
 - **`@derive(Eq)` 对 enum 不生成 `eq`**（仅生成 `to_str` 的 Debug）；enum 的 `==` 靠 codegen 的 tag 比较。
