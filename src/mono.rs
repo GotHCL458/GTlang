@@ -472,13 +472,15 @@ fn rewrite_struct_lits(b: &mut Block, map: &HashMap<String, (Vec<String>, Vec<Ve
 fn rewrite_struct_lit_expr(e: &mut Expr, map: &HashMap<String, (Vec<String>, Vec<Vec<Ty>>)>) {
     if let ExprKind::StructLit(name, fields) = &mut e.kind {
         if let Some((insts, tys_list)) = map.get(name) {
-            let mut sel = insts.first().cloned();
-            // 用实例的类型编码与字面量字段类型编码前缀匹配
-            let ftys: Vec<Ty> = fields.iter().filter_map(|(_, v)| {
-                if v.ty != Ty::Unknown { Some(v.ty.clone()) } else { None }
-            }).collect();
+            // 按结构体字段顺序收集字面量各字段的值类型，与实例的类型实参逐位精确匹配
+            // （不能用 discriminant 集合匹配：Pair$i_s 与 Pair$s_i 的集合相同会误选）。
+            // 字面量字段值类型（按声明/字面量顺序）；泛型 struct 的 type_params 与字段顺序一致
+            let ftys: Vec<Ty> = fields.iter().map(|(_, v)| if v.ty == Ty::Unknown { Ty::I64 } else { v.ty.clone() }).collect();
+            let mut sel: Option<String> = None;
             for (i, tys) in tys_list.iter().enumerate() {
-                if !tys.is_empty() && tys.iter().all(|t| ftys.iter().any(|f| std::mem::discriminant(t) == std::mem::discriminant(f))) {
+                if !tys.is_empty() && tys.len() == ftys.len()
+                    && tys.iter().zip(ftys.iter()).all(|(t, f)| std::mem::discriminant(t) == std::mem::discriminant(f))
+                {
                     sel = insts.get(i).cloned();
                     break;
                 }

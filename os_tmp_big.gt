@@ -1,0 +1,21 @@
+@derive(Eq, Clone, Debug)
+struct Vec2 { x: f64, y: f64 }
+impl Vec2 {
+    fn add(self, o: Vec2) -> Vec2 { return Vec2 { x: self.x + o.x, y: self.y + o.y } }
+    fn scale(self, s: f64) -> Vec2 { return Vec2 { x: self.x * s, y: self.y * s } }
+    fn dot(self, o: Vec2) -> f64 { return self.x * o.x + self.y * o.y }
+    fn len2(self) -> f64 { return self.x * self.x + self.y * self.y }
+}
+trait Shape { fn area(self) -> f64 }
+impl Shape for Vec2 { fn area(self) -> f64 { return self.x * self.y } }
+fn main() {
+    a := Vec2 { x: 1.0, y: 2.0 }
+    b := Vec2 { x: 3.0, y: 4.0 }
+    c := a.add(b)
+    put(c)
+    put(c.scale(2.0))
+    put(a.dot(b))
+    put(a.len2())
+    put(a.area())
+    put(a + b)
+}

@@ -1,0 +1,24 @@
+struct Account { id: int, balance: f64, txns: int }
+fn deposit(a: Account, amount: f64) -> Result[Account, str] {
+    if amount <= 0.0 { return Err("invalid deposit") }
+    return Ok(Account { id: a.id, balance: a.balance + amount, txns: a.txns + 1 })
+}
+fn withdraw(a: Account, amount: f64) -> Result[Account, str] {
+    if amount <= 0.0 { return Err("invalid amount") }
+    if amount > a.balance { return Err("insufficient funds") }
+    return Ok(Account { id: a.id, balance: a.balance - amount, txns: a.txns + 1 })
+}
+fn main() {
+    acc := Account { id: 1, balance: 100.0, txns: 0 }
+    r1 := deposit(acc, 50.0)
+    if let Ok(a1) = r1 {
+        put("after deposit: " + str(a1.balance))
+        r2 := withdraw(a1, 30.0)
+        if let Ok(a2) = r2 { put("after withdraw: " + str(a2.balance)) }
+    }
+    r3 := withdraw(acc, 500.0)
+    match r3 {
+        Ok(a) => { put("ok") }
+        Err(e) => { put("error: " + e) }
+    }
+}
