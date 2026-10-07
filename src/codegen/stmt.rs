@@ -108,6 +108,8 @@ impl<'a> Codegen<'a> {
             Stmt::Throw(e, _line) => {
                 // `throw e`：构造 Err(e)。在 try 内跳到捕获块；否则从函数返回（向上传播）。
                 let v = self.expr(e)?;
+                // throw 的值统一为字符串：非 str 先转 str（保证 expt e 的 e 是 str）
+                let v = if v.ty == Ty::Str { v } else { self.coerce(&v, &Ty::Str)? };
                 let slotv = self.to_slot(&v);
                 self.declare("declare ptr @gt_result_new(i64, i64)");
                 let errv = self.new_reg();

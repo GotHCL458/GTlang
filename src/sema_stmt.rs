@@ -327,6 +327,8 @@ pub(crate) fn check_stmt(ctx: &mut Ctx, s: &mut Stmt, errors: &mut Vec<String>) 
             for a in args.iter_mut() { let _ = ctx.infer(a); }
         }
         Stmt::Throw(e, line) => {
+            // 异常值可为任意类型：codegen/JIT 会统一转为字符串（str 透传；其它走 str 转换），
+            // 因此 expt e 的 e 始终是 str，不会出现"按句柄解释"的崩溃。
             if let Err(err) = ctx.infer(e) {
                 errors.push(err);
             }
