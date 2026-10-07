@@ -417,6 +417,7 @@
 - **`const` 的编译期求值只支持数值**：`const C = "a" + "b"`（字符串拼接）报"不是数值"；改用 `:= ` / `let`。
 - **同名方法（重载）**：`impl` 内两个同名方法 `--check` 通过，但 codegen 报内部错误（Duplicate definition of identifier）；建议前端加"重复方法名"诊断。
 - **重复字段 / 重复变体**：`struct P { x: int, x: int }`、`enum E { A, B, A }` `--check` 均通过（语义模糊）；建议前端加"重复定义"诊断。
+- **跨模块 enum 变体**：`lib.Color::Green`（别名 + 变体）语法不支持；跨模块 struct 正常。
 - **同名方法（重载）/ 重复顶层函数**：`--check` 通过，codegen 报内部错误（Duplicate definition of identifier）；建议前端加"重复定义"诊断。
 - **`map` 的 enum 键**：按指针（句柄）比较，非内容（与 struct 键同）。
 - **`@derive(Eq)` 对 enum 不生成 `eq`**（仅生成 `to_str` 的 Debug）；enum 的 `==` 靠 codegen 的 tag 比较。
