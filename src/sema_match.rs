@@ -53,7 +53,8 @@ pub(crate) fn check_match_exhaustive(st: &Ty, arms: &[MatchArm], ctx: &Ctx) -> O
         Ty::Bool => {
             if has_true && has_false { None } else { Some(if zh { "match 不穷尽：bool 需覆盖 true 和 false".into() } else { "match not exhaustive: bool needs true and false".into() }) }
         }
-        Ty::Enum(name) => {
+        // 注意：类型系统用 Ty::Struct 表示具名类型（含 enum），所以这里两者都查 ctx.enums。
+        Ty::Enum(name) | Ty::Struct(name) => {
             if let Some(vs) = ctx.enums.get(name) {
                 let all: Vec<String> = vs.iter().map(|(n, _)| n.clone()).collect();
                 let missing: Vec<String> = all.iter().filter(|v| !enum_vars.iter().any(|ev| ev.ends_with(&format!("::{}", v)))).cloned().collect();
