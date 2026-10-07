@@ -402,6 +402,10 @@
 - **插值 `$p.x`**：应写 `${p.x}`。
 - **`?.` 链式（中间字段是 Option）**：会嵌套 `Option`。
 - **blanket impl** `impl[T] Trait for T`：未支持。
+- **enum `==` 只比较 tag**：带载荷的 enum（如 `Msg::Text("a") == Msg::Text("b")`）会因 tag 相同而误判相等；未逐载荷比较。
+- **`Option[T] == Option[T]` / `Result == Result`**：不支持（`cannot compare`）；`list`/`map`/`set` 同理未支持 `==`。
+- **`map` 的 enum 键**：按指针（句柄）比较，非内容（与 struct 键同）。
+- **`@derive(Eq)` 对 enum 不生成 `eq`**（仅生成 `to_str` 的 Debug）；enum 的 `==` 靠 codegen 的 tag 比较。
 
 ### 73. 泛型 struct 多实例区分（Pair[i64,str] vs Pair[str,i64]）
 

@@ -314,13 +314,15 @@ fn expand_derives(prog: &mut Program) {
                 }
                 methods.push(format!("fn default() -> {} {{ {} {{ {} }} }}", ty, ty, fs.join(", ")));
             }
-            // @derive(Hash) -> hash：逐字段混合（FNV 风格，单表达式）
+            // @derive(Hash) -> hash：逐字段混合（FNV 风格）。每步与掩码相与，
+            // 避免 int 乘法溢出（溢出检测默认开启）。
             if s.derives.iter().any(|d| d == "Hash") {
-                let mut expr = "1469598103934665603".to_string();
+                // FNV-1a 32 位风格：每步掩码 0xFFFFFFFF（< 2^32），乘 2^24 的常数不溢出 i64。
+                let mut expr = "2166136261".to_string();
                 for (i, f) in fields.iter().enumerate() {
-                    expr = format!("(({} ^ (int(self.{}) + {})) * 1099511628211)", expr, f, i);
+                    expr = format!("((({} ^ (int(self.{}) + {})) * 16777619) & 4294967295)", expr, f, i);
                 }
-                methods.push(format!("fn hash(self) -> int {{ return {} }}", expr));
+                methods.push(format!("fn hash(self) -> int {{ return {} & 4294967295 }}", expr));
             }
             // @derive(Ord) -> cmp/lt/le/gt/ge：逐字段字典序 + 比较运算符重载
             if s.derives.iter().any(|d| d == "Ord") {
