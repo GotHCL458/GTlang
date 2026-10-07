@@ -1,0 +1,30 @@
+fn find(xs: list[int], t: int) -> bool {
+    for x in xs {
+        if x == t { return true }
+    }
+    return false
+}
+fn main() {
+    xs := list()
+    push(xs, 1)
+    push(xs, 3)
+    push(xs, 5)
+    for x in xs {
+        if x == 3 {
+            put("found 3")
+            break
+        }
+    } else {
+        put("not found")
+    }
+    for x in xs {
+        if x == 99 {
+            put("found 99")
+            break
+        }
+    } else {
+        put("99 not found")
+    }
+    put(find(xs, 5))
+    put(find(xs, 9))
+}

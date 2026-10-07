@@ -1,0 +1,8 @@
+fn main() {
+    put(9223372036854775807)
+    put(-9223372036854775807)
+    put(0x7FFFFFFFFFFFFFFF)
+    put(0)
+    put(1)
+    put(-1)
+}

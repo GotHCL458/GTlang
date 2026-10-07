@@ -1,0 +1,7 @@
+struct Res { id: int }
+fn main() {
+    r := Res { id: 42 }
+    with r as x {
+        put(x.id)
+    }
+}

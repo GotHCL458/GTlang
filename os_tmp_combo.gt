@@ -1,0 +1,9 @@
+struct Cfg { port: Option[int], host: Option[str] }
+fn main() {
+    c1 := Cfg { port: Some(8080), host: Some("localhost") }
+    put(c1.port ?? 3000)
+    put(c1.host ?? "0.0.0.0")
+    c2 := Cfg { port: None, host: None }
+    put(c2.port ?? 3000)
+    put(c2.host ?? "0.0.0.0")
+}

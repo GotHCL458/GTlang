@@ -1,0 +1,19 @@
+fn main() {
+    x := 1
+    let y = 2
+    let mut z = 3
+    w = 4
+    x = x + 10
+    z = z + 30
+    w = w + 40
+    put(x)
+    put(y)
+    put(z)
+    put(w)
+    let n: int = 5
+    let f: f64 = 2.5
+    let s: str = "hi"
+    put(n)
+    put(f)
+    put(s)
+}

@@ -1,0 +1,13 @@
+import math
+import string
+import json
+import random
+fn main() {
+    seed(7)
+    put(sqrt(pow(3.0, 2.0) + pow(4.0, 2.0)))
+    put(capitalize("hello"))
+    put(json_valid("{\"a\":1}"))
+    n := randint(1, 6)
+    put(n >= 1)
+    put(n <= 6)
+}

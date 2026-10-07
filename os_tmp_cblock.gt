@@ -1,0 +1,6 @@
+C {
+    int square(int x) { return x * x; }
+}
+fn main() {
+    put(square(9))
+}

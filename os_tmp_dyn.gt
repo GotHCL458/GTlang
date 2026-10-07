@@ -1,0 +1,25 @@
+trait Animal {
+    fn name(self) -> str
+    fn sound(self) -> str
+    fn describe(self) -> str { return self.name() + " says " + self.sound() }
+}
+struct Dog { n: str }
+impl Animal for Dog {
+    fn name(self) -> str { return self.n }
+    fn sound(self) -> str { return "Woof" }
+}
+struct Cat { n: str }
+impl Animal for Cat {
+    fn name(self) -> str { return self.n }
+    fn sound(self) -> str { return "Meow" }
+}
+fn all_describe(animals: list[dyn Animal]) {
+    for a in animals { put(a.describe()) }
+}
+fn main() {
+    xs := list()
+    push(xs, Dog { n: "Rex" })
+    push(xs, Cat { n: "Felix" })
+    push(xs, Dog { n: "Buddy" })
+    all_describe(xs)
+}

@@ -1,0 +1,18 @@
+fn main() {
+    sum := 0
+    loop 5 { sum = sum + 1 }
+    put(sum)
+    // while true + break
+    n := 0
+    while true {
+        n = n + 1
+        if n >= 10 { break }
+    }
+    put(n)
+    // 嵌套 loop
+    total := 0
+    loop 3 {
+        loop 2 { total = total + 1 }
+    }
+    put(total)
+}

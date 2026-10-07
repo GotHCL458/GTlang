@@ -1,0 +1,11 @@
+trait Shape { fn area(self) -> f64 }
+struct Circle { r: f64 }
+impl Shape for Circle { fn area(self) -> f64 { return 3.0 * self.r * self.r } }
+struct Square { s: f64 }
+impl Shape for Square { fn area(self) -> f64 { return self.s * self.s } }
+fn total(c1: impl Shape, c2: impl Shape) -> f64 {
+    return c1.area() + c2.area()
+}
+fn main() {
+    put(total(Circle { r: 2.0 }, Square { s: 3.0 }))
+}

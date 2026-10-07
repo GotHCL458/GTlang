@@ -1,0 +1,9 @@
+@derive(Default)
+struct Cfg { host: str, port: int, debug: bool }
+fn main() {
+    c := Cfg.default()
+    put(c)
+    // 部分覆盖
+    c2 := Cfg { host: "localhost", port: 8080, debug: true }
+    put(c2)
+}

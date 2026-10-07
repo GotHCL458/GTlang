@@ -1,0 +1,18 @@
+fn producer(ch: int, n: int) {
+    i := 0
+    while i < n {
+        chan_send(ch, i * i)
+        i = i + 1
+    }
+}
+fn main() {
+    ch := chan()
+    go producer(ch, 5)
+    total := 0
+    i := 0
+    while i < 5 {
+        total = total + chan_recv(ch)
+        i = i + 1
+    }
+    put(total)
+}

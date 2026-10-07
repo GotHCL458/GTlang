@@ -403,9 +403,27 @@
 - **`?.` 链式（中间字段是 Option）**：会嵌套 `Option`。
 - **blanket impl** `impl[T] Trait for T`：未支持。
 
+### 73. 泛型 struct 多实例区分（Pair[i64,str] vs Pair[str,i64]）
+
+- **现象**：`struct Pair[A,B]`；`Pair{first:1,second:"x"}` 与 `Pair{first:"k",second:9}` —— 后者被误识别为前者的实例 `Pair$i_s`，报 "field must be i64"。
+- **根因**：`mono::rewrite_struct_lit_expr` 用"discriminant 集合"匹配实例（`Pair$i_s` 与 `Pair$s_i` 的集合都是 `{I64,Str}`），取第一个 → 误选。
+- **修复**：改为按结构体字段顺序"逐位精确匹配"（`tys[i]` 对 `fields[i].ty` 的 discriminant）。
+
+### 74. 用户泛型类型多参数 `Pair[A,B]` 解析失败
+
+- **现象**：`fn f(p: Pair[A, B])` 报 "expected ']', found ','"。
+- **根因**：`parser_type` 的 `_`（用户泛型）分支只解析一个类型参数，不消费后续 `,`。
+- **修复**：`_` 分支 `while eat(",") { parse_type() }` 消费完多余类型参数（由 mono 从字面量推导）。
+
+### 75. `??` 链式左结合导致 AOT 非法 IR
+
+- **现象**：`a ?? b ?? c` —— JIT 正确，AOT 报 `store i64 %t30`（`%t30` 是 `ptr`）。
+- **根因**：`??` desugar 为 `match a { Some(v)=>v, None=>b }`；左结合时内层 `(a??b)` 的 arm 类型（`v` vs `b`）join 成 `Unknown` → 外层槽退化 `i64`。
+- **修复**：`??` 改为**右结合**（`a ?? (b ?? c)`），内层 `??` 结果为标量类型。
+
 ## 统计（第二轮）
 
-- 真实缺陷修复：**19 个**（累计 **72 个**）
+- 真实缺陷修复：**22 个**（累计 **75 个**）
 - 测试：**825 → 827**（单元 143、前端批量 522、双后端一致性 160→166）
 - 验证方式：对同一 `.gt` 分别跑 `gtc --run`（JIT）与 `gtc --c`（AOT 产物），断言 stdout **逐字节一致**
 - 覆盖：全类型 `put`、嵌套容器、全部语法糖/匹配、全部标准库模块、所有权/借用、高阶函数/闭包、运算符重载、泛型、CLI、大数/浮点/递归/位运算/短路/循环控制，以及综合场景（学生管理、栈式求值器、矩阵、单词计数、斐波那契记忆化、LRU 缓存、优先队列）
