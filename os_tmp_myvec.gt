@@ -1,0 +1,14 @@
+struct MyVec[T] { data: list[T] }
+fn push_t[T](v: MyVec[T], x: T) -> MyVec[T] {
+    d := v.data
+    push(d, x)
+    return MyVec { data: d }
+}
+fn main() {
+    v1 := MyVec { data: list() }
+    a := push_t(v1, 1)
+    b := push_t(a, 2)
+    c := push_t(b, 3)
+    put(c.data)
+    put(len(c.data))
+}
