@@ -527,6 +527,9 @@ fn infer_block_ret(ctx: &mut Ctx, b: &mut Block) -> Result<Ty, String> {
                 if let Ok(vt) = ctx.infer(value) {
                     let ty = ann.clone().unwrap_or(vt);
                     let ty = if ty == Ty::Unknown { Ty::I64 } else { ty };
+                    // 把"变量最终类型"回填到初始化表达式（如 map() / list()），
+                    // 供 codegen 判定容器键/元素是否为字符串等。
+                    value.ty = ty.clone();
                     ctx.scopes.last_mut().unwrap().insert(name.clone(), VarInfo { ty, mutable: *mutable, explicit: ann.is_some() });
                 }
                 None

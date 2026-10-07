@@ -232,7 +232,15 @@ impl FnState {
                 Ok((b.ins().iconst(types::I64, 0), Ty::Void))
             }
             "set" | "Set" => { let f = self.rt_ref(jit, b, "set_new")?; let epv = match call_ty { Ty::Set(e) => crate::codegen::elem_is_ptr(e), _ => 0 }; let ep = b.ins().iconst(types::I64, epv); let call = b.ins().call(f, &[ep]); Ok((b.inst_results(call)[0], call_ty.clone())) }
-            "map" | "Map" | "dict" => { let f = self.rt_ref(jit, b, "map_new")?; let epv = match call_ty { Ty::Map(k, v) => crate::codegen::elem_is_ptr(k) | crate::codegen::elem_is_ptr(v), _ => 0 }; let ep = b.ins().iconst(types::I64, epv); let call = b.ins().call(f, &[ep]); Ok((b.inst_results(call)[0], call_ty.clone())) }
+            "map" | "Map" | "dict" => {
+                let f = self.rt_ref(jit, b, "map_new")?;
+                let epv = match call_ty { Ty::Map(k, v) => crate::codegen::elem_is_ptr(k) | crate::codegen::elem_is_ptr(v), _ => 0 };
+                let ksv = match call_ty { Ty::Map(k, _) => if matches!(**k, Ty::Str) { 1 } else { 0 }, _ => 0 };
+                let ep = b.ins().iconst(types::I64, epv);
+                let ks = b.ins().iconst(types::I64, ksv);
+                let call = b.ins().call(f, &[ep, ks]);
+                Ok((b.inst_results(call)[0], call_ty.clone()))
+            }
             "push" | "append" => {
                 let l = self.gen_expr(jit, b, &args[0])?;
                 let v = self.gen_expr(jit, b, &args[1])?;

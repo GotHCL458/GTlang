@@ -482,7 +482,7 @@ impl<'a> Jit<'a> {
             ("set_has", "rt_set_has", vec![i64v, i64v], Some(i64v)),
             ("set_remove", "rt_set_remove", vec![i64v, i64v], None),
             ("set_len", "rt_set_len", vec![i64v], Some(i64v)),
-            ("map_new", "rt_map_new", vec![i64v], Some(i64v)),
+            ("map_new", "rt_map_new", vec![i64v, i64v], Some(i64v)),
             ("map_insert", "rt_map_insert", vec![i64v, i64v, i64v], None),
             ("map_get", "rt_map_get", vec![i64v, i64v], Some(i64v)),
             ("map_has", "rt_map_has", vec![i64v, i64v], Some(i64v)),

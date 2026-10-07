@@ -271,9 +271,11 @@ impl<'a> Codegen<'a> {
             }
             "map" | "Map" | "dict" => {
                 let ep = match call_ty { Ty::Map(k, v) => elem_is_ptr(k) | elem_is_ptr(v), _ => 0 };
-                self.declare("declare ptr @gt_map_new(i64)");
+                // 键是字符串时，哈希/比较按内容（strcmp）
+                let ks = match call_ty { Ty::Map(k, _) => if matches!(**k, Ty::Str) { 1 } else { 0 }, _ => 0 };
+                self.declare("declare ptr @gt_map_new(i64, i64)");
                 let r = self.new_reg();
-                self.body.push_str(&format!("  {} = call ptr @gt_map_new(i64 {})\n", r, ep));
+                self.body.push_str(&format!("  {} = call ptr @gt_map_new(i64 {}, i64 {})\n", r, ep, ks));
                 Ok(Val::new(call_ty, r))
             }
             "push" | "append" => { self.declare("declare void @gt_list_push(ptr, i64)"); let l = self.expr(&args[0])?; let lp = self.as_ptr(&l); let v = self.expr(&args[1])?; let vs = self.to_slot(&v); self.body.push_str(&format!("  call void @gt_list_push(ptr {}, i64 {})\n", lp, vs)); Ok(Val::new(&Ty::Void, "0")) }
@@ -359,3 +361,5 @@ impl<'a> Codegen<'a> {
 
     // ---------- 类型转换内置 ----------
 }
+
+

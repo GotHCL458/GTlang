@@ -263,6 +263,7 @@ typedef struct {
     long long *ht;     /* 开放寻址哈希桶：存 keys 下标，-1 表示空；大小 hcap 为 2 的幂 */
     long long hcap;
     long long elem_ptr; /* 键/值是否为指针（GC 环检测用） */
+    long long key_str;  /* 键是否为字符串（按内容比较/哈希）；0 按整数 */
 } GtMap;
 
 /* map 哈希：64 位键 → 桶下标（Fibonacci hashing） */
@@ -274,13 +275,16 @@ static unsigned long long gt_hash64(unsigned long long x) {
     x ^= x >> 33;
     return x;
 }
+static unsigned long long gt_hash_str(const char *s);
 static void gt_map_rehash(GtMap *m, long long newcap) {
     gt_free(m->ht);
     m->hcap = newcap;
     m->ht = (long long *)gt_alloc(sizeof(long long) * (size_t)newcap);
     for (long long i = 0; i < newcap; i++) m->ht[i] = -1;
     for (long long i = 0; i < m->len; i++) {
-        unsigned long long h = gt_hash64((unsigned long long)m->keys[i]) & (unsigned long long)(newcap - 1);
+        unsigned long long h = (m->key_str
+            ? gt_hash_str((const char *)(size_t)m->keys[i])
+            : gt_hash64((unsigned long long)m->keys[i])) & (unsigned long long)(newcap - 1);
         while (m->ht[h] != -1) h = (h + 1) & (unsigned long long)(newcap - 1);
         m->ht[h] = i;
     }
@@ -288,6 +292,17 @@ static void gt_map_rehash(GtMap *m, long long newcap) {
 static long long gt_map_find(GtMap *m, long long k) {
     if (m->hcap == 0) return -1;
     unsigned long long mask = (unsigned long long)(m->hcap - 1);
+    if (m->key_str) {
+        const char *ks = (const char *)(size_t)k;
+        unsigned long long h = gt_hash_str(ks) & mask;
+        while (m->ht[h] != -1) {
+            long long idx = m->ht[h];
+            const char *cur = (const char *)(size_t)m->keys[idx];
+            if (cur && ks && strcmp(cur, ks) == 0) return idx;
+            h = (h + 1) & mask;
+        }
+        return -1;
+    }
     unsigned long long h = gt_hash64((unsigned long long)k) & mask;
     while (m->ht[h] != -1) {
         long long idx = m->ht[h];
@@ -295,6 +310,13 @@ static long long gt_map_find(GtMap *m, long long k) {
         h = (h + 1) & mask;
     }
     return -1;
+}
+
+/* 字符串键：内容哈希（FNV-1a），配合 gt_map_find 的 key_str 分支使用。 */
+static unsigned long long gt_hash_str(const char *s) {
+    unsigned long long h = 1469598103934665603ULL;
+    while (s && *s) { h ^= (unsigned char)*s++; h *= 1099511628211ULL; }
+    return h;
 }
 
 /* 前向声明：容器释放与分派（定义在文件后部） */
@@ -449,12 +471,13 @@ void gt_set_remove(GtSet *s, long long v) {
 long long gt_set_len(GtSet *s) { return s ? s->len : 0; }
 
 /* ---------- map ---------- */
-GtMap *gt_map_new(long long elem_ptr) {
+GtMap *gt_map_new(long long elem_ptr, long long key_str) {
     GtMap *m = (GtMap *)gc_alloc(sizeof(GtMap));
     m->rc = 1;
     m->cap = 4;
     m->len = 0;
     m->elem_ptr = elem_ptr;
+    m->key_str = key_str;
     gc_set_meta(m, 3, elem_ptr);   /* kind=3(map) */
     m->keys = (long long *)gt_alloc(sizeof(long long) * (size_t)m->cap);
     m->vals = (long long *)gt_alloc(sizeof(long long) * (size_t)m->cap);
@@ -488,7 +511,9 @@ void gt_map_insert(GtMap *m, long long k, long long v) {
         if (v) gc_inc((void *)(size_t)v);
     }
     unsigned long long mask = (unsigned long long)(m->hcap - 1);
-    unsigned long long h = gt_hash64((unsigned long long)k) & mask;
+    unsigned long long h = (m->key_str
+        ? gt_hash_str((const char *)(size_t)k)
+        : gt_hash64((unsigned long long)k)) & mask;
     while (m->ht[h] != -1) h = (h + 1) & mask;
     m->ht[h] = idx;
 }

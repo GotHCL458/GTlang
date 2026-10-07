@@ -504,6 +504,7 @@ pub(crate) struct RtMap {
     keys: Vec<i64>,   // 插入顺序数组（for 遍历按此顺序）
     vals: Vec<i64>,
     ht: Vec<i64>,     // 开放寻址哈希桶：存 keys 下标，-1 空；长度 hcap 为 2 的幂
+    key_str: bool,    // 键是否为字符串（按内容比较/哈希）
 }
 
 fn hash64(mut x: u64) -> u64 {
@@ -515,12 +516,41 @@ fn hash64(mut x: u64) -> u64 {
     x
 }
 
+/// 字符串内容哈希（FNV-1a）。
+unsafe fn hash_str(p: i64) -> u64 {
+    let mut h: u64 = 1469598103934665603;
+    if p != 0 {
+        let mut s = p as *const u8;
+        while *s != 0 { h ^= *s as u64; h = h.wrapping_mul(1099511628211); s = s.add(1); }
+    }
+    h
+}
+
+unsafe fn key_hash(m: &RtMap, k: i64) -> u64 {
+    if m.key_str { hash_str(k) } else { hash64(k as u64) }
+}
+
+/// 字符串键按内容（CStr）比较。
+unsafe fn key_eq(m: &RtMap, a: i64, b: i64) -> bool {
+    if m.key_str {
+        if a == b { return true; }
+        if a == 0 || b == 0 { return false; }
+        let (mut x, mut y) = (a as *const u8, b as *const u8);
+        loop {
+            let (cx, cy) = (*x, *y);
+            if cx != cy { return false; }
+            if cx == 0 { return true; }
+            x = x.add(1); y = y.add(1);
+        }
+    } else { a == b }
+}
+
 pub(crate) fn rt_map_rehash(m: &mut RtMap, newcap: usize) {
     let mut ht: Vec<i64> = vec![-1i64; newcap];
     let mask = (newcap - 1) as u64;
     for i in 0..m.keys.len() {
         let k = m.keys[i];
-        let mut h = (hash64(k as u64) & mask) as usize;
+        let mut h = (unsafe { key_hash(m, k) } & mask) as usize;
         while ht[h] != -1 { h = ((h as u64 + 1) & mask) as usize; }
         ht[h] = i as i64;
     }
@@ -531,17 +561,17 @@ pub(crate) unsafe fn rt_map_find(m: *mut RtMap, k: i64) -> i64 {
     let m = &*m;
     if m.ht.is_empty() { return -1; }
     let mask = (m.ht.len() - 1) as u64;
-    let mut h = (hash64(k as u64) & mask) as usize;
+    let mut h = (key_hash(m, k) & mask) as usize;
     loop {
         let idx = m.ht[h];
         if idx == -1 { return -1; }
-        if m.keys[idx as usize] == k { return idx; }
+        if key_eq(m, m.keys[idx as usize], k) { return idx; }
         h = ((h as u64 + 1) & mask) as usize;
     }
 }
 
-pub(crate) fn rt_map_new(_elem_ptr: i64) -> *mut RtMap {
-    Box::into_raw(Box::new(RtMap { keys: Vec::new(), vals: Vec::new(), ht: vec![-1i64; 8] }))
+pub(crate) fn rt_map_new(_elem_ptr: i64, key_str: i64) -> *mut RtMap {
+    Box::into_raw(Box::new(RtMap { keys: Vec::new(), vals: Vec::new(), ht: vec![-1i64; 8], key_str: key_str != 0 }))
 }
 
 pub(crate) unsafe fn rt_map_index(m: *mut RtMap, k: i64) -> i64 {
