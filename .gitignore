@@ -1,6 +1,6 @@
 # 构建产物
 /target/
-# 测试/临时文件（GTLang 深挖测试留下的临时脚本与产物）
+# 测试/临时文件（深挖测试留下的临时脚本与产物）
 /os_tmp_*
 /os_c_test.*
 /os_ast*
@@ -9,3 +9,11 @@
 /toolchain/
 /.cargo-home/
 /.build/
+# 本地杂物（不应提交）
+/.cuckoo/
+/.cuckooCode/
+/*.zip
+/*.dll
+/*.dll.lib
+/Vix-lang-*/
+/XuanTie-Lang-*/
