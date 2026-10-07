@@ -405,6 +405,7 @@
 - **enum `==` 只比较 tag**：带载荷的 enum（如 `Msg::Text("a") == Msg::Text("b")`）会因 tag 相同而误判相等；未逐载荷比较。
 - **`Option[T] == Option[T]` / `Result == Result`**：不支持（`cannot compare`）；`list`/`map`/`set` 同理未支持 `==`。
 - **enum 的 `< > <= >=`（`@derive(Ord)`）**：不支持；`@derive` 只对 struct 生效（enum 仅 `Debug` 生成 `to_str`）。
+- **`self.字段.方法()`**（在 impl 方法内直接对"字段"调其类型的方法）：会被误改写成 `本类型__字段.方法`；变通：`tmp := self.字段; tmp.方法(...)`。
 - **`map` 的 enum 键**：按指针（句柄）比较，非内容（与 struct 键同）。
 - **`@derive(Eq)` 对 enum 不生成 `eq`**（仅生成 `to_str` 的 Debug）；enum 的 `==` 靠 codegen 的 tag 比较。
 

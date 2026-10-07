@@ -410,15 +410,19 @@ fn rewrite_self_calls_in_expr(e: &mut Expr, ty: &str, mnames: &std::collections:
         }
         _ => {}
     }
-    // 改写 `self.方法(...)`：无条件降级为 `类型__方法`（含父 trait 的方法）
+    // 改写 `self.方法(...)`：无条件降级为 `类型__方法`（含父 trait 的方法）。
+    // 注意：只处理 `self.<方法名>`（self 后直接跟方法名）；`self.a.方法` 是"字段上的方法"，
+    // 属于字段类型的方法，不能改写成 本类型__方法（交由 mono 按字段类型降级）。
     let _ = mnames;
     if let ExprKind::Call(name, args) = &mut e.kind {
         if let Some(rest) = name.strip_prefix("self.") {
-            let self_expr = Expr::new(ExprKind::Ident("self".to_string()), e.line);
-            let mut new_args = vec![self_expr];
-            new_args.extend(args.drain(..));
-            *args = new_args;
-            *name = format!("{}__{}", ty, rest);
+            if !rest.contains('.') {
+                let self_expr = Expr::new(ExprKind::Ident("self".to_string()), e.line);
+                let mut new_args = vec![self_expr];
+                new_args.extend(args.drain(..));
+                *args = new_args;
+                *name = format!("{}__{}", ty, rest);
+            }
         }
     }
 }
