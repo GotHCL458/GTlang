@@ -152,9 +152,9 @@ pub(crate) fn check_stmt(ctx: &mut Ctx, s: &mut Stmt, errors: &mut Vec<String>) 
                                     let new_ty = rty.clone();
                                     for sc in ctx.scopes.iter_mut().rev() {
                                         if let Some(entry) = sc.get_mut(name) {
-                                            // 显式类型：仅当赋入的类型与原类型确实不同才报错；
-                                            // 同类型赋值（如 int 形参 = int 表达式）应允许。
-                                            if entry.explicit && !compatible(&entry.ty, &new_ty) && !compatible(&new_ty, &entry.ty) {
+                                            // 显式类型：仅当赋入类型与原类型**完全相同**才允许
+                                            // （int 变量赋 f64 属于"改变类型"，即便数值上可兼容也应拒绝）。
+                                            if entry.explicit && entry.ty != new_ty {
                                                 errors.push(crate::lb!(line, "cannot change type of '{}': declared with explicit type", "无法改变 '{}' 的类型：它带显式类型声明", name));
                                             } else if !entry.explicit {
                                                 entry.ty = new_ty.clone();
