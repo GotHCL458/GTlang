@@ -691,8 +691,17 @@ impl FnState {
     }
 
     pub(crate) fn gen_eq(&mut self, jit: &mut Jit, b: &mut FunctionBuilder, a: &(Value, Ty), c: &(Value, Ty)) -> Result<Value, String> {
-        // enum 相等性：比较 tag（堆块第一个 i64 槽）
-        if let (Ty::Enum(_), Ty::Enum(_)) = (&a.1, &c.1) {
+        // enum 相等性：比较 tag（堆块第一个 i64 槽）。Ty::Struct 名在 enum_variants 里也算 enum。
+        let is_enum_ty = |t: &Ty| {
+            if matches!(t, Ty::Enum(_)) { return true; }
+            if let Ty::Struct(n) = t {
+                if jit.enum_variants.contains_key(n) { return true; }
+                let suffix = format!("__{}", n);
+                return jit.enum_variants.keys().any(|k| k.ends_with(&suffix));
+            }
+            false
+        };
+        if is_enum_ty(&a.1) && is_enum_ty(&c.1) {
             let ta = b.ins().load(types::I64, MemFlags::new(), a.0, 0);
             let tb = b.ins().load(types::I64, MemFlags::new(), c.0, 0);
             return Ok(b.ins().icmp(IntCC::Equal, ta, tb));

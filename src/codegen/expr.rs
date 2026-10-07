@@ -816,8 +816,10 @@ impl<'a> Codegen<'a> {
             return Ok(Val::new(&Ty::F64, r));
         }
 
-        // enum 相等性：比较 tag（堆块第一个 i64 槽），不比较指针
-        if let (Ty::Enum(_), Ty::Enum(_)) = (&a.ty, &b.ty) {
+        // enum 相等性：比较 tag（堆块第一个 i64 槽），不比较指针。
+        // 注意：类型系统用 Ty::Struct 表示具名类型（含 enum），需按 enum_variants 判定。
+        let is_enum_ty = |t: &Ty| matches!(t, Ty::Enum(_)) || matches!(t, Ty::Struct(n) if self.enum_variants.contains_key(n));
+        if is_enum_ty(&a.ty) && is_enum_ty(&b.ty) {
             if matches!(op, BinOp::Eq | BinOp::Ne) {
                 let ta = self.new_reg();
                 let tb = self.new_reg();

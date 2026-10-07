@@ -321,9 +321,13 @@ pub fn binary_result(op: BinOp, a: &Ty, b: &Ty) -> Result<Ty, String> {
         return Ok(Ty::Bool);
     }
 
-    // 运算符重载：两侧同结构体时，结果类型 = 该结构体（mono 降级为 类型__add）
+    // 运算符重载：两侧同具名类型时——算术/比较（< >）结果 = 该类型（mono 降级为 类型__add 等）；
+    // 而 == / != 结果 = bool（mono 降级为 类型__eq / 类型__ne）。
     if let (Ty::Struct(sa), Ty::Struct(sb)) = (a, b) {
-        if sa == sb { return Ok(a.clone()); }
+        if sa == sb {
+            if matches!(op, BinOp::Eq | BinOp::Ne) { return Ok(Ty::Bool); }
+            return Ok(a.clone());
+        }
     }
     // 任一侧是结构体（异构）：放行（Unknown），由 mono 尝试降级
     if matches!(a, Ty::Struct(_)) || matches!(b, Ty::Struct(_)) {

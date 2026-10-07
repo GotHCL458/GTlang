@@ -249,6 +249,28 @@ pub fn build_file(path: &Path) -> Result<Unit, Vec<Diag>> {
 fn expand_derives(prog: &mut Program) {
     let mut extra: Vec<crate::ast::Item> = Vec::new();
     for item in &prog.items {
+        // enum 的 @derive(Debug)：生成 to_str（按变体名输出 "Suit::Hearts"）
+        if let crate::ast::Item::Enum(en) = item {
+            let ty = en.name.clone();
+            if en.derives.iter().any(|d| d == "Debug") && !en.variants.is_empty() {
+                let mut arms: Vec<String> = Vec::new();
+                for (v, payload) in en.variants.iter() {
+                    if payload.is_empty() {
+                        arms.push(format!("{}::{} => {{ return \"{}::{}\" }}", ty, v, ty, v));
+                    } else {
+                        // 有载荷：只输出变体名（简化，不展开载荷）
+                        let wild: Vec<String> = payload.iter().map(|_| "_".to_string()).collect();
+                        arms.push(format!("{}::{}({}) => {{ return \"{}::{}\" }}", ty, v, wild.join(", "), ty, v));
+                    }
+                }
+                arms.push("_ => { return \"\" }".to_string());
+                let wrapped = format!("impl {} {{\n    fn to_str(self) -> str {{ match self {{ {} }} }}\n}}", ty, arms.join(" "));
+                if let Ok(p) = crate::parser::parse_program(&wrapped) {
+                    for it in p.items { extra.push(it); }
+                }
+            }
+            continue;
+        }
         if let crate::ast::Item::Struct(s) = item {
             let ty = s.name.clone();
             let fields: Vec<String> = s.fields.iter().map(|(n, _, _)| n.clone()).collect();

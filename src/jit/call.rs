@@ -507,8 +507,18 @@ impl FnState {
             if matches!(op, BinOp::Ne) { let one = b.ins().iconst(types::I64, 1); return Ok((b.ins().bxor(r, one), Ty::Bool)); }
             return Ok((r, Ty::Bool));
         }
-        // enum 相等性：比较 tag（堆块第一个 i64 槽）
-        if op.is_cmp() && matches!((&a.1, &c.1), (Ty::Enum(_), Ty::Enum(_))) && matches!(op, BinOp::Eq | BinOp::Ne) {
+        // enum 相等性：比较 tag（堆块第一个 i64 槽）；Ty::Struct 名在 enum_variants 里也算 enum
+        let is_enum_ty = |t: &Ty| {
+            if matches!(t, Ty::Enum(_)) { return true; }
+            if let Ty::Struct(n) = t {
+                if jit.enum_variants.contains_key(n) { return true; }
+                let suffix = format!("__{}", n);
+                return jit.enum_variants.keys().any(|k| k.ends_with(&suffix) || k == n);
+            }
+            false
+        };
+
+        if op.is_cmp() && is_enum_ty(&a.1) && is_enum_ty(&c.1) && matches!(op, BinOp::Eq | BinOp::Ne) {
             let eq = self.gen_eq(jit, b, a, c)?;
             let r = b.ins().uextend(types::I64, eq);
             if matches!(op, BinOp::Ne) { let one = b.ins().iconst(types::I64, 1); return Ok((b.ins().bxor(r, one), Ty::Bool)); }
