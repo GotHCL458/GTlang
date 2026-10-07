@@ -314,6 +314,8 @@ fn link(clang: &Path, rt: &RtInput, srcs: &[PathBuf], ll: &Path, out: &Path, opt
         // 用到 sql 模块时链接 Windows 自带的 SQLite
         if needed.contains(&"sql") { syslibs.push("winsqlite3"); }
         if needed.contains(&"session") { syslibs.push("winsqlite3"); }
+        // http 模块用 WinHTTP（HTTPS 支持）；Windows 自带
+        if needed.contains(&"http") { syslibs.push("winhttp"); }
         for syslib in &syslibs {
             cmd.arg(format!("-l{}", syslib));
         }
