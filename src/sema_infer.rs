@@ -180,11 +180,19 @@ impl Ctx {
                     _ => Ty::Void,
                 }
             }
-            ExprKind::Ok(inner) | ExprKind::Err(inner) => {
+            ExprKind::Ok(inner) => {
                 let it = self.infer(inner)?;
                 let (t, er) = match &self.cur_ret {
                     Ty::Result(rt, re) => ((**rt).clone(), (**re).clone()),
-                    _ => (it.clone(), it.clone()),
+                    _ => (it.clone(), Ty::Unknown),
+                };
+                Ty::Result(Box::new(t), Box::new(er))
+            }
+            ExprKind::Err(inner) => {
+                let it = self.infer(inner)?;
+                let (t, er) = match &self.cur_ret {
+                    Ty::Result(rt, re) => ((**rt).clone(), (**re).clone()),
+                    _ => (Ty::Unknown, it.clone()),
                 };
                 Ty::Result(Box::new(t), Box::new(er))
             }
@@ -332,9 +340,12 @@ impl Ctx {
                         return Err(crate::lb!(e.line, "{}() takes exactly 1 argument", "{}() 恰好需要 1 个参数", name));
                     }
                     let inner = arg_tys[0].clone();
+                    let is_err = name == "Err";
                     let (t, er) = match &self.cur_ret {
                         Ty::Result(rt, re) => ((**rt).clone(), (**re).clone()),
-                        _ => (inner.clone(), inner.clone()),
+                        // 不在 Result 返回位置时：已构造的一侧用 inner 类型，另一侧 Unknown
+                        // （不能把 inner 同时当两侧，否则 Err 载荷会被错误地约束为 Ok 的类型）。
+                        _ => if is_err { (Ty::Unknown, inner) } else { (inner, Ty::Unknown) },
                     };
                     let ty = Ty::Result(Box::new(t), Box::new(er));
                     e.ty = ty.clone();
@@ -657,10 +668,18 @@ impl Ctx {
                                 p.ty = st.clone();
                             }
                         }
-                    } else if let Some(p) = arm.pat.as_mut() {
-                        let pt = self.infer(p)?;
-                        if pt != Ty::Unknown && st != Ty::Unknown && !compatible(&st, &pt) && !compatible(&pt, &st) {
-                            return Err(crate::lb!(arm.line, "match pattern type {} does not match subject {}", "match 模式类型 {} 与主体 {} 不匹配", pt, st));
+                    } else if let Some(p) = arm.pat.as_ref() {
+                        // 构造器模式但无绑定名（如 `Ok(None)` / `Some(None)`）：
+                        // 其类型由 subject 决定，不做"模式类型 vs 主体"校验（否则 None 的载荷
+                        // 会被推成 Unknown 而误报不匹配）。
+                        let is_ctor_no_bind = matches!(&p.kind, ExprKind::Ok(_) | ExprKind::Err(_) | ExprKind::Some(_) | ExprKind::None)
+                            || matches!(&p.kind, ExprKind::Call(n, _) if matches!(n.as_str(), "Ok" | "Err" | "Some" | "None"));
+                        if !is_ctor_no_bind {
+                            let p = arm.pat.as_mut().unwrap();
+                            let pt = self.infer(p)?;
+                            if pt != Ty::Unknown && st != Ty::Unknown && !compatible(&st, &pt) && !compatible(&pt, &st) {
+                                return Err(crate::lb!(arm.line, "match pattern type {} does not match subject {}", "match 模式类型 {} 与主体 {} 不匹配", pt, st));
+                            }
                         }
                     }
                     if let Some((lo, hi)) = arm.range.as_mut() {

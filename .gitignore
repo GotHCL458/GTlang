@@ -1,5 +1,9 @@
 # 构建产物
 /target/
+# 便携运行时/标准库产物（由 build.bat 生成，不入库）
+/res/
+/dist/
+/.build/
 # 测试/临时文件（深挖测试留下的临时脚本与产物）
 /os_tmp_*
 /os_c_test.*
@@ -8,12 +12,24 @@
 # 本地工具链（不上传）
 /toolchain/
 /.cargo-home/
-/.build/
+/lua*/
+/qemu/
 # 本地杂物（不应提交）
 /.cuckoo/
 /.cuckooCode/
 /*.zip
 /*.dll
 /*.dll.lib
+/*.txt
+/*.db
+/*.exe
+/*.obj
 /Vix-lang-*/
 /XuanTie-Lang-*/
+# 本地打包脚本（注释标注 local only）
+/build_res.bat
+*.exe
+*.obj
+*.dll
+*.dll.lib
+*.db
