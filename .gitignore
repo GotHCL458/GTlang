@@ -1,64 +1,11 @@
-# Third-party / unrelated
-Vix-lang-0.5.0/
-
-# Runtime data
-*.db
-
-# Build artifacts
+# 构建产物
 /target/
-/.build/
-/res/
-/dist/
-/*.zip
-*.exe
-!tcc/*.exe
-*.obj
-!tcc/**/*.obj
-*.lib
-*.dll
-!tcc/*.dll
-*.ll
-*.pdb
-*.ilk
-
-# Toolchain (vendored)
+# 测试/临时文件（GTLang 深挖测试留下的临时脚本与产物）
+/os_tmp_*
+/os_c_test.*
+/os_ast*
+/os_asttest.*
+# 本地工具链（不上传）
 /toolchain/
-
-# Packaging script (local only)
-build_res.bat
-
-# Temp / scratch
-/tmp/
-bench/_*
-bench/perf_suite.gt
-bench/perf.ll
-bench/perf*.exe
-bench/*.s
-*.txt
-!README.md
-!doc/*.md
-
-# Third-party / unrelated
-/XuanTie-Lang-1.0-rc.2/
-
-# QEMU (downloaded binary, not source)
-/qemu/
-
-# OS build artifacts
-/os/build/
-
-# Cuckoo Code (AI assistant)
-.cuckooCode/
-_cuckoo/
-.cuckoo/
-
-# Editor / OS
-.vscode/
-.idea/
-*.swp
-Thumbs.db
-desktop.ini
-
-# Cargo home (local)
-.cargo-home/
-.rustup-home/
+/.cargo-home/
+/.build/

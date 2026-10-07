@@ -1,7 +1,0 @@
-pub fn add(a: int, b: int) -> int { return a + b }
-pub struct Point { x: int, y: int }
-pub fn dist2(p: Point, q: Point) -> int {
-    dx := p.x - q.x
-    dy := p.y - q.y
-    return dx * dx + dy * dy
-}

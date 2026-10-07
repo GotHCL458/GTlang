@@ -1,7 +1,0 @@
-import c "os_c_test.h"
-extern "C" {
-    fn triple(x: int) -> int
-}
-fn main() {
-    put(triple(7))
-}

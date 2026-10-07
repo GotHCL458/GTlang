@@ -1,8 +1,0 @@
-fn f(x: int) -> Result[int, str] {
-    if x > 0 { return Ok(x) }
-    return Err("neg")
-}
-fn main() {
-    put(f(5) or 0)
-    put(f(-1) or 42)
-}

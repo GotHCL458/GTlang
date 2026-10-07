@@ -1,7 +1,0 @@
-import os_tmp_mod_lib as lib
-fn main() {
-    put(lib.add(10, 20))
-    p := lib.Point { x: 0, y: 0 }
-    q := lib.Point { x: 3, y: 4 }
-    put(lib.dist2(p, q))
-}
