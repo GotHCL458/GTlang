@@ -51,9 +51,9 @@ impl FnState {
             Stmt::Throw(e, _) => {
                 // `throw e`：构造 Err(e)。在 try 内跳到捕获块；否则从函数返回。
                 let v0 = self.gen_expr(jit, b, e)?;
-                // throw 的值统一为字符串：非 str 先转 str
-                let v = if v0.1 == Ty::Str { v0.0 } else { self.convert(b, &v0, &Ty::Str) };
-                let iv = self.convert(b, &(v, Ty::Str), &Ty::I64);
+                // throw 的值统一为字符串：非 str 先转 str（保证 expt e 的 e 是 str）
+                let sv = if v0.1 == Ty::Str { v0 } else { self.gen_to_str(jit, b, &v0)? };
+                let iv = self.convert(b, &sv, &Ty::I64);
                 let one = b.ins().iconst(types::I64, 1);
                 let f = self.rt_ref(jit, b, "result_new")?;
                 let call = b.ins().call(f, &[one, iv]);
