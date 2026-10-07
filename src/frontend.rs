@@ -308,6 +308,8 @@ fn expand_derives(prog: &mut Program) {
                         Some(crate::ast::Ty::F64) => "0.0".to_string(),
                         Some(crate::ast::Ty::Bool) => "false".to_string(),
                         Some(crate::ast::Ty::Str) => "\"\"".to_string(),
+                        // 具名类型（struct/enum）字段：递归用其 default()
+                        Some(crate::ast::Ty::Struct(n)) => format!("{}.default()", n),
                         _ => "0".to_string(),
                     };
                     fs.push(format!("{}: {}", fname, dflt));
@@ -378,4 +380,5 @@ fn expand_derives(prog: &mut Program) {
     }
     prog.items.extend(extra);
 }
+
 
