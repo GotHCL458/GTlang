@@ -422,6 +422,7 @@
 - **选择性导入**：`import lib.{a, b}` 语法不支持；用 `import lib as L` + `L.a(...)`。
 - **`chan` 的 `str`/容器消息**：`chan_send(ch, "hello")` 后 `chan_recv(ch)` 得到句柄（按 i64），`put` 打印句柄且 JIT/AOT 不一致；通道按 i64 槽传递，字符串/容器消息需自行转换（或只用整型消息）。
 - **`go` 的 callee 只接函数名**：`go f(5)`（f 是闭包变量）报 undefined function；用顶层函数名 `go 顶层名(args)`。
+- **JIT 崩溃（Cranelift panic）**：递归函数内对 `list` 元素赋值（`fn fill(a:list[int],i:int){ a[i]=i; fill(a,i+1) }`）触发 Cranelift `lower.rs` panic；AOT 正常。变通：用 AOT，或改写为非递归。
 - **`list(容器/str)`**：`list("abc")`、`list([1,2,3])` 均返回空 list（多余参数被忽略），不报错也不转换；用 `for` 循环或 `split_str`。
 - **字符串重复**：`"ab" * 3` 报"需数值"，且 string 库无 `repeat`；用循环拼接或 `str_builder`。
 - **`str + 非str`**：`"n=" + 5` 报"需数值"；用 `str(5)` 或插值 `"n=$n"`（`$n` 自动转字符串）。
