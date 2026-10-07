@@ -816,6 +816,22 @@ impl<'a> Codegen<'a> {
             return Ok(Val::new(&Ty::F64, r));
         }
 
+        // enum 相等性：比较 tag（堆块第一个 i64 槽），不比较指针
+        if let (Ty::Enum(_), Ty::Enum(_)) = (&a.ty, &b.ty) {
+            if matches!(op, BinOp::Eq | BinOp::Ne) {
+                let ta = self.new_reg();
+                let tb = self.new_reg();
+                self.body.push_str(&format!("  {} = load i64, ptr {}
+", ta, a.s));
+                self.body.push_str(&format!("  {} = load i64, ptr {}
+", tb, b.s));
+                let pred = if op == BinOp::Eq { "eq" } else { "ne" };
+                let r = self.new_reg();
+                self.body.push_str(&format!("  {} = icmp {} i64 {}, {}
+", r, pred, ta, tb));
+                return Ok(Val::new(&Ty::Bool, r));
+            }
+        }
         let x = self.as_i64(a);
         let y = self.as_i64(b);
         if op.is_cmp() {

@@ -507,6 +507,13 @@ impl FnState {
             if matches!(op, BinOp::Ne) { let one = b.ins().iconst(types::I64, 1); return Ok((b.ins().bxor(r, one), Ty::Bool)); }
             return Ok((r, Ty::Bool));
         }
+        // enum 相等性：比较 tag（堆块第一个 i64 槽）
+        if op.is_cmp() && matches!((&a.1, &c.1), (Ty::Enum(_), Ty::Enum(_))) && matches!(op, BinOp::Eq | BinOp::Ne) {
+            let eq = self.gen_eq(jit, b, a, c)?;
+            let r = b.ins().uextend(types::I64, eq);
+            if matches!(op, BinOp::Ne) { let one = b.ins().iconst(types::I64, 1); return Ok((b.ins().bxor(r, one), Ty::Bool)); }
+            return Ok((r, Ty::Bool));
+        }
         let use_f = a.1 == Ty::F64 || c.1 == Ty::F64;
         let x = if use_f { self.convert(b, a, &Ty::F64) } else { self.convert(b, a, &Ty::I64) };
         let y = if use_f { self.convert(b, c, &Ty::F64) } else { self.convert(b, c, &Ty::I64) };

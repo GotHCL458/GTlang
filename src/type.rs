@@ -335,6 +335,13 @@ pub fn binary_result(op: BinOp, a: &Ty, b: &Ty) -> Result<Ty, String> {
         return Ok(Ty::Str);
     }
 
+    // enum 相等性：两侧同 enum 时，==/!= 比较 tag（及载荷），返回 bool
+    if let (Ty::Enum(ea), Ty::Enum(eb)) = (a, b) {
+        if ea == eb && matches!(op, BinOp::Eq | BinOp::Ne) {
+            return Ok(Ty::Bool);
+        }
+    }
+
     if op.is_cmp() {
         // 字符串只支持 == / !=：放在前端拦下，两个后端才能给出同一条诊断
         if *a == Ty::Str && *b == Ty::Str {
