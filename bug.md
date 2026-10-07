@@ -408,6 +408,7 @@
 - **`self.字段.方法()`**（在 impl 方法内直接对"字段"调其类型的方法）：会被误改写成 `本类型__字段.方法`；变通：`tmp := self.字段; tmp.方法(...)`。
 - **enum 的 `impl` 方法**（`impl Color { fn code(self) }`）：`c.code()` 报 undefined function；enum 上的方法调用未降级。
 - **`//` 行尾注释**：因与整除运算符 `//` 消歧，部分位置（如 `put(x) // 注释`）不被识别；推荐用 `#` 注释。
+- **显式 `&self` 方法**（`fn m(self: &T)`）：调用 `v.m()`（v 是 T）不会自动借用，报"须 &T"；变通：写 `self` 或 `self: T`。
 - **`map` 的 enum 键**：按指针（句柄）比较，非内容（与 struct 键同）。
 - **`@derive(Eq)` 对 enum 不生成 `eq`**（仅生成 `to_str` 的 Debug）；enum 的 `==` 靠 codegen 的 tag 比较。
 
