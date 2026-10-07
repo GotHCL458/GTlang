@@ -109,9 +109,10 @@ impl FnState {
                 if let Some(ca) = catches.first() {
                     self.push_scope();
                     if let Some(binding) = &ca.binding {
-                        let bv = self.new_var(b, &Ty::I64);
+                        // expt e 的错误值是字符串（throw/raise 抛 str；与 AOT 一致）
+                        let bv = self.new_var(b, &Ty::Str);
                         b.def_var(bv, ev2);
-                        self.bind(binding, bv, Ty::I64);
+                        self.bind(binding, bv, Ty::Str);
                     }
                     if let Some(f) = fin { self.fily_stack.push(f.clone()); }
                     let _ = self.gen_block_value(jit, b, &ca.body, &Ty::I64)?;
