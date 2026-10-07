@@ -409,6 +409,7 @@
 - **enum 的 `impl` 方法**（`impl Color { fn code(self) }`）：`c.code()` 报 undefined function；enum 上的方法调用未降级。
 - **`//` 行尾注释**：因与整除运算符 `//` 消歧，部分位置（如 `put(x) // 注释`）不被识别；推荐用 `#` 注释。
 - **显式 `&self` 方法**（`fn m(self: &T)`）：调用 `v.m()`（v 是 T）不会自动借用，报"须 &T"；变通：写 `self` 或 `self: T`。
+- **`&mut 字段` 的写回**：`ry := &mut p.y; ry = 99` 不会写回 `p.y`（借用运行时透传值）；变通：直接 `p.y = 99`。
 - **`map` 的 enum 键**：按指针（句柄）比较，非内容（与 struct 键同）。
 - **`@derive(Eq)` 对 enum 不生成 `eq`**（仅生成 `to_str` 的 Debug）；enum 的 `==` 靠 codegen 的 tag 比较。
 
