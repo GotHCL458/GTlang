@@ -415,6 +415,9 @@
 - **`extern "C"` 声明 GTLang 运行时符号**（如 `gt_list_len`）：JIT 报"找不到符号"；AOT 可链接。仅当声明的是"真正外部 C 函数"时两者才一致。
 - **`C { }` 内联 C 访问 GTLang 运行时**（如 `gt_printf`）：内联 C 由 TCC 独立编译，不链接 `gt_rt`，故找不到运行时符号；内联 C 应只依赖自身与 C 标准库。
 - **`const` 的编译期求值只支持数值**：`const C = "a" + "b"`（字符串拼接）报"不是数值"；改用 `:= ` / `let`。
+- **同名方法（重载）**：`impl` 内两个同名方法 `--check` 通过，但 codegen 报内部错误（Duplicate definition of identifier）；建议前端加"重复方法名"诊断。
+- **重复字段 / 重复变体**：`struct P { x: int, x: int }`、`enum E { A, B, A }` `--check` 均通过（语义模糊）；建议前端加"重复定义"诊断。
+- **同名方法（重载）/ 重复顶层函数**：`--check` 通过，codegen 报内部错误（Duplicate definition of identifier）；建议前端加"重复定义"诊断。
 - **`map` 的 enum 键**：按指针（句柄）比较，非内容（与 struct 键同）。
 - **`@derive(Eq)` 对 enum 不生成 `eq`**（仅生成 `to_str` 的 Debug）；enum 的 `==` 靠 codegen 的 tag 比较。
 
