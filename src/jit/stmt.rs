@@ -387,8 +387,8 @@ impl FnState {
                 // 先执行在栈的 fily（finally）块（逆序）
                 let filies: Vec<Block> = self.fily_stack.clone();
                 for f in filies.iter().rev() { self.push_scope(); self.gen_block(jit, b, f)?; self.pop_scope(); }
-                // 再执行 defer（逆序）
-                let defers: Vec<Expr> = self.defer_stack.drain(..).rev().collect();
+                // 再执行 defer（逆序；用 clone：每个 return 前都要执行）
+                let defers: Vec<Expr> = self.defer_stack.iter().rev().cloned().collect();
                 for d in &defers { let _ = self.gen_expr(jit, b, d); }
                 // impl Trait 返回位置：具体类型自动装箱为 dyn Trait
                 if let Ty::Dyn(tr) = self.cur_ret.clone() {
@@ -409,7 +409,7 @@ impl FnState {
             Stmt::Return(None, _) => {
                 let filies: Vec<Block> = self.fily_stack.clone();
                 for f in filies.iter().rev() { self.push_scope(); self.gen_block(jit, b, f)?; self.pop_scope(); }
-                let defers: Vec<Expr> = self.defer_stack.drain(..).rev().collect();
+                let defers: Vec<Expr> = self.defer_stack.iter().rev().cloned().collect();
                 for d in &defers { let _ = self.gen_expr(jit, b, d); }
                 b.ins().return_(&[]); self.terminated = true;
             }

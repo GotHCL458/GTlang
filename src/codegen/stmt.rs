@@ -564,8 +564,9 @@ impl<'a> Codegen<'a> {
                     self.block(f)?;
                     self.pop_scope();
                 }
-                // 再逆序执行本函数已登记的 defer
-                let defers: Vec<Expr> = self.defer_stack.drain(..).rev().collect();
+                // 再逆序执行本函数已登记的 defer（用 clone：每个 return 前都要执行；
+                // 函数末尾由 gen_function drain 清空）
+                let defers: Vec<Expr> = self.defer_stack.iter().rev().cloned().collect();
                 for d in &defers { let _ = self.expr(d); }
                 if self.is_main_fn {
                     // main 的 IR 签名是 i32：无论 return 有无值都返回 0
