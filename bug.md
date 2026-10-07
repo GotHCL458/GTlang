@@ -412,6 +412,7 @@
 - **`&mut 字段` 的写回**：`ry := &mut p.y; ry = 99` 不会写回 `p.y`（借用运行时透传值）；变通：直接 `p.y = 99`。
 - **列表推导式的"字符串/复杂表达式元素"**：`["n" + str(x) for x in xs]` / `[str(x) for x in xs]` 的元素类型未传导到 codegen（`gt_list_new(0)` → 按 i64），打印为句柄；`[x*2]` / `[x]`（数值）正常。
 - **`try` 作表达式**（`r := try { ... } expt { ... }`）：AOT 生成非法 IR（`ret ptr` vs `i64`）；改用 `try` 作语句 + 赋值。
+- **`extern "C"` 声明 GTLang 运行时符号**（如 `gt_list_len`）：JIT 报"找不到符号"；AOT 可链接。仅当声明的是"真正外部 C 函数"时两者才一致。
 - **`map` 的 enum 键**：按指针（句柄）比较，非内容（与 struct 键同）。
 - **`@derive(Eq)` 对 enum 不生成 `eq`**（仅生成 `to_str` 的 Debug）；enum 的 `==` 靠 codegen 的 tag 比较。
 
