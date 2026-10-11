@@ -430,7 +430,7 @@
 - **注释里的 `\n`**：`// ... \n ...` 会在 `\n` 处被当作换行，注释提前结束、后续文本被当代码；注释里避免写反斜杠转义。
 - **同名方法（重载）/ 重复顶层函数**：`--check` 通过，codegen 报内部错误（Duplicate definition of identifier）；建议前端加"重复定义"诊断。
 - **`map` 的 enum 键**：按指针（句柄）比较，非内容（与 struct 键同）。
-- **无标注 `map()` 的 `str` 键**：`m := map(); m[k] = v`（k 为 str）——因 `map()` 的键类型在构造处未知（`Unknown`），`key_str` 标记为 0，动态 str 键仍按指针；**显式标注 `let mut m: map[str, int] = map()` 后正常**。
+- ~~**无标注 `map()` 的 `str` 键**~~：**已修复**（见 §77）——键类型在调用点（Index/IndexAssign/at/insert/has/remove）已知，传入 `key_str` 按内容比较；无标注与显式标注均正常。
 - **`@derive(Eq)` 对 enum 不生成 `eq`**（仅生成 `to_str` 的 Debug）；enum 的 `==` 靠 codegen 的 tag 比较。
 
 ### 73. 泛型 struct 多实例区分（Pair[i64,str] vs Pair[str,i64]）
@@ -451,10 +451,34 @@
 - **根因**：`??` desugar 为 `match a { Some(v)=>v, None=>b }`；左结合时内层 `(a??b)` 的 arm 类型（`v` vs `b`）join 成 `Unknown` → 外层槽退化 `i64`。
 - **修复**：`??` 改为**右结合**（`a ?? (b ?? c)`），内层 `??` 结果为标量类型。
 
+### 76. 显式类型变量的"同类型赋值"被误报
+
+- **现象**：`fn find(parent: list[int], x: int)` 中 `x = parent[x]`（同为 int）报 "cannot change type of 'x': declared with explicit type"。
+- **根因**：`sema_stmt.rs` 纯赋值分支对 `explicit` 变量**无条件**报错，未比较新旧类型。
+- **修复**：仅当赋入类型与原类型**确实不同**（`entry.ty != new_ty`）才报错；`n: int = 2.5` 仍被拒绝（`assign_ty` 测试通过）。
+
+### 77. `map` 的字符串键按内容比较（strcmp）——端到端
+
+- **现象**：`m[key(0,0)] = 5`（key 返回 str）后 `m["0,0"]` 取不到；显式标注 `let mut m: map[str,int]` 也仅在部分场景生效。
+- **根因**：`GtMap`/`RtMap` 的键一律按 i64（指针）比较，`str` 键每次新分配 → 指针不同。构造函数 `map()` 的键类型在无标注时未知（`Map(Unknown,Unknown)`），无法静态判定。
+- **修复**：
+  1. `GtMap`/`RtMap` 增加 `key_str` 字段；`gt_map_new`/`rt_map_new` 增加 `key_str` 参数。
+  2. `rehash`/`find`/`insert` 按 `key_str` 分派：字符串键用 **内容哈希（FNV-1a）+ strcmp**（`gt_hash_str`/`key_eq`）。
+  3. runtime 增加 `gt_map_{insert,get,has,remove}_key`（JIT 对应 `rt_map_*`）：`key_str` 与 map 当前记录不同则**先切换并 rehash**。
+  4. codegen/JIT 在**每个调用点**（`Index`/`IndexAssign`/`at`/`insert`/`has`/`remove`）从容器类型 `Ty::Map(k,_)` 取 `k` 是否为 `Str`，传入 `key_str`。键类型在**赋值/读取点**已知，无需依赖构造点。
+- **验证**：无标注 `m := map()` + 动态 str 键、显式标注、跨函数返回 map、`keys`/`values`/`remove`/`at`/`insert`/`has` 全部双后端一致。
+
+### 78. `str` 误计入 `elem_ptr` → `map[str,V]` AOT 崩溃
+
+- **现象**：`map[str,int]` 的 AOT 产物运行时崩溃（0xC0000005），JIT 正常。
+- **根因**：`elem_is_ptr` 把 `Str` 判为堆指针 → `map[str,int]` 的 `elem_ptr=1` → `gt_map_insert` 对整型 value 也 `gc_inc((void*)1)` → 访问非法地址。
+- **修复**：`str` 是**叶子堆对象**（无子引用），不参与 GC 环检测遍历，从 `elem_is_ptr` 移除；同步更新单元测试 `elem_is_ptr_for_heap_types`。
+
 ## 统计（第二轮）
 
-- 真实缺陷修复：**22 个**（累计 **75 个**）
-- 测试：**825 → 827**（单元 143、前端批量 522、双后端一致性 160→166）
+- 真实缺陷修复：**25 个**（累计 **78 个**）
+- 测试：**827 全绿**（单元 143、前端批量 518、双后端一致性 166）
+- 本轮追加：显式类型同类型赋值误报、`map` str 键按内容比较（端到端）、`str` 误计入 `elem_ptr` 致 `map[str,V]` AOT 崩溃
 - 验证方式：对同一 `.gt` 分别跑 `gtc --run`（JIT）与 `gtc --c`（AOT 产物），断言 stdout **逐字节一致**
 - 覆盖：全类型 `put`、嵌套容器、全部语法糖/匹配、全部标准库模块、所有权/借用、高阶函数/闭包、运算符重载、泛型、CLI、大数/浮点/递归/位运算/短路/循环控制，以及综合场景（学生管理、栈式求值器、矩阵、单词计数、斐波那契记忆化、LRU 缓存、优先队列）
 
@@ -468,7 +492,8 @@
 | 中 | blanket impl / 泛型 impl 方法调用 |
 | 中 | `fily` 块在 `expt` 里 `return` 时不执行 |
 | 低 | `ast` 库 AOT 链接（缺 `_static.lib`）|
-| 低 | `map` 的 struct 键（按指针比较，非内容）|
+| 低 | `map` 的 struct/enum 键（按指针比较，非内容；str 键已按内容）|
+| 低 | JIT `elem_ptr` 语义：str 已从"指针元素"排除；struct/enum 作为叶子时的 GC 遍历仍按指针 |
 | 低 | 泛型函数返回泛型 struct 时字段类型未单态化 |
 | 低 | 嵌套泛型 `Box[Box[T]]` 字段类型冲突 |
 | 低 | `match` 表达式返回定长数组 |
