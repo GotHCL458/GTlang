@@ -12,6 +12,13 @@ impl FnState {
                 self.gen_block(jit, b, &inner_blk)?;
             }
             Stmt::Let { name, ty, value, .. } => {
+                // 显式标注容器类型时，把声明类型回填到初始化表达式的副本上，
+                // 供 map()/list()/set() 判定键/元素是否为字符串（sema(2) 会重置 e.ty）。
+                let owned;
+                let value = if let (Some(d), true) = (ty, matches!(value.kind, ExprKind::Call(ref n, _) if matches!(n.as_str(), "map" | "Map" | "dict" | "list" | "List" | "set" | "Set"))) {
+                    owned = Expr { ty: d.clone(), ..value.clone() };
+                    &owned
+                } else { value };
                 let v = self.gen_expr(jit, b, value)?;
                 let vt = if v.1 == Ty::Unknown { ty.clone().unwrap_or(Ty::I64) } else { v.1.clone() };
                 let var = self.new_var(b, &vt);
@@ -20,6 +27,11 @@ impl FnState {
                 self.bind(name, var, vt);
             }
             Stmt::Const { name, ty, value, .. } => {
+                let owned;
+                let value = if let (Some(d), true) = (ty, matches!(value.kind, ExprKind::Call(ref n, _) if matches!(n.as_str(), "map" | "Map" | "dict" | "list" | "List" | "set" | "Set"))) {
+                    owned = Expr { ty: d.clone(), ..value.clone() };
+                    &owned
+                } else { value };
                 let v = self.gen_expr(jit, b, value)?;
                 let vt = if v.1 == Ty::Unknown { ty.clone().unwrap_or(Ty::I64) } else { v.1.clone() };
                 let var = self.new_var(b, &vt);
@@ -158,7 +170,7 @@ impl FnState {
                                 let f = self.rt_ref(jit, b, "list_set")?;
                                 b.ins().call(f, &[base, i, rv]);
                             }
-                            Ty::Map(_, v) => {
+                            Ty::Map(mk, v) => {
                                 let ke = self.gen_expr(jit, b, idx)?;
                                 let k = self.convert(b, &ke, &Ty::I64);
                                 let rhs = self.gen_expr(jit, b, value)?;
@@ -166,8 +178,9 @@ impl FnState {
                                 // 是否需按位保真（f64 -> i64 槽）。
                                 let vt = if **v == Ty::Unknown { rhs.1.clone() } else { (**v).clone() };
                                 let rv = self.to_slot(b, &rhs, &vt);
-                                let f = self.rt_ref(jit, b, "map_insert")?;
-                                b.ins().call(f, &[base, k, rv]);
+                                let ks = b.ins().iconst(types::I64, if matches!(**mk, Ty::Str) { 1 } else { 0 });
+                                let f = self.rt_ref(jit, b, "map_insert_key")?;
+                                b.ins().call(f, &[base, k, rv, ks]);
                             }
                             _ => {
                                 let (elem, addr) = self.gen_elem_addr(jit, b, &base, &ty, idx, *line)?;
@@ -725,3 +738,5 @@ impl FnState {
     }
 
 }
+
+

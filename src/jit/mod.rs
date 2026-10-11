@@ -287,6 +287,10 @@ impl<'a> Jit<'a> {
         jb.symbol("rt_map_get", rt_map_get as *const u8);
         jb.symbol("rt_map_has", rt_map_has as *const u8);
         jb.symbol("rt_map_remove", rt_map_remove as *const u8);
+        jb.symbol("rt_map_insert_key", rt_map_insert_key as *const u8);
+        jb.symbol("rt_map_get_key", rt_map_get_key as *const u8);
+        jb.symbol("rt_map_has_key", rt_map_has_key as *const u8);
+        jb.symbol("rt_map_remove_key", rt_map_remove_key as *const u8);
         jb.symbol("rt_map_len", rt_map_len as *const u8);
         jb.symbol("rt_map_keys", rt_map_keys as *const u8);
         jb.symbol("rt_map_values", rt_map_values as *const u8);
@@ -487,6 +491,10 @@ impl<'a> Jit<'a> {
             ("map_get", "rt_map_get", vec![i64v, i64v], Some(i64v)),
             ("map_has", "rt_map_has", vec![i64v, i64v], Some(i64v)),
             ("map_remove", "rt_map_remove", vec![i64v, i64v], None),
+            ("map_insert_key", "rt_map_insert_key", vec![i64v, i64v, i64v, i64v], None),
+            ("map_get_key", "rt_map_get_key", vec![i64v, i64v, i64v], Some(i64v)),
+            ("map_has_key", "rt_map_has_key", vec![i64v, i64v, i64v], Some(i64v)),
+            ("map_remove_key", "rt_map_remove_key", vec![i64v, i64v, i64v], None),
             ("map_len", "rt_map_len", vec![i64v], Some(i64v)),
             ("map_keys", "rt_map_keys", vec![i64v], Some(i64v)),
             ("map_values", "rt_map_values", vec![i64v], Some(i64v)),

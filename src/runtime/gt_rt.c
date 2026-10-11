@@ -487,6 +487,14 @@ GtMap *gt_map_new(long long elem_ptr, long long key_str) {
     return m;
 }
 
+static void gt_map_sync_key(GtMap *m, long long key_str);
+void gt_map_insert(GtMap *m, long long k, long long v);
+void gt_map_insert_key(GtMap *m, long long k, long long v, long long key_str) {
+    if (m == NULL) return;
+    gt_map_sync_key(m, key_str);
+    gt_map_insert(m, k, v);
+}
+
 void gt_map_insert(GtMap *m, long long k, long long v) {
     long long i = gt_map_find(m, k);
     if (i >= 0) {
@@ -518,13 +526,44 @@ void gt_map_insert(GtMap *m, long long k, long long v) {
     m->ht[h] = idx;
 }
 
+/* 若调用点声明的键类型与 map 当前记录的不同，先切换并重建哈希。 */
+static void gt_map_sync_key(GtMap *m, long long key_str) {
+    if (m->key_str != key_str) { m->key_str = key_str; gt_map_rehash(m, m->hcap); }
+}
+
+long long gt_map_get_key(GtMap *m, long long k, long long key_str) {
+    if (m == NULL) return 0;
+    gt_map_sync_key(m, key_str);
+    long long i = gt_map_find(m, k);
+    return i >= 0 ? m->vals[i] : 0;
+}
+
 long long gt_map_get(GtMap *m, long long k) {
     long long i = gt_map_find(m, k);
     return i >= 0 ? m->vals[i] : 0;
 }
 
+long long gt_map_has_key(GtMap *m, long long k, long long key_str) {
+    if (m == NULL) return 0;
+    gt_map_sync_key(m, key_str);
+    return gt_map_find(m, k) >= 0 ? 1 : 0;
+}
+
 long long gt_map_has(GtMap *m, long long k) {
     return gt_map_find(m, k) >= 0 ? 1 : 0;
+}
+
+void gt_map_remove_key(GtMap *m, long long k, long long key_str) {
+    if (m == NULL) return;
+    gt_map_sync_key(m, key_str);
+    long long i = gt_map_find(m, k);
+    if (i < 0) return;
+    for (long long j = i; j + 1 < m->len; j++) {
+        m->keys[j] = m->keys[j + 1];
+        m->vals[j] = m->vals[j + 1];
+    }
+    m->len--;
+    gt_map_rehash(m, m->hcap);
 }
 
 void gt_map_remove(GtMap *m, long long k) {

@@ -234,11 +234,12 @@ impl<'a> Codegen<'a> {
                             Ok(Val::new_slot(&el, v))
                         }
                     }
-                    Ty::Map(_, v) => {
+                    Ty::Map(mk, v) => {
                         let bp = self.as_ptr(&b);
-                        self.declare("declare i64 @gt_map_get(ptr, i64)");
+                        let ks = if matches!(*mk, Ty::Str) { 1 } else { 0 };
+                        self.declare("declare i64 @gt_map_get_key(ptr, i64, i64)");
                         let r = self.new_reg();
-                        self.body.push_str(&format!("  {} = call i64 @gt_map_get(ptr {}, i64 {})\n", r, bp, key_slot));
+                        self.body.push_str(&format!("  {} = call i64 @gt_map_get_key(ptr {}, i64 {}, i64 {})\n", r, bp, key_slot, ks));
                         if v.llvm() == "ptr" {
                             let p = self.new_reg();
                             self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", p, r));
@@ -953,4 +954,8 @@ impl<'a> Codegen<'a> {
     }
 
 }
+
+
+
+
 

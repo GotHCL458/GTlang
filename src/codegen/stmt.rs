@@ -54,7 +54,15 @@ impl<'a> Codegen<'a> {
         }
         match s {
             Stmt::Defer(e, _) => { self.defer_stack.push(e.clone()); }
-            Stmt::Let { name, value, .. } => {
+            Stmt::Let { name, value, ty: decl, .. } => {
+                // 若显式标注了容器类型（如 let m: map[str,int] = map()），
+                // 把声明类型回填到初始化表达式的副本上，供 map()/list()/set() 判定键/元素是否为字符串。
+                // （sema(2) 会把 map() 的 e.ty 重置回 Map(Unknown,Unknown)，故在此再对齐一次。）
+                let owned;
+                let value = if let (Some(d), true) = (decl, matches!(value.kind, ExprKind::Call(ref n, _) if matches!(n.as_str(), "map" | "Map" | "dict" | "list" | "List" | "set" | "Set"))) {
+                    owned = Expr { ty: d.clone(), ..value.clone() };
+                    &owned
+                } else { value };
                 let v = self.expr(value)?;
                 let ty = if v.ty == Ty::Unknown { Ty::I64 } else { v.ty.clone() };
                 let slot = self.new_alloca(&ty);
@@ -66,7 +74,12 @@ impl<'a> Codegen<'a> {
                 self.store(&loc, &v)?;
                 self.scopes.last_mut().unwrap().insert(name.clone(), loc);
             }
-            Stmt::Const { name, value, .. } => {
+            Stmt::Const { name, value, ty: decl, .. } => {
+                let owned;
+                let value = if let (Some(d), true) = (decl, matches!(value.kind, ExprKind::Call(ref n, _) if matches!(n.as_str(), "map" | "Map" | "dict" | "list" | "List" | "set" | "Set"))) {
+                    owned = Expr { ty: d.clone(), ..value.clone() };
+                    &owned
+                } else { value };
                 let v = self.expr(value)?;
                 let ty = if v.ty == Ty::Unknown { Ty::I64 } else { v.ty.clone() };
                 let slot = self.new_alloca(&ty);
@@ -212,12 +225,13 @@ impl<'a> Codegen<'a> {
                                     self.declare("declare void @gt_list_set(ptr, i64, i64)");
                                     self.body.push_str(&format!("  call void @gt_list_set(ptr {}, i64 {}, i64 {})\n", base.s, i, rv));
                                 }
-                                Ty::Map(_, v) => {
+                                Ty::Map(mk, v) => {
                                     let k = self.to_slot(&iv);
                                     let rv = self.coerce(&rhs, v)?;
                                     let rv = self.to_slot(&rv);
-                                    self.declare("declare void @gt_map_insert(ptr, i64, i64)");
-                                    self.body.push_str(&format!("  call void @gt_map_insert(ptr {}, i64 {}, i64 {})\n", base.s, k, rv));
+                                    let ks = if matches!(**mk, Ty::Str) { 1 } else { 0 };
+                                    self.declare("declare void @gt_map_insert_key(ptr, i64, i64, i64)");
+                                    self.body.push_str(&format!("  call void @gt_map_insert_key(ptr {}, i64 {}, i64 {}, i64 {})\n", base.s, k, rv, ks));
                                 }
                                 _ => unreachable!(),
                             }
@@ -668,3 +682,5 @@ impl<'a> Codegen<'a> {
         Ok(())
     }
 }
+
+

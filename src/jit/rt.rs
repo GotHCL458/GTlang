@@ -574,6 +574,15 @@ pub(crate) fn rt_map_new(_elem_ptr: i64, key_str: i64) -> *mut RtMap {
     Box::into_raw(Box::new(RtMap { keys: Vec::new(), vals: Vec::new(), ht: vec![-1i64; 8], key_str: key_str != 0 }))
 }
 
+/// 若调用点声明的键类型与 map 当前记录的不同，先切换并重建哈希。
+pub(crate) unsafe fn rt_map_sync_key(m: &mut RtMap, key_str: i64) {
+    if m.key_str != (key_str != 0) {
+        m.key_str = key_str != 0;
+        let hcap = m.ht.len();
+        rt_map_rehash(m, hcap);
+    }
+}
+
 pub(crate) unsafe fn rt_map_index(m: *mut RtMap, k: i64) -> i64 {
     rt_map_find(m, k)
 }
@@ -596,10 +605,16 @@ pub(crate) extern "C" fn rt_map_insert(m: *mut RtMap, k: i64, v: i64) {
         m.keys.push(k);
         m.vals.push(v);
         let mask = (m.ht.len() - 1) as u64;
-        let mut h = (hash64(k as u64) & mask) as usize;
+        let mut h = (key_hash(m, k) & mask) as usize;
         while m.ht[h] != -1 { h = ((h as u64 + 1) & mask) as usize; }
         m.ht[h] = idx;
     }
+}
+
+pub(crate) extern "C" fn rt_map_insert_key(m: *mut RtMap, k: i64, v: i64, key_str: i64) {
+    if m.is_null() { return; }
+    unsafe { rt_map_sync_key(&mut *m, key_str); }
+    rt_map_insert(m, k, v)
 }
 
 pub(crate) extern "C" fn rt_map_get(m: *mut RtMap, k: i64) -> i64 {
@@ -611,9 +626,21 @@ pub(crate) extern "C" fn rt_map_get(m: *mut RtMap, k: i64) -> i64 {
     }
 }
 
+pub(crate) extern "C" fn rt_map_get_key(m: *mut RtMap, k: i64, key_str: i64) -> i64 {
+    if m.is_null() { return 0; }
+    unsafe { rt_map_sync_key(&mut *m, key_str); }
+    rt_map_get(m, k)
+}
+
 pub(crate) extern "C" fn rt_map_has(m: *mut RtMap, k: i64) -> i64 {
     if m.is_null() { return 0; }
     unsafe { if rt_map_index(m, k) >= 0 { 1 } else { 0 } }
+}
+
+pub(crate) extern "C" fn rt_map_has_key(m: *mut RtMap, k: i64, key_str: i64) -> i64 {
+    if m.is_null() { return 0; }
+    unsafe { rt_map_sync_key(&mut *m, key_str); }
+    rt_map_has(m, k)
 }
 
 pub(crate) extern "C" fn rt_map_remove(m: *mut RtMap, k: i64) {
@@ -629,6 +656,12 @@ pub(crate) extern "C" fn rt_map_remove(m: *mut RtMap, k: i64) {
         let hcap = m.ht.len();
         rt_map_rehash(m, hcap);
     }
+}
+
+pub(crate) extern "C" fn rt_map_remove_key(m: *mut RtMap, k: i64, key_str: i64) {
+    if m.is_null() { return; }
+    unsafe { rt_map_sync_key(&mut *m, key_str); }
+    rt_map_remove(m, k)
 }
 
 pub(crate) extern "C" fn rt_map_len(m: *mut RtMap) -> i64 {

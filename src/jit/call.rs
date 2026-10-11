@@ -254,9 +254,10 @@ impl FnState {
                 let c = self.gen_expr(jit, b, &args[0])?;
                 let i = self.gen_expr(jit, b, &args[1])?;
                 let ii = self.convert(b, &i, &Ty::I64);
-                let (key, ret) = match &args[0].ty { Ty::List(e) => ("list_at", (**e).clone()), Ty::Map(_, v) => ("map_get", (**v).clone()), _ => ("list_at", Ty::I64) };
+                let (key, ret, ks) = match &args[0].ty { Ty::List(e) => ("list_at", (**e).clone(), 0i64), Ty::Map(mk, v) => ("map_get_key", (**v).clone(), if matches!(**mk, Ty::Str) { 1 } else { 0 }), _ => ("list_at", Ty::I64, 0i64) };
+                let map_at = key == "map_get_key";
                 let f = self.rt_ref(jit, b, key)?;
-                let call = b.ins().call(f, &[c.0, ii]);
+                let call = if map_at { let ksv = b.ins().iconst(types::I64, ks); b.ins().call(f, &[c.0, ii, ksv]) } else { b.ins().call(f, &[c.0, ii]) };
                 let raw = b.inst_results(call)[0];
                 // map/list 以 i64 槽存储；f64 元素需按位转回 double。
                 let v = if ret == Ty::F64 {
@@ -269,10 +270,11 @@ impl FnState {
             "insert" => {
                 let c = self.gen_expr(jit, b, &args[0])?;
                 match &args[0].ty {
-                    Ty::Map(..) => {
+                    Ty::Map(mk, _) => {
                         let k = self.gen_expr(jit, b, &args[1])?; let v = self.gen_expr(jit, b, &args[2])?;
                         let ik = self.convert(b, &k, &Ty::I64); let iv = self.convert(b, &v, &Ty::I64);
-                        let f = self.rt_ref(jit, b, "map_insert")?; b.ins().call(f, &[c.0, ik, iv]);
+                        let ks = b.ins().iconst(types::I64, if matches!(**mk, Ty::Str) { 1 } else { 0 });
+                        let f = self.rt_ref(jit, b, "map_insert_key")?; b.ins().call(f, &[c.0, ik, iv, ks]);
                     }
                     _ => { let v = self.gen_expr(jit, b, &args[1])?; let iv = self.convert(b, &v, &Ty::I64); let f = self.rt_ref(jit, b, "set_insert")?; b.ins().call(f, &[c.0, iv]); }
                 }
@@ -283,8 +285,8 @@ impl FnState {
                 let k = self.gen_expr(jit, b, &args[1])?;
                 let ik = self.convert(b, &k, &Ty::I64);
                 let key = match &args[0].ty { Ty::Map(..) => "map_has", Ty::Set(..) => "set_has", _ => "list_has" };
-                let f = self.rt_ref(jit, b, key)?;
-                let call = b.ins().call(f, &[c.0, ik]);
+                let ks = match &args[0].ty { Ty::Map(mk, _) => if matches!(**mk, Ty::Str) { 1 } else { 0 }, _ => 0 };
+                let call = if key == "map_has" { let ksv = b.ins().iconst(types::I64, ks); let fk = self.rt_ref(jit, b, "map_has_key")?; b.ins().call(fk, &[c.0, ik, ksv]) } else { let f = self.rt_ref(jit, b, key)?; b.ins().call(f, &[c.0, ik]) };
                 Ok((b.inst_results(call)[0], Ty::Bool))
             }
             "remove" => {
@@ -292,8 +294,8 @@ impl FnState {
                 let k = self.gen_expr(jit, b, &args[1])?;
                 let ik = self.convert(b, &k, &Ty::I64);
                 let key = match &args[0].ty { Ty::Map(..) => "map_remove", Ty::Set(..) => "set_remove", _ => "list_remove" };
-                let f = self.rt_ref(jit, b, key)?;
-                b.ins().call(f, &[c.0, ik]);
+                let ks = match &args[0].ty { Ty::Map(mk, _) => if matches!(**mk, Ty::Str) { 1 } else { 0 }, _ => 0 };
+                if key == "map_remove" { let ksv = b.ins().iconst(types::I64, ks); let fk = self.rt_ref(jit, b, "map_remove_key")?; b.ins().call(fk, &[c.0, ik, ksv]); } else { let f = self.rt_ref(jit, b, key)?; b.ins().call(f, &[c.0, ik]); }
                 Ok((b.ins().iconst(types::I64, 0), Ty::Void))
             }
             "keys" => {

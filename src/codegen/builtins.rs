@@ -282,15 +282,15 @@ impl<'a> Codegen<'a> {
             "pop" => { self.declare("declare i64 @gt_list_pop(ptr)"); let l = self.expr(&args[0])?; let lp = self.as_ptr(&l); let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_list_pop(ptr {})\n", r, lp)); let v = self.from_slot(&r, call_ty); Ok(Val::new(call_ty, v)) }
             "at" => { let c = self.expr(&args[0])?; let i = self.expr(&args[1])?; let i = self.as_i64(&i); match args[0].ty.clone() {
                 Ty::List(e) => { let cp = self.as_ptr(&c); self.declare("declare i64 @gt_list_at(ptr, i64)"); let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_list_at(ptr {}, i64 {})\n", r, cp, i)); let v = self.from_slot(&r, &e); Ok(Val::new(&e, v)) }
-                Ty::Map(_, v) => { let cp = self.as_ptr(&c); self.declare("declare i64 @gt_map_get(ptr, i64)"); let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_map_get(ptr {}, i64 {})\n", r, cp, i)); let vv = self.from_slot(&r, &v); Ok(Val::new(&v, vv)) }
+                Ty::Map(mk, v) => { let cp = self.as_ptr(&c); let ks = if matches!(*mk, Ty::Str) { 1 } else { 0 }; self.declare("declare i64 @gt_map_get_key(ptr, i64, i64)"); let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_map_get_key(ptr {}, i64 {}, i64 {})\n", r, cp, i, ks)); let vv = self.from_slot(&r, &v); Ok(Val::new(&v, vv)) }
                 _ => Err(crate::lb!(line, "at() does not support this container", "at() 不支持该容器")) } }
             "insert" => { let c = self.expr(&args[0])?; match args[0].ty.clone() {
-                Ty::Map(..) => { let cp = self.as_ptr(&c); self.declare("declare void @gt_map_insert(ptr, i64, i64)"); let k = self.expr(&args[1])?; let k = self.to_slot(&k); let v = self.expr(&args[2])?; let v = self.to_slot(&v); self.body.push_str(&format!("  call void @gt_map_insert(ptr {}, i64 {}, i64 {})\n", cp, k, v)); }
+                Ty::Map(mk, _) => { let cp = self.as_ptr(&c); let ks = if matches!(*mk, Ty::Str) { 1 } else { 0 }; self.declare("declare void @gt_map_insert_key(ptr, i64, i64, i64)"); let k = self.expr(&args[1])?; let k = self.to_slot(&k); let v = self.expr(&args[2])?; let v = self.to_slot(&v); self.body.push_str(&format!("  call void @gt_map_insert_key(ptr {}, i64 {}, i64 {}, i64 {})\n", cp, k, v, ks)); }
                 _ => { let cp = self.as_ptr(&c); self.declare("declare void @gt_set_insert(ptr, i64)"); let v = self.expr(&args[1])?; let v = self.to_slot(&v); self.body.push_str(&format!("  call void @gt_set_insert(ptr {}, i64 {})\n", cp, v)); } }
                 Ok(Val::new(&Ty::Void, "0")) }
-            "has" | "contains" if !matches!(args[0].ty, Ty::Str) => { let c = self.expr(&args[0])?; let k = self.expr(&args[1])?; let k = self.to_slot(&k); let (fdecl, fname) = match args[0].ty.clone() { Ty::Map(..) => ("declare i64 @gt_map_has(ptr, i64)", "gt_map_has"), Ty::Set(..) => ("declare i64 @gt_set_has(ptr, i64)", "gt_set_has"), _ => ("declare i64 @gt_list_has(ptr, i64)", "gt_list_has") }; self.declare(fdecl); let cp = self.as_ptr(&c); let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @{}(ptr {}, i64 {})\n", r, fname, cp, k)); let bb = self.new_reg(); self.body.push_str(&format!("  {} = icmp ne i64 {}, 0\n", bb, r)); Ok(Val::new(&Ty::Bool, bb)) }
+            "has" | "contains" if !matches!(args[0].ty, Ty::Str) => { let c = self.expr(&args[0])?; let k = self.expr(&args[1])?; let k = self.to_slot(&k); let (fdecl, fname, ks) = match args[0].ty.clone() { Ty::Map(mk, _) => ("declare i64 @gt_map_has_key(ptr, i64, i64)", "gt_map_has_key", if matches!(*mk, Ty::Str) { 1 } else { 0 }), Ty::Set(..) => ("declare i64 @gt_set_has(ptr, i64)", "gt_set_has", 0), _ => ("declare i64 @gt_list_has(ptr, i64)", "gt_list_has", 0) }; self.declare(fdecl); let cp = self.as_ptr(&c); let r = self.new_reg(); if fname == "gt_map_has_key" { self.body.push_str(&format!("  {} = call i64 @{}(ptr {}, i64 {}, i64 {})\n", r, fname, cp, k, ks)); } else { self.body.push_str(&format!("  {} = call i64 @{}(ptr {}, i64 {})\n", r, fname, cp, k)); } let bb = self.new_reg(); self.body.push_str(&format!("  {} = icmp ne i64 {}, 0\n", bb, r)); Ok(Val::new(&Ty::Bool, bb)) }
             "remove" => { let c = self.expr(&args[0])?; let cp = self.as_ptr(&c); let k = self.expr(&args[1])?; let k = self.to_slot(&k); match args[0].ty.clone() {
-                Ty::Map(..) => { self.declare("declare void @gt_map_remove(ptr, i64)"); self.body.push_str(&format!("  call void @gt_map_remove(ptr {}, i64 {})\n", cp, k)); }
+                Ty::Map(mk, _) => { let ks = if matches!(*mk, Ty::Str) { 1 } else { 0 }; self.declare("declare void @gt_map_remove_key(ptr, i64, i64)"); self.body.push_str(&format!("  call void @gt_map_remove_key(ptr {}, i64 {}, i64 {})\n", cp, k, ks)); }
                 Ty::Set(..) => { self.declare("declare void @gt_set_remove(ptr, i64)"); self.body.push_str(&format!("  call void @gt_set_remove(ptr {}, i64 {})\n", cp, k)); }
                 _ => { self.declare("declare void @gt_list_remove(ptr, i64)"); self.body.push_str(&format!("  call void @gt_list_remove(ptr {}, i64 {})\n", cp, k)); } }
                 Ok(Val::new(&Ty::Void, "0")) }
@@ -361,5 +361,6 @@ impl<'a> Codegen<'a> {
 
     // ---------- 类型转换内置 ----------
 }
+
 
 
