@@ -45,7 +45,8 @@ fn elem_is_ptr_for_heap_types() {
     assert_eq!(elem_is_ptr(&Ty::I64), 0);
     assert_eq!(elem_is_ptr(&Ty::F64), 0);
     assert_eq!(elem_is_ptr(&Ty::Bool), 0);
-    assert_eq!(elem_is_ptr(&Ty::Str), 1);
+    // str 是叶子堆对象（无子引用），不参与 GC 环检测遍历 → 0
+    assert_eq!(elem_is_ptr(&Ty::Str), 0);
     assert_eq!(elem_is_ptr(&Ty::List(Box::new(Ty::I64))), 1);
     assert_eq!(elem_is_ptr(&Ty::Set(Box::new(Ty::I64))), 1);
     assert_eq!(elem_is_ptr(&Ty::Map(Box::new(Ty::I64), Box::new(Ty::I64))), 1);

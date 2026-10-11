@@ -17,7 +17,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// 供 GC 引用计数与环检测判断"是否需要遍历子引用"。
 pub fn elem_is_ptr(t: &Ty) -> i64 {
     match t {
-        Ty::List(_) | Ty::Set(_) | Ty::Map(..) | Ty::Str | Ty::Struct(_) | Ty::Enum(_) | Ty::Tuple(_) => 1,
+        // 注意：str 虽是堆对象，但无子引用（叶子），不需 GC 环检测遍历；
+        // 若把 str 计入 elem_ptr，map[str,int] 这类混排容器会让 GC 对 int 值误 gc_inc 而崩溃。
+        Ty::List(_) | Ty::Set(_) | Ty::Map(..) | Ty::Struct(_) | Ty::Enum(_) | Ty::Tuple(_) => 1,
         _ => 0,
     }
 }
