@@ -10,7 +10,7 @@ REM   3. Build the standard library (src\gtlib\*.rs -> *.dll + *.lib).
 REM      Build GTO concurrency framework -> res\lib\gto.dll.
 REM   4. Assemble a portable res\ directory.
 REM
-REM Env: GTC_CLANG (clang.exe path), GTC_TCC (TCC dir).
+REM Env: GTC_CLANG (clang.exe path).
 REM ============================================================
 setlocal EnableDelayedExpansion
 cd /d "%~dp0"
@@ -107,23 +107,6 @@ copy /Y "%STDOUT%\*.lib" "%RES%\lib\.lib\" >nul 2>nul
 
 copy /Y "%GTC_CLANG%" "%RES%\llvm\bin\clang.exe" >nul
 if exist "%LLD_LINK%" copy /Y "%LLD_LINK%" "%RES%\llvm\bin\lld-link.exe" >nul
-
-REM ---------- TCC ----------
-if "%GTC_TCC%"=="" if exist "%ROOT%tcc\libtcc.dll" set "GTC_TCC=%ROOT%tcc"
-if "%GTC_TCC%"=="" (
-    for /f "delims=" %%T in ('where tcc 2^>nul') do set "GTC_TCC=%%~dpT"
-)
-if "%GTC_TCC%"=="" (
-    echo [WARN] TCC not found; inline C blocks will be unavailable.
-) else (
-    if exist "%GTC_TCC%\libtcc.dll" (
-        echo [check] tcc %GTC_TCC%
-        mkdir "%RES%\tcc" 2>nul
-        copy /Y "%GTC_TCC%\libtcc.dll" "%RES%\tcc\libtcc.dll" >nul
-        if exist "%GTC_TCC%\include" xcopy /E /I /Y /Q "%GTC_TCC%\include" "%RES%\tcc\include" >nul
-        if exist "%GTC_TCC%\lib"     xcopy /E /I /Y /Q "%GTC_TCC%\lib"     "%RES%\tcc\lib"     >nul
-    )
-)
 
 copy /Y "%ROOT%src\runtime\gt_rt.c" "%RES%\runtime\gt_rt.c" >nul
 copy /Y "%ROOT%src\runtime\gc.c"   "%RES%\runtime\gc.c"   >nul

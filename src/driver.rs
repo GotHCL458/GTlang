@@ -1,4 +1,4 @@
-//! 驱动：定位内置工具链（clang / tcc），把 `.ll` 与内联 C 块编译链接为可执行文件。
+//! 驱动：定位内置工具链（clang），把 `.ll` 与内联 C 块编译链接为可执行文件。
 //!
 //! 所有中间产物都写进 `%TEMP%\gtc\<标签>_<pid>\`（见 `tmp.rs`），
 //! 结束后整体删除，源码目录只留下最终产物。
@@ -83,26 +83,6 @@ pub fn find_clang() -> Option<PathBuf> {
         if ok {
             return Some(c);
         }
-    }
-    None
-}
-
-/// TCC 工具链目录（内含 `libtcc.dll`、`include/`、`lib/`）。
-///
-/// 解释器用它**在内存里动态编译**内联 C 块，因此需要 lib 路径来解析
-/// `#include <stdio.h>` 之类的头文件。
-pub fn find_tcc_dir() -> Option<PathBuf> {
-    if let Ok(p) = std::env::var("GTC_TCC") {
-        if !p.is_empty() {
-            let d = PathBuf::from(p);
-            if d.is_dir() {
-                return Some(d);
-            }
-        }
-    }
-    // 优先用 libtcc.dll 定位（解释器只需要它 + include/lib）
-    if let Some(dll) = find_in_toolchain("tcc", "libtcc.dll") {
-        return dll.parent().map(|p| p.to_path_buf());
     }
     None
 }

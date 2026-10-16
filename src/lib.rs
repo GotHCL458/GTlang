@@ -48,7 +48,6 @@ pub mod parser;
 pub mod parser_recover;
 pub mod range;
 pub mod sema;
-pub mod tcc;
 pub mod tmp;
 pub mod gtlib;
 pub mod unit;

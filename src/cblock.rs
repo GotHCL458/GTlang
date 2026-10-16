@@ -113,7 +113,7 @@ pub fn bridge_header(funcs: &[GtFn]) -> (String, Vec<String>) {
     out.push_str("/* ===== 自动生成：C 调用 GTLang 的桥接（请勿修改） ===== */\n");
     // 禁用 stdout 缓冲：解释器端 C 代码里的 printf 要立刻落控制台，
     // 否则会因 CRT 全缓冲而与 GTLang 的直接输出混序。
-    // 注意不能加 static——解释器需要用 tcc_get_symbol 取到它并主动调用。
+    // 注意不能加 static——需从外部按符号名引用。
     out.push_str(
         "#include <stdio.h>\n#if defined(_WIN32)\n#include <io.h>\n#include <fcntl.h>\n#endif\nvoid gt_flush_iob(void) { setvbuf(stdout, NULL, _IONBF, 0);\n#if defined(_WIN32)\n_setmode(_fileno(stdout), _O_BINARY);\n#endif\n}\n",
     );

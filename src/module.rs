@@ -191,7 +191,7 @@ impl Linker {
                 // 读 .h（找不到也继续——让 C 编译器去报 #include 错误）
                 let raw = std::fs::read_to_string(&hpath).unwrap_or_default();
                 let funcs = crate::cblock::parse_c_funcs_ex(&raw, true);
-                // 若存在同名 .c 实现文件，一并纳入 C 块（供 tcc/clang 编译实现）
+                // 若存在同名 .c 实现文件，一并纳入 C 块（供 clang 编译实现）
                 let c_impl = hpath.with_extension("c");
                 if c_impl.is_file() {
                     if let Ok(src) = std::fs::read_to_string(&c_impl) {

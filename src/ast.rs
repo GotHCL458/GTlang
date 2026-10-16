@@ -545,7 +545,7 @@ pub struct Program {
     /// 已导入的内置标准库模块名（math/string/json/...）；调用标准库函数前须在此列。
     pub imported_gtlib: Vec<String>,
     /// 内联 C 块（`C { ... }`）的源码，多个块按出现顺序拼接。
-    /// 编译后端把它交给 clang，解释器后端交给 tcc。
+    /// 编译后端把它交给 clang。
     pub cblock: String,
     /// 从内联 C 块自动解析出的函数签名，GTLang 可直接调用（无需手写声明）。
     pub cfuncs: Vec<crate::cblock::CFn>,
