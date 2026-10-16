@@ -118,7 +118,7 @@ if errorlevel 1 ( echo [ERROR] gt_rt.c compile failed. & exit /b 1 )
 REM ---------- GTO 并发框架（编译为 res\lib\gto.dll，供 AOT/JIT 运行期动态加载） ----------
 echo [build] GTO ^(gto.dll^)
 if exist "%ROOT%src\GTO\gto.c" (
-    "%GTC_CLANG%" -c -O2 -fms-runtime-lib=libcmt -o "%RES%\runtime\gto.obj" "%ROOT%src\GTO\gto.c"
+    "%GTC_CLANG%" -c -O2 -fms-runtime-lib=libcmt -DGTO_BUILD_DLL -o "%RES%\runtime\gto.obj" "%ROOT%src\GTO\gto.c"
     if errorlevel 1 ( echo [ERROR] gto.c compile failed. & exit /b 1 )
     "%GTC_CLANG%" -shared -O2 -fms-runtime-lib=libcmt -o "%RES%\lib\gto.dll" "%RES%\runtime\gto.obj"
     if errorlevel 1 ( echo [ERROR] gto.dll link failed. & exit /b 1 )

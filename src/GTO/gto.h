@@ -13,13 +13,20 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* Windows 动态库导出：编译 gto.c 时定义 GTO_BUILD_DLL，则导出所有 GTO_API 函数。 */
+#if defined(_WIN32) && defined(GTO_BUILD_DLL)
+  #define GTO_API __declspec(dllexport)
+#else
+  #define GTO_API
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /* ---- 版本 ---- */
 #define GTO_VERSION "1.0.0"
-const char *gto_version(void);
+GTO_API const char *gto_version(void);
 
 /* ============================================================
  * 1. 调度器（M:N 协程）
@@ -49,12 +56,12 @@ int64_t gto_self(void);
 typedef struct GtoChan GtoChan;
 
 /* 创建通道：cap <= 0 表示无界 */
-GtoChan *gto_chan_new(int64_t cap);
-void gto_chan_free(GtoChan *c);
+GTO_API GtoChan *gto_chan_new(int64_t cap);
+GTO_API void gto_chan_free(GtoChan *c);
 
 /* 发送/接收（int64 负载；阻塞） */
-void gto_chan_send(GtoChan *c, int64_t v);
-int64_t gto_chan_recv(GtoChan *c);
+GTO_API void gto_chan_send(GtoChan *c, int64_t v);
+GTO_API int64_t gto_chan_recv(GtoChan *c);
 
 /* 非阻塞：成功返回 0，失败返回 -1 */
 int gto_chan_try_send(GtoChan *c, int64_t v);

@@ -1048,78 +1048,61 @@ void gt_sleep(long long ms) {
 
 
 /* ============================================================
- * 通道：无界队列 + 互斥锁 + 条件变量
+ * 通道：转发到 GTO（GTLang Thread Orchestrator）。
+ *   chan() 无界 → gto_chan_new(0)。GTO 以独立 gto.dll 分发，
+ *   运行期 LoadLibrary + GetProcAddress（与标准库同款"零 .lib"）。
+ *   go 仍为真线程（见上），GTO 只承担通道/同步原语。
  * ============================================================ */
-#ifdef _WIN32
-typedef struct { CRITICAL_SECTION mu; CONDITION_VARIABLE cv; long long *buf; long long len, cap, head; } GtChan;
+typedef void *(*gto_chan_new_t)(long long);
+typedef void (*gto_chan_send_t)(void *, long long);
+typedef long long (*gto_chan_recv_t)(void *);
+static gto_chan_new_t   g_gtoc_new  = 0;
+static gto_chan_send_t  g_gtoc_send = 0;
+static gto_chan_recv_t  g_gtoc_recv = 0;
+static void *g_gto_mod = 0;
+
+static void gt_gto_init(void) {
+    if (g_gto_mod) return;
+    /* 复用与 shim 相同的查找策略：GTC_STDLIB_DIR、exe 同目录、res\lib、逐级向上。 */
+    char base[MAX_PATH]; DWORD n = GetModuleFileNameA(NULL, base, MAX_PATH);
+    for (DWORD i = n; i > 0; --i) { if (base[i-1] == '\\' || base[i-1] == '/') { base[i] = 0; break; } }
+    char envdir[MAX_PATH]; DWORD en = GetEnvironmentVariableA("GTC_STDLIB_DIR", envdir, MAX_PATH);
+    if (en > 0 && en < MAX_PATH) {
+        char p[MAX_PATH]; strcpy(p, envdir);
+        if (p[strlen(p)-1] != '\\') strcat(p, "\\");
+        strcat(p, "gto.dll");
+        g_gto_mod = LoadLibraryA(p);
+    }
+    if (!g_gto_mod) {
+        char root[MAX_PATH]; strcpy(root, base);
+        for (int up = 0; up < 8 && !g_gto_mod; ++up) {
+            char p[MAX_PATH]; strcpy(p, root); strcat(p, "gto.dll"); g_gto_mod = LoadLibraryA(p);
+            if (!g_gto_mod) { strcpy(p, root); strcat(p, "res\\lib\\gto.dll"); g_gto_mod = LoadLibraryA(p); }
+            if (!g_gto_mod) { int L = (int)strlen(root); if (L > 0) { root[L-1] = 0; char *sl = strrchr(root, '\\'); if (sl) sl[1] = 0; else root[0] = 0; } }
+        }
+    }
+    if (!g_gto_mod) g_gto_mod = LoadLibraryA("gto.dll");
+    if (g_gto_mod) {
+        g_gtoc_new  = (gto_chan_new_t)  (void *)GetProcAddress(g_gto_mod, "gto_chan_new");
+        g_gtoc_send = (gto_chan_send_t) (void *)GetProcAddress(g_gto_mod, "gto_chan_send");
+        g_gtoc_recv = (gto_chan_recv_t) (void *)GetProcAddress(g_gto_mod, "gto_chan_recv");
+    }
+}
+
 void *gt_chan_new(void) {
-    GtChan *c = (GtChan *)gt_alloc(sizeof(GtChan));
-    InitializeCriticalSection(&c->mu);
-    InitializeConditionVariable(&c->cv);
-    c->cap = 16; c->len = 0; c->head = 0;
-    c->buf = (long long *)gt_alloc(sizeof(long long) * c->cap);
-    return c;
+    gt_gto_init();
+    if (!g_gtoc_new) return 0;
+    return g_gtoc_new(0); /* 0 = 无界 */
 }
 void gt_chan_send(void *p, long long v) {
-    GtChan *c = (GtChan *)p;
-    EnterCriticalSection(&c->mu);
-    if (c->len == c->cap) {
-        c->cap *= 2;
-        long long *nb = (long long *)gt_alloc(sizeof(long long) * c->cap);
-        for (long long i = 0; i < c->len; i++) nb[i] = c->buf[(c->head + i) % (c->cap / 2)];
-        gt_free(c->buf); c->buf = nb; c->head = 0;
-    }
-    c->buf[(c->head + c->len) % c->cap] = v;
-    c->len++;
-    WakeConditionVariable(&c->cv);
-    LeaveCriticalSection(&c->mu);
+    gt_gto_init();
+    if (g_gtoc_send) g_gtoc_send(p, v);
 }
 long long gt_chan_recv(void *p) {
-    GtChan *c = (GtChan *)p;
-    EnterCriticalSection(&c->mu);
-    while (c->len == 0) SleepConditionVariableCS(&c->cv, &c->mu, INFINITE);
-    long long v = c->buf[c->head];
-    c->head = (c->head + 1) % c->cap;
-    c->len--;
-    LeaveCriticalSection(&c->mu);
-    return v;
+    gt_gto_init();
+    if (g_gtoc_recv) return g_gtoc_recv(p);
+    return -1;
 }
-#else
-#include <pthread.h>
-typedef struct { pthread_mutex_t mu; pthread_cond_t cv; long long *buf; long long len, cap, head; } GtChan;
-void *gt_chan_new(void) {
-    GtChan *c = (GtChan *)gt_alloc(sizeof(GtChan));
-    pthread_mutex_init(&c->mu, NULL);
-    pthread_cond_init(&c->cv, NULL);
-    c->cap = 16; c->len = 0; c->head = 0;
-    c->buf = (long long *)gt_alloc(sizeof(long long) * c->cap);
-    return c;
-}
-void gt_chan_send(void *p, long long v) {
-    GtChan *c = (GtChan *)p;
-    pthread_mutex_lock(&c->mu);
-    if (c->len == c->cap) {
-        c->cap *= 2;
-        long long *nb = (long long *)gt_alloc(sizeof(long long) * c->cap);
-        for (long long i = 0; i < c->len; i++) nb[i] = c->buf[(c->head + i) % (c->cap / 2)];
-        gt_free(c->buf); c->buf = nb; c->head = 0;
-    }
-    c->buf[(c->head + c->len) % c->cap] = v;
-    c->len++;
-    pthread_cond_signal(&c->cv);
-    pthread_mutex_unlock(&c->mu);
-}
-long long gt_chan_recv(void *p) {
-    GtChan *c = (GtChan *)p;
-    pthread_mutex_lock(&c->mu);
-    while (c->len == 0) pthread_cond_wait(&c->cv, &c->mu);
-    long long v = c->buf[c->head];
-    c->head = (c->head + 1) % c->cap;
-    c->len--;
-    pthread_mutex_unlock(&c->mu);
-    return v;
-}
-#endif
 
 
 /* ============================================================
