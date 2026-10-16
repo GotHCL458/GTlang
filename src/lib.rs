@@ -54,7 +54,7 @@ pub mod gtlib;
 pub mod unit;
 pub mod unify;
 
-#[path = "type.rs"]
+#[path = "type/mod.rs"]
 pub mod types;
 
 // ---------- 对外 API 重导出 ----------
