@@ -10,11 +10,10 @@
 //!      ▼
 //!   统一 AST  ── sema 类型检查/推断（规则来自 type.rs）
 //!      │
-//!      ├─ codegen：AST → LLVM IR → clang → 可执行文件（编译器后端）
-//!      └─ jit    ：AST → Cranelift 机器码 → 内存中直接执行（解释器后端）
+//!      └─ codegen：AST → LLVM IR → clang → 可执行文件（编译器后端）
 //! ```
 //!
-//! 两个后端共用同一份 AST 与同一套类型规则（`type.rs`），因此对同一输入结果一致。
+//! 前端与类型规则统一（`type.rs`），后端为 LLVM 原生编译。
 //!
 //! # 用法
 //! ```text
@@ -23,13 +22,13 @@
 //! let src = "fn main() { put(\"hello\") }";
 //! let unit: Unit = build("demo.gt", src).expect("前端通过（检查已随此步完成）");
 //!
-//! unit.interpret().unwrap();          // 解释执行（Cranelift）
 //! let ir = unit.emit_llvm().unwrap(); // 生成 LLVM IR 文本
 //! unit.compile_to("demo.exe".as_ref(), 2).unwrap(); // 编译为可执行文件
 //! ```
 
 // ---------- 编译器内部模块 ----------
 pub mod ast;
+pub mod builtin_names;
 pub mod cblock;
 pub mod codegen;
 pub mod diag;
@@ -38,7 +37,6 @@ pub mod encoding;
 pub mod error;
 pub mod frontend;
 pub mod hoist;
-pub mod jit;
 pub mod lang;
 pub mod lint;
 pub mod lexer;

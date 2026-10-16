@@ -2,9 +2,9 @@
 name = "gtc_rust"
 version = "0.0.1-d"
 edition = "2021"
-description = "GTLang 编译器（Rust 实现，LLVM 全后端 + Cranelift 解释器）"
+description = "GTLang 编译器（Rust 实现，LLVM 全后端）"
 
-# 对外库：统一 API（build / Unit::interpret / Unit::compile_to）
+# 对外库：统一 API（build / Unit::compile_to）
 # doctest = false：内置工具链不含 rustdoc，文档示例用 ```text 承载
 [lib]
 name = "gtc_rust"
@@ -18,11 +18,6 @@ path = "src/main.rs"
 
 [dependencies]
 ariadne = "0.6"
-cranelift-codegen = "0.115"
-cranelift-frontend = "0.115"
-cranelift-jit = "0.115"
-cranelift-module = "0.115"
-cranelift-native = "0.115"
 
 [profile.release]
 opt-level = 3

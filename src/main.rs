@@ -1,11 +1,9 @@
 //! gtc —— GTLang 编译器与解释器（命令行前端）
 //!
-//! 统一前端（词法 → 语法 → 语义/类型检查 → 统一 AST），两条后端：
+//! 统一前端（词法 → 语法 → 语义/类型检查 → 统一 AST），后端：
 //!   - `--c`   编译：统一 AST → LLVM IR → clang → 本机可执行文件
-//!   - `--run` 解释：统一 AST → Cranelift 即时编译并在内存中执行
 //!
-//! 两条后端共用同一份 AST 与同一套类型规则，因此对同一输入结果一致。
-//! 库接口见 `lib.rs`（`build` / `Unit::interpret` / `Unit::compile_to`）。
+//! 库接口见 `lib.rs`（`build` / `Unit::compile_to`）。
 //!
 //! 语言：默认英文；在命令行**末尾**加 `zh` 参数则所有信息与诊断切换为中文。
 
@@ -19,7 +17,6 @@ gtc -- GTLang compiler / interpreter
 
 Usage:
   gtc --c   <file.gt> [more.gt ...] [-o out.exe] [-O 0..3]   compile to executable
-  gtc --run <file.gt> [more.gt ...]                         run with interpreter
   gtc --check <file.gt> [...]                               lex/parse/type-check only
   gtc --lint <file.gt> [...]                                static check (unused fn / unreachable / empty if / const cond / self-compare)
   gtc --lint --strict <file.gt>                             treat warnings as errors
@@ -47,7 +44,6 @@ gtc —— GTLang 编译器 / 解释器
 
 用法：
   gtc --c   <文件.gt> [更多文件.gt ...] [-o 输出.exe] [-O 0..3]   编译为可执行文件
-  gtc --run <文件.gt> [更多文件.gt ...]                          用解释器直接运行
   gtc --check <文件.gt> [...]                                    只做词法/语法/类型检查
   gtc --lint <文件.gt> [...]                                     静态检查（未用函数/不可达代码/空 if/常量条件/自比较）
   gtc --lint --strict <文件.gt>                                  把提示当作错误（有提示即退出码 1）
@@ -79,8 +75,6 @@ fn usage() -> &'static str {
 enum Mode {
     /// 编译为可执行文件（LLVM 全后端）
     Compile,
-    /// 解释执行（Cranelift 即时编译）
-    Run,
     /// 只做检查（词法/语法/类型）
     Check,
     /// 运行测试（`test_` 前缀函数）
@@ -154,7 +148,6 @@ fn main() -> ExitCode {
             }
             "--verbose" => gtc_rust::set_verbose(true),
             "--c" | "--compile" => mode = Mode::Compile,
-            "--run" | "--interp" => mode = Mode::Run,
             "--check" => mode = Mode::Check,
             "--lint" => mode = Mode::Lint,
             "--strict" => lint_strict = true,
@@ -354,11 +347,6 @@ fn drive(
             println!("check passed: {}", first.display());
         }
         return Ok(());
-    }
-
-    // 3. 解释执行（Cranelift 即时编译，不产出文件）
-    if mode == Mode::Run {
-        return unit.interpret();
     }
 
     // 3b. 测试：运行所有 `test_` 前缀函数
@@ -601,14 +589,24 @@ fn run_tests(unit: &Unit) -> Result<(), String> {
         full.push_str("\n");
         full.push_str(&src);
         let _ = std::fs::write(&tmp, &full);
-        // 每个测试独立子进程（assert 失败会 exit，不污染其它测试）
+        // 每个测试独立子进程（assert 失败会 exit，不污染其它测试）：
+        // 用 gtc --c 把"原源（去掉 main）+ 临时 main"编译成临时 exe 再运行。
         let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-        let st = std::process::Command::new(&exe).arg("--run").arg(&tmp).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status();
+        let tmp_exe = std::env::temp_dir().join("gtc").join(format!("test_{}_{}.exe", std::process::id(), idx));
+        let comp = std::process::Command::new(&exe)
+            .arg("--c").arg(&tmp).arg("-o").arg(&tmp_exe)
+            .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status();
+        let st = match comp {
+            Ok(s) if s.success() => std::process::Command::new(&tmp_exe)
+                .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status(),
+            _ => comp,
+        };
         match st {
             Ok(s) if s.success() => { passed += 1; println!("test {} ... ok", name); }
             _ => { failed += 1; println!("test {} ... FAILED", name); }
         }
         let _ = std::fs::remove_file(&tmp);
+        let _ = std::fs::remove_file(&tmp_exe);
     }
     println!("\ntest result: {} passed; {} failed", passed, failed);
     if failed > 0 { Err("测试未全部通过".into()) } else { Ok(()) }

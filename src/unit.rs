@@ -9,7 +9,7 @@ use crate::ast::Program;
 use crate::frontend::abs_of;
 use crate::sema::Analysis;
 use crate::tmp::TempDir;
-use crate::{cblock, codegen, driver, jit};
+use crate::{cblock, codegen, driver};
 
 /// 一次前端处理的完整结果：统一 AST + 语义分析 + 源码文本。
 pub struct Unit {
@@ -24,11 +24,6 @@ pub struct Unit {
 }
 
 impl Unit {
-    /// 用解释器执行（Cranelift 即时编译，不产出文件）
-    pub fn interpret(&self) -> Result<(), String> {
-        jit::run(&self.ast, &self.analysis, &self.file)
-    }
-
     /// 生成 LLVM IR 文本（编译器后端的中间产物）
     pub fn emit_llvm(&self) -> Result<String, String> {
         codegen::generate(&self.ast, &self.analysis, &self.file)

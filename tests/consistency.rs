@@ -2,7 +2,6 @@
 //!
 //! 这是"统一 AST + 统一类型规则"的直接验证：
 //!   - 编译器后端：`gtc --c` → `.ll` → clang → exe → 运行产物
-//!   - 解释器后端：`gtc --run` → Cranelift 即时编译后在内存中执行
 //!
 //! 测试全部通过真实命令行进程进行，因此同时覆盖了 CLI、运行时与两个后端。
 //!
@@ -69,23 +68,13 @@ fn decode(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).into_owned()
 }
 
-/// 双后端跑同一份源码，返回 `(解释器输出, 编译器输出)`
+/// 编译并运行同一份源码，返回 `(输出, 输出)`。
+///
+/// 说明：JIT 解释器已移除，本函数保留"二元组"返回签名以兼容既有用例，
+/// 两个元素都是同一份 AOT 输出（因此原先的"双端一致"断言恒成立）。
 fn both_backends(tag: &str, src: &Path) -> (String, String) {
     let dir = tmp_dir();
     let gtc = gtc();
-
-    // ---- 解释器后端 ----
-    let interp = Command::new(&gtc)
-        .arg("--run")
-        .arg(src)
-        .output()
-        .expect("无法启动 gtc --run");
-    assert!(
-        interp.status.success(),
-        "[{}] 解释器执行失败：\n{}",
-        tag,
-        decode(&interp.stderr)
-    );
 
     // ---- 编译器后端 ----
     let exe = dir.join(format!("{}.exe", tag));
@@ -112,7 +101,8 @@ fn both_backends(tag: &str, src: &Path) -> (String, String) {
         ran.status.code()
     );
 
-    (decode(&interp.stdout), decode(&ran.stdout))
+    let out = decode(&ran.stdout);
+    (out.clone(), out)
 }
 
 /// 断言双后端输出完全一致
@@ -441,18 +431,6 @@ fn bounds_check_aborts_both_backends() {
     )
     .unwrap();
 
-    // 解释器
-    let interp = Command::new(gtc())
-        .arg("--run")
-        .arg(&p)
-        .arg("zh")
-        .output()
-        .expect("无法启动 gtc --run");
-    assert!(!interp.status.success(), "解释器未拦下越界");
-    let ie = decode(&interp.stderr) + &decode(&interp.stdout);
-    assert!(ie.contains("越界"), "解释器缺少越界诊断：\n{}", ie);
-    assert!(!ie.contains("不可达"), "解释器越界后仍继续执行");
-
     // 编译器
     let exe = tmp_dir().join("oob.exe");
     let c = Command::new(gtc())
@@ -473,14 +451,16 @@ fn bounds_check_aborts_both_backends() {
     // 负下标：Python 风格（-1 = 末尾），非法负数（越界）仍被拦
     let p2 = tmp_dir().join("oob_neg.gt");
     std::fs::write(&p2, "fn main() {\n    a := [1, 2, 3]\n    put(\"${a[-10]}\")\n}\n").unwrap();
-    let neg = Command::new(gtc())
-        .arg("--run")
-        .arg(&p2)
-        .arg("zh")
+    let neg_exe = tmp_dir().join("oob_neg.exe");
+    let negc = Command::new(gtc())
+        .arg("--c").arg(&p2).arg("-o").arg(&neg_exe).arg("zh")
         .output()
-        .expect("无法启动 gtc --run");
+        .expect("无法启动 gtc --c");
+    assert!(negc.status.success(), "负下标用例编译失败");
+    let neg = Command::new(&neg_exe).output().expect("无法运行产物");
     assert!(!neg.status.success(), "负下标越界未被拦下");
-    assert!(decode(&neg.stderr).contains("越界"), "负下标缺少越界诊断");
+    let ne = decode(&neg.stderr) + &decode(&neg.stdout);
+    assert!(ne.contains("越界"), "负下标缺少越界诊断：\n{}", ne);
 }
 
 #[test]
@@ -533,18 +513,6 @@ fn div_by_zero_aborts_both_backends() {
         assert!(src.contains("${"), "测试用例生成错误：\n{}", src);
         assert!(!src.contains("${{"), "插值语法被 format! 转义破坏了：\n{}", src);
         std::fs::write(&p, &src).unwrap();
-
-        // 解释器
-        let interp = Command::new(gtc())
-            .arg("--run")
-            .arg(&p)
-            .arg("zh")
-            .output()
-            .expect("无法启动 gtc --run");
-        assert!(!interp.status.success(), "[{}] 解释器未拦下除零", tag);
-        let ie = decode(&interp.stderr) + &decode(&interp.stdout);
-        assert!(ie.contains("除数为 0"), "[{}] 解释器缺诊断：\n{}", tag, ie);
-        assert!(!ie.contains("不可达"), "[{}] 解释器除零后仍继续", tag);
 
         // 编译器
         let exe = tmp_dir().join(format!("dz_{}.exe", tag));
@@ -1680,10 +1648,13 @@ fn assert_matches() {
     // 失败的 assert 必须被**同样地**拦下
     let p = tmp_dir().join("assert_fail.gt");
     std::fs::write(&p, "fn main() {\n    x := 5\n    assert(x > 100, \"x must exceed 100\")\n    put(\"不可达\")\n}\n").unwrap();
-    let interp = Command::new(gtc()).arg("--run").arg(&p).output().expect("无法启动 gtc --run");
-    assert!(!interp.status.success(), "解释器未拦下断言失败");
-    let ie = decode(&interp.stderr) + &decode(&interp.stdout);
-    assert!(ie.contains("x must exceed 100"), "解释器缺少断言消息：\n{}", ie);
+    let af_exe = tmp_dir().join("assert_fail.exe");
+    let afc = Command::new(gtc()).arg("--c").arg(&p).arg("-o").arg(&af_exe).output().expect("无法启动 gtc --c");
+    assert!(afc.status.success(), "断言失败用例编译失败：\n{}", decode(&afc.stderr));
+    let af = Command::new(&af_exe).output().expect("无法运行产物");
+    assert!(!af.status.success(), "产物未拦下断言失败");
+    let ie = decode(&af.stderr) + &decode(&af.stdout);
+    assert!(ie.contains("x must exceed 100"), "缺少断言消息：\n{}", ie);
     assert!(!ie.contains("不可达"), "断言失败后仍继续执行");
 }
 
@@ -2539,11 +2510,6 @@ fn overflow_not_folded_away() {
     // i64::MAX + 1 必须在运行时被拦截（不能常量折叠成回绕值）
     let p = tmp_dir().join("ovf_not_folded.gt");
     std::fs::write(&p, "fn main() {\n    x := 9223372036854775807\n    put(x + 1)\n}\n").unwrap();
-    // 解释器
-    let interp = Command::new(gtc()).arg("--run").arg(&p).arg("zh").output().expect("无法启动 gtc --run");
-    assert!(!interp.status.success(), "解释器未拦下溢出");
-    let ie = decode(&interp.stderr) + &decode(&interp.stdout);
-    assert!(ie.contains("溢出"), "解释器缺诊断：\n{}", ie);
     // 编译器
     let exe = tmp_dir().join("ovf_not_folded.exe");
     let c = Command::new(gtc()).arg("--c").arg(&p).arg("-o").arg(&exe).arg("zh").output().expect("无法启动 gtc --c");
@@ -2971,14 +2937,6 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
     let p = tmp_dir().join(format!("rt_{}.gt", tag));
     std::fs::write(&p, src_text).expect("无法写临时源文件");
 
-    let interp = Command::new(gtc())
-        .arg("--run").arg(&p)
-        .output().expect("无法启动 gtc --run");
-    assert!(!interp.status.success(), "[{}] 解释器未报运行时错误", tag);
-    let ie = decode(&interp.stderr) + &decode(&interp.stdout);
-    assert!(!ie.contains("panicked"), "[{}] 解释器 panic：
-{}", tag, ie);
-
     let exe = tmp_dir().join(format!("rt_{}.exe", tag));
     let c = Command::new(gtc())
         .arg("--c").arg(&p).arg("-o").arg(&exe)
@@ -2988,8 +2946,7 @@ fn assert_runtime_error_matches(tag: &str, src_text: &str) {
     let ran = Command::new(&exe).output().expect("无法运行产物");
     assert!(!ran.status.success(), "[{}] 编译产物未报运行时错误", tag);
     let ce = decode(&ran.stderr) + &decode(&ran.stdout);
-
-    assert_eq!(ie, ce, "[{}] 双端运行时错误不一致", tag);
+    assert!(!ce.contains("panicked"), "[{}] 产物 panic：\n{}", tag, ce);
 }
 
 #[test]
@@ -3334,15 +3291,10 @@ fn enum_payload_destructuring_matches() {
 
 #[test]
 fn composite_match_pattern_rejected() {
-    // 复合类型（元组）不能作 match 模式：--run 与 --c 都应明确拒绝
+    // 复合类型（元组）不能作 match 模式：--c 应明确拒绝
     // （不生成非法 IR、不静默走 _）。该错误在代码生成阶段，--check 不报。
     let p = tmp_dir().join("composite_pat.gt");
     std::fs::write(&p, "fn main() { t := (1, 2)  match t { (1, 2) => { put(10) } _ => { put(0) } } }\n").unwrap();
-
-    let jit = Command::new(gtc()).arg("--run").arg(&p).output().expect("gtc --run");
-    assert!(!jit.status.success(), "--run 未拒绝复合模式");
-    let je = decode(&jit.stderr) + &decode(&jit.stdout);
-    assert!(je.contains("composite"), "--run 缺少提示：\n{}", je);
 
     let exe = tmp_dir().join("composite_pat.exe");
     let aot = Command::new(gtc()).arg("--c").arg(&p).arg("-o").arg(&exe).output().expect("gtc --c");

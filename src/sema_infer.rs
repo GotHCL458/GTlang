@@ -442,7 +442,7 @@ impl Ctx {
                             let mut hint = closest_fn(&name, self).map(|s| if crate::lang::is_zh() { format!("\x01是否想用 '{}'？", s) } else { format!("\x01did you mean '{}'?", s) }).unwrap_or_default();
                             // 再看"标准库"里最近的名字（用户可能忘了它来自 stdlib）
                             if hint.is_empty() {
-                                let cands: Vec<String> = crate::jit::symbol::BUILTIN_NAMES.iter().chain(crate::jit::symbol::GTLIB_NAMES.iter()).map(|s| s.to_string()).collect();
+                                let cands: Vec<String> = crate::builtin_names::BUILTIN_NAMES.iter().chain(crate::builtin_names::GTLIB_NAMES.iter()).map(|s| s.to_string()).collect();
                                 if let Some(s) = closest_of(&name, cands.into_iter()) {
                                     hint = if crate::lang::is_zh() { format!("\x01是否想用标准库函数 '{}'？（该函数由标准库提供，直接调用即可）", s) } else { format!("\x01did you mean the stdlib function '{}'? (it is provided by the standard library; call it directly)", s) };
                                 }
