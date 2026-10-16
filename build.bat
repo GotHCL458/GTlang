@@ -7,6 +7,7 @@ REM
 REM   1. Check Rust ^(^>= 1.75^) and LLVM/clang ^(^>= 15^) on PATH.
 REM   2. Build gtc (release).
 REM   3. Build the standard library (src\gtlib\*.rs -> *.dll + *.lib).
+REM      Build GTO concurrency framework -> res\lib\gto.dll.
 REM   4. Assemble a portable res\ directory.
 REM
 REM Env: GTC_CLANG (clang.exe path), GTC_TCC (TCC dir).
@@ -127,9 +128,21 @@ if "%GTC_TCC%"=="" (
 copy /Y "%ROOT%src\runtime\gt_rt.c" "%RES%\runtime\gt_rt.c" >nul
 copy /Y "%ROOT%src\runtime\gc.c"   "%RES%\runtime\gc.c"   >nul
 copy /Y "%ROOT%src\runtime\gc.h"   "%RES%\runtime\gc.h"   >nul
+REM 运行时对象直接编到 res（产物不再链接 gt_rt.lib，而是直接编进可执行文件）
 "%GTC_CLANG%" -c "%ROOT%src\runtime\gt_rt.c" -o "%RES%\runtime\gt_rt.obj" -O2 -fms-runtime-lib=libcmt
 if errorlevel 1 ( echo [ERROR] gt_rt.c compile failed. & exit /b 1 )
-if exist "%LLD_LINK%" "%LLD_LINK%" /lib /out:"%RES%\lib\gt_rt.lib" "%RES%\runtime\gt_rt.obj" >nul 2>nul
+
+REM ---------- GTO 并发框架（编译为 res\lib\gto.dll，供 AOT/JIT 运行期动态加载） ----------
+echo [build] GTO ^(gto.dll^)
+if exist "%ROOT%src\GTO\gto.c" (
+    "%GTC_CLANG%" -c -O2 -fms-runtime-lib=libcmt -o "%RES%\runtime\gto.obj" "%ROOT%src\GTO\gto.c"
+    if errorlevel 1 ( echo [ERROR] gto.c compile failed. & exit /b 1 )
+    "%GTC_CLANG%" -shared -O2 -fms-runtime-lib=libcmt -o "%RES%\lib\gto.dll" "%RES%\runtime\gto.obj"
+    if errorlevel 1 ( echo [ERROR] gto.dll link failed. & exit /b 1 )
+    del /q "%RES%\runtime\gto.obj" 2>nul
+) else (
+    echo [WARN] src\GTO\gto.c not found; concurrency (go/chan) will fall back to built-in impl.
+)
 
 echo.
 echo [OK] Build complete.
