@@ -77,8 +77,6 @@ enum Mode {
     Compile,
     /// 只做检查（词法/语法/类型）
     Check,
-    /// 运行测试（`test_` 前缀函数）
-    Test,
     /// 只产出 LLVM IR
     EmitLlvm,
     EmitLlvmOpt,
@@ -152,7 +150,6 @@ fn main() -> ExitCode {
             "--lint" => mode = Mode::Lint,
             "--strict" => lint_strict = true,
             "--json" => lint_json = true,
-            "--test" | "test" => mode = Mode::Test,
             "--emit-llvm" => mode = Mode::EmitLlvm,
             "--emit-llvm-opt" | "--ir-ugly" => mode = Mode::EmitLlvmOpt,
             "--no-color" => no_color = true,
@@ -347,11 +344,6 @@ fn drive(
             println!("check passed: {}", first.display());
         }
         return Ok(());
-    }
-
-    // 3b. 测试：运行所有 `test_` 前缀函数
-    if mode == Mode::Test {
-        return run_tests(&unit);
     }
 
     // 4. 编译：统一 AST → LLVM IR → clang
@@ -556,86 +548,6 @@ fn report_spanned(
     }
 }
 
-/// 运行测试：所有 test_ 前缀函数，逐个在子进程中执行。
-fn run_tests(unit: &Unit) -> Result<(), String> {
-    use gtc_rust::ast::Item;
-    // 用优化前的 AST（lower 会删掉未被调用的函数）
-    let raw = gtc_rust::parser::parse_program(&unit.text).map_err(|e| e.msg)?;
-    let mut tests: Vec<String> = Vec::new();
-    for item in &raw.items {
-        if let Item::Fn(f) = item {
-            if f.name.starts_with("test_") {
-                tests.push(f.name.clone());
-            }
-        }
-    }
-    if tests.is_empty() {
-        if lang::is_zh() {
-            println!("未找到测试（约定：函数名以 test_ 开头）");
-        } else {
-            println!("no tests found (convention: fn name starts with test_)");
-        }
-        return Ok(());
-    }
-    let mut passed = 0;
-    let mut failed = 0;
-    for (idx, name) in tests.iter().enumerate() {
-        // 生成临时入口：调用该测试函数
-        let src = format!("fn main() {{ {}() }}", name);
-        let tmp = std::env::temp_dir().join("gtc").join(format!("test_{}_{}.gt", std::process::id(), idx));
-        if let Some(dir) = tmp.parent() { let _ = std::fs::create_dir_all(dir); }
-        // 拼接原源（去掉原 main 定义）+ 临时 main
-        let mut full = strip_main(&unit.text);
-        full.push_str("\n");
-        full.push_str(&src);
-        let _ = std::fs::write(&tmp, &full);
-        // 每个测试独立子进程（assert 失败会 exit，不污染其它测试）：
-        // 用 gtc --c 把"原源（去掉 main）+ 临时 main"编译成临时 exe 再运行。
-        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-        let tmp_exe = std::env::temp_dir().join("gtc").join(format!("test_{}_{}.exe", std::process::id(), idx));
-        let comp = std::process::Command::new(&exe)
-            .arg("--c").arg(&tmp).arg("-o").arg(&tmp_exe)
-            .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status();
-        let st = match comp {
-            Ok(s) if s.success() => std::process::Command::new(&tmp_exe)
-                .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status(),
-            _ => comp,
-        };
-        match st {
-            Ok(s) if s.success() => { passed += 1; println!("test {} ... ok", name); }
-            _ => { failed += 1; println!("test {} ... FAILED", name); }
-        }
-        let _ = std::fs::remove_file(&tmp);
-        let _ = std::fs::remove_file(&tmp_exe);
-    }
-    println!("\ntest result: {} passed; {} failed", passed, failed);
-    if failed > 0 { Err("测试未全部通过".into()) } else { Ok(()) }
-}
 
-
-/// 从源码中删掉顶层 fn main 定义（用于测试时替换入口）。
-fn strip_main(src: &str) -> String {
-    let mut out = String::with_capacity(src.len());
-    let mut depth: i32 = 0;
-    let mut skipping = false;
-    for line in src.lines() {
-        let t = line.trim_start();
-        if !skipping && (t.starts_with("fn main(") || t.starts_with("pub fn main(")) {
-            skipping = true;
-            depth = 0;
-        }
-        if skipping {
-            depth += line.matches('{').count() as i32;
-            depth -= line.matches('}').count() as i32;
-            if depth <= 0 && line.contains('}') {
-                skipping = false;
-            }
-            continue;
-        }
-        out.push_str(line);
-        out.push('\n');
-    }
-    out
-}
 
 
