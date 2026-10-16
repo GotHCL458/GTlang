@@ -70,6 +70,19 @@ impl Unit {
         v
     }
 
+    /// 扫描 LLVM IR，返回用到的标准库 C 符号名（去重）。
+    pub fn used_gtlib_symbols_of(ir: &str) -> std::collections::BTreeSet<&'static str> {
+        let mut set: std::collections::BTreeSet<&'static str> = std::collections::BTreeSet::new();
+        for m in crate::gtlib::MODULES {
+            for f in m.funcs {
+                if let Some(sf) = crate::types::gtlib_fn(f) {
+                    if ir.contains(sf.symbol) { set.insert(sf.symbol); }
+                }
+            }
+        }
+        set
+    }
+
     pub fn compile_to_ex(&self, out: &Path, opt: u8, keep_tmp: bool) -> Result<PathBuf, String> {
         let ir = self.emit_llvm()?;
         let exe = abs_of(out);
@@ -94,7 +107,9 @@ impl Unit {
                 .to_string()
         })?;
         let needed = Self::used_gtlib_dlls_of(&ir);
-        driver::compile_ll(&clang, &tmp, &ll, &exe, opt, &self.c_source(), &needed)?;
+        let syms = Self::used_gtlib_symbols_of(&ir);
+        let shim = crate::stdlib_shim::generate_shim(&needed, &syms);
+        driver::compile_ll(&clang, &tmp, &ll, &exe, opt, &self.c_source(), &shim, &needed)?;
         Ok(exe)
     }
 

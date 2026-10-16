@@ -112,16 +112,13 @@ pub fn compile_ll(
     out: &Path,
     opt: u8,
     cblock: &str,
-    needed: &[&'static str],
+    shim_c: &str,
+    _needed: &[&'static str],
 ) -> Result<(), String> {
-    // 1) 运行时：优先用**预编译静态库** gt_rt.lib（build.bat 产出，放 res/lib 或 toolchain）；
-    //    找不到时回退到按内容哈希缓存的对象（首次编译后复用）。
-    let rt = match find_runtime_lib() {
-        Some(lib) => RtInput::Lib(lib),
-        None => RtInput::Obj(runtime_object(clang, opt)?),
-    };
+    // 1) 运行时对象（内置 gt_rt.c 编译缓存）。不再链接任何 gt_rt.lib / stdlib .lib。
+    let rt = RtInput::Obj(runtime_object(clang, opt)?);
 
-    // 2) 内联 C 块（每次不同，放临时目录）
+    // 2) 用户内联 C 块
     let mut srcs: Vec<PathBuf> = Vec::new();
     if !cblock.trim().is_empty() {
         let cfile = tmp.file("inline_c.c");
@@ -130,7 +127,15 @@ pub fn compile_ll(
         srcs.push(cfile);
     }
 
-    link(clang, &rt, &srcs, ll, out, opt, needed)
+    // 3) 标准库运行期加载 + 转发 thunk（不链接 stdlib .lib；运行期 LoadLibrary 共享 dll）
+    if !shim_c.trim().is_empty() {
+        let sfile = tmp.file("stdlib_shim.c");
+        std::fs::write(&sfile, shim_c)
+            .map_err(|e| format!("无法写入标准库 shim 文件 {}：{}", sfile.display(), e))?;
+        srcs.push(sfile);
+    }
+
+    link(clang, &rt, &srcs, ll, out, opt, &[])
 }
 
 /// 运行时的两种输入形式：预编译静态库（优先）或按需编译的对象文件。
@@ -270,8 +275,6 @@ fn link(clang: &Path, rt: &RtInput, srcs: &[PathBuf], ll: &Path, out: &Path, opt
     // 首次带上 lld（LLVM 自带，通常位于 clang 同目录）；失败则退回默认链接器
     let attempts: Vec<Vec<String>> = vec![vec!["-fuse-ld=lld".into()], vec![]];
     // 标准库静态库：只链接"用到的"模块
-    let std_libs = find_std_libs_for(needed);
-
     let mut last = String::new();
     for extra in attempts {
         let mut cmd = Command::new(clang);
@@ -290,17 +293,11 @@ fn link(clang: &Path, rt: &RtInput, srcs: &[PathBuf], ll: &Path, out: &Path, opt
             cmd.arg("-fno-stack-protector");
             cmd.arg("-fno-asynchronous-unwind-tables");
         }
-        let mut syslibs: Vec<&str> = vec!["kernel32", "ws2_32", "ntdll", "userenv", "advapi32", "bcrypt", "synchronization"];
-        // 用到 sql 模块时链接 Windows 自带的 SQLite
-        if needed.contains(&"sql") { syslibs.push("winsqlite3"); }
-        if needed.contains(&"session") { syslibs.push("winsqlite3"); }
-        // http 模块用 WinHTTP（HTTPS 支持）；Windows 自带
-        if needed.contains(&"http") { syslibs.push("winhttp"); }
+        // 产物只依赖系统库（kernel32 等）；标准库/运行时/WinHTTP/SQLite 的调用
+        // 都发生在各自 dll 内部，运行期由 shim LoadLibrary，无需在此链接 .lib。
+        let syslibs: Vec<&str> = vec!["kernel32", "ws2_32", "ntdll", "userenv", "advapi32", "bcrypt", "synchronization"];
         for syslib in &syslibs {
             cmd.arg(format!("-l{}", syslib));
-        }
-        for lib in &std_libs {
-            cmd.arg(lib);
         }
         for e in &extra {
             cmd.arg(e);

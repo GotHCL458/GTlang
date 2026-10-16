@@ -93,12 +93,18 @@ fn both_backends(tag: &str, src: &Path) -> (String, String) {
         decode(&compiled.stderr)
     );
 
-    let ran = Command::new(&exe).output().expect("无法运行编译产物");
+    // 标准库为共享 dll（运行期 LoadLibrary），用 GTC_STDLIB_DIR 指向项目的 res/lib。
+    let stdlib_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("res").join("lib");
+    let ran = Command::new(&exe)
+        .env("GTC_STDLIB_DIR", &stdlib_dir)
+        .output()
+        .expect("无法运行编译产物");
     assert!(
         ran.status.success(),
-        "[{}] 编译产物运行失败，退出码 {:?}",
+        "[{}] 编译产物运行失败，退出码 {:?}\n{}",
         tag,
-        ran.status.code()
+        ran.status.code(),
+        decode(&ran.stderr)
     );
 
     let out = decode(&ran.stdout);
