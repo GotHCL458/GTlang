@@ -18,7 +18,7 @@
 | GTLang 默认（有溢出检查） | ~43 ms |
 | GTLang `--no-overflow-check` | ~33 ms |
 | C（clang -O2） | ~26 ms |
-| GTLang JIT | ~62 ms |
+| GTLang（bignum 快路径） | ~43 ms |
 
 fib 是**递归**（`n-1`/`n-2`），范围分析无法证明不溢出，故每次调用有 2 次检查；这是**安全**的代价。用 `--no-overflow-check` 可关闭（溢出回绕）。
 
@@ -37,7 +37,7 @@ fib 是**递归**（`n-1`/`n-2`），范围分析无法证明不溢出，故每�
 
 GTLang 的范围分析（src/range.rs）对整数运算做流敏感分析：当能静态证明某次
 Add/Sub/Mul 不溢出时（如 for i in 0..N 加单调累积 s = s + i），省略溢出检查，
-但保持语义安全（危险溢出照样拦截）。
+但保持语义安全（危险溢出时整数自动升级 bignum，不再终止）。
 
 - loop_sum(2e8)：5.9 ms（与 C 的 5.5 ms 持平）
 - 覆盖 Stmt::Assign 的算术（裸赋值 s = s + i 与复合 s += i）
@@ -61,8 +61,8 @@ gtc bench/xxx.gt -o x.exe -O2 --no-overflow-check # 关闭检查
 
 ## 6. 并发与编译速度
 
-**`go` 任务派发**：AOT 与 JIT 均使用**固定 worker 线程池**（而非"每任务起线程"）。
-JIT 侧 2000 个 `go` 任务的总派发开销约 **7 ms**（此前"每任务 spawn"要数百 ms）。
+**`go` 任务派发**：使用**固定 worker 线程池**（而非"每任务起线程"）。
+2000 个 `go` 任务的总派发开销约 **7 ms**（此前"每任务 spawn"要数百 ms）。
 
 **编译速度**（`gtc --check`，Windows x64）：近线性。
 单文件 + 数百个顶层函数通常在 **数十 ms** 量级；5000 个顶层函数约 80 ms。

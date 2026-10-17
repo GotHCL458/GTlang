@@ -2,7 +2,7 @@
 
 > [中文](../syntax_status.md)
 
-> Version 0.0.1d | Dual backend (LLVM + Cranelift), byte-for-byte consistent
+> Version 0.0.1d | LLVM native backend (no interpreter); two-tier int, decimal, zero-`.lib` stdlib
 
 ## 1. Implemented (100%)
 
@@ -79,7 +79,7 @@ container ops, string ops, mem_*, chan/sleep
 
 | Tool | Function |
 |---|---|
-| gtc | compiler/interpreter (--c/--run/--check/--lint/--emit-llvm/--test/--watch) |
+| gtc | compiler (--c/--check/--lint/--emit-llvm/--watch) |
 | gtc --lint | static check (unused fn/var/param, unreachable, empty if, const cond, self-compare) |
 
 ## 3. Not Implemented / Not Planned
@@ -95,6 +95,6 @@ container ops, string ops, mem_*, chan/sleep
 
 ## 4. Tests
 
-**814 tests** (142 unit + 149 dual-backend consistency + 522 frontend bulk),
+**827 tests** (143 unit + 166 end-to-end + 518 frontend bulk),
 cargo test --release all green, 0 warnings.
 

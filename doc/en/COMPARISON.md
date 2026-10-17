@@ -9,7 +9,7 @@
 | Aspect | GTLang | Python |
 |---|---|---|
 | Types | **static** (compile-time) | dynamic |
-| Execution | **compiled / JIT** (LLVM/Cranelift) | interpreted (CPython) |
+| Execution | **compiled** (LLVM → native exe) | interpreted (CPython) |
 | Chinese identifiers | **native** | supported (PEP 3131) |
 | Indentation | **braces** | indentation |
 | Concurrency | **real threads** (go + chan) | GIL-limited |

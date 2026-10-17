@@ -2,7 +2,7 @@
 
 > [English](en/LANGUAGE.md)
 
-> 版本：0.0.1d ｜ 编译器：gtc（双后端）｜ 编码：UTF-8（自识别）
+> 版本：0.0.1d ｜ 编译器：gtc（LLVM 后端）｜ 编码：UTF-8（自识别）
 
 ---
 
@@ -209,7 +209,7 @@
     v := chan_recv(ch)     // 阻塞接收
     sleep(500)             // 毫秒
 
-双后端：JIT 用 std::thread + Condvar；编译用 CreateThread/pthread。
+并发：`go` 起真线程（线程池 + `CreateThread`）；`chan` 由 GTO（`gto.dll`）驱动。
 
 ---
 
@@ -344,7 +344,7 @@
 
 - 数组/列表边界检查
 - 除零检查
-- 加/减/乘溢出检测（双后端）
+- 整数溢出自动升级 bignum（永不终止）；双层 int（i63 内联 / 堆 bignum）
 
 ---
 

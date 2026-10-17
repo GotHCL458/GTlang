@@ -18,7 +18,7 @@
 | GTLang default (overflow checks) | ~43 ms |
 | GTLang `--no-overflow-check` | ~33 ms |
 | C (clang -O2) | ~26 ms |
-| GTLang JIT | ~62 ms |
+| GTLang (bignum fast path) | ~43 ms |
 
 fib is **recursive** (`n-1`/`n-2`); range analysis cannot prove non-overflow, so every call carries 2 checks — the price of safety. Use `--no-overflow-check` to disable (wraps on overflow).
 
@@ -61,8 +61,8 @@ s = s + i), the overflow check is elided while keeping semantics safe.
 
 ## 6. Concurrency & compile speed
 
-**`go` dispatch**: both AOT and JIT use a **fixed worker thread pool** (not
-thread-per-task). In the JIT, 2000 `go` tasks total ~7 ms of dispatch overhead.
+**`go` dispatch**: uses a **fixed worker thread pool** (not thread-per-task).
+2000 `go` tasks total ~7 ms of dispatch overhead.
 
 **Compile speed** (`gtc --check`, Windows x64): near-linear.
 

@@ -4,10 +4,10 @@
 
 # GTLang
 
-**GTLang 是一门静态类型、编译型、表达式导向的编程语言，采用双后端（LLVM + Cranelift），原生支持中文标识符 —— 且默认（带安全检查）在紧循环上追平 C。**
+**GTLang 是一门静态类型、编译型、表达式导向的编程语言（LLVM 后端），原生支持中文标识符 —— 且默认（带安全检查）在紧循环上追平 C。**
 
-[![Tests](https://img.shields.io/badge/tests-814%20passed-brightgreen)]()
-[![Backends](https://img.shields.io/badge/backends-LLVM%20%2B%20Cranelift-blue)]()
+[![Tests](https://img.shields.io/badge/tests-827%20passed-brightgreen)]()
+[![Backend](https://img.shields.io/badge/backend-LLVM-blue)]()
 [![Warnings](https://img.shields.io/badge/warnings-0-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)]()
 
@@ -26,7 +26,7 @@
 ## 为什么选 GTLang？
 
 - **默认就快。** 流敏感范围分析在可证明安全时省略溢出检查，带检查的算术仍能追平 C（`loop_sum(2×10⁸)`：**5.9 ms**，与 `clang -O2` 相差 7%）。
-- **同一 AST，两个后端。** 同一份源码既可编译为原生可执行文件（LLVM），也可内存执行（Cranelift JIT），**输出逐字节一致**。
+- **原生代码，无解释器。** 所有程序经 LLVM 编译为独立原生可执行文件 —— 无 JIT、无运行时 VM。
 - **安全而不将就。** 静态类型、所有权/借用检查（流敏感 NLL）、边界/溢出/除零检查、穷尽 `match`。
 - **原生双语。** 中文标识符（`计数器`、`累加`、`点`）是一等公民，诊断信息本地化。
 - **生产力不缺。** 泛型、trait、`dyn Trait`、带载荷枚举、闭包、**函数作一等值**（顶层 `fn` 名可直接当值传递）、宏、`@derive`、真线程、通道、C 交互。
@@ -40,7 +40,7 @@
 - [快速上手](#快速上手)
 - [代码一览](#代码一览)
 - [语言特性](#语言特性)
-- [双后端](#双后端)
+- [后端与运行时](#后端与运行时)
 - [性能](#性能)
 - [CLI 速查](#cli-速查)
 - [目录结构](#目录结构)
@@ -59,7 +59,9 @@ GTLang 是一门**静态类型**、**编译型**、**表达式导向**的编程�
 - **C 级性能** —— 经 LLVM 生成原生机器码；紧循环可与 C 持平
 - **Python 式简洁** —— 表达式导向、类型标注可选、闭包、列表推导
 - **原生中文标识符** —— `计数器`、`累加`、`点` 都是合法名字
-- **双后端** —— 同一份 AST 既可编译为原生可执行文件（LLVM），也可内存执行（Cranelift JIT），**输出逐字节一致**（测试保证）
+- **双层整数** —— `int` 是 8 字节 tagged 值：小数值内联，溢出自动升级为任意精度 bignum（永不终止）
+- **高精度十进制** —— 内置 `decimal` 类型，精确十进制运算（`0.1 + 0.2 == 0.3`）
+- **零 `.lib` 标准库** —— 标准库以共享 DLL 形式随程序启动加载，无需链接 `.lib`
 
 ---
 
@@ -69,7 +71,10 @@ GTLang 是一门**静态类型**、**编译型**、**表达式导向**的编程�
 |---|---|
 | 🧠 | **静态类型** + 双向推断 |
 | 🛡️ | **内存安全** —— 所有权、借用、NLL、边界/溢出检查 |
-| ⚡ | **双后端** —— LLVM（发布）+ Cranelift（JIT），语义一致 |
+| ⚡ | **LLVM 原生后端** —— 编译为独立可执行文件 |
+| 🔢 | **双层 int** —— 小整数内联（i63），溢出自动升级 bignum |
+| 🎯 | **Decimal** —— 精确高精度十进制（`3.14d`） |
+| 🧵 | **GTO 并发** —— `chan` 由 GTO 运行时（`gto.dll`）驱动 |
 | 🌏 | **中文标识符** —— 无需音译 |
 | 🧬 | **泛型**（单态化）、trait、**dyn Trait**（vtable 动态分发） |
 | 🎯 | **带载荷枚举** + 穷尽 `match`（范围/守卫/OR） |
@@ -81,7 +86,7 @@ GTLang 是一门**静态类型**、**编译型**、**表达式导向**的编程�
 | 🧷 | **丰富的模式** —— 裸标识符绑定、嵌套解构（`Some(Some(v))`）、`x or 默认值` |
 | 💬 | **智能诊断** —— 稳定错误码、中英双语、"是否想用 X？" |
 | 📦 | **模块** —— `import math`（内置）、`import a.b`（用户）、`import "x.gt"` |
-| 🛠️ | **工具链** —— `gtc`（编译器 / 解释器） |
+| 🛠️ | **工具链** —— `gtc`（编译器） |
 | 🖥️ | **裸机 OS** —— `gtc --bare --target x86_16/32/64` + `--asm16` 汇编器 + `--boot` 一键镜像；`import boot`（30 函数）在 QEMU 跑内核 |
 
 ---
@@ -91,7 +96,7 @@ GTLang 是一门**静态类型**、**编译型**、**表达式导向**的编程�
 ### 构建
 
 > **预编译包**（无需 Rust/LLVM）：下载 [`dist/gtlang-res-win-x64.zip`](dist/gtlang-res-win-x64.zip)（10 MB），
-解压后直接运行 `gtc.exe`。包内已含 `gtc`、标准库、运行时与 TCC。
+解压后直接运行 `gtc.exe`。包内已含 `gtc`、标准库（共享 DLL）、运行时与 GTO。
 **不含** `clang`/`lld-link`（约 176 MB）—— GTLang 会从系统 `PATH`（或 `GTC_CLANG`）定位它们。
 
 或从源码构建：
@@ -99,25 +104,15 @@ GTLang 是一门**静态类型**、**编译型**、**表达式导向**的编程�
 ```bat
 REM 需要 PATH 上有 Rust（>= 1.75）与 LLVM/clang（>= 15）
 REM 可用 GTC_CLANG 指定 clang.exe 完整路径以覆盖自动探测
-REM TCC 可选（用于内联 C 块），见下方 GTC_TCC 说明
 build.bat
 ```
 
-`build.bat` 会先检查工具链版本，然后构建 `gtc`、标准库，并组装可分发的 `res/` 目录，**无需任何参数**。
-
-**可选：TCC（用于内联 C 块）。** GTLang 通过 [TCC](https://bellard.org/tcc/) 执行内联 `C { ... }` 块。`build.bat` 按以下顺序查找：
-
-1. `GTC_TCC` 环境变量（指向含 `libtcc.dll` 的目录）
-2. `.\tcc`（本仓库自带）
-3. `.\toolchain\tcc`
-4. `PATH` 上的 `tcc`
-
-若均未找到，构建仍会成功 —— 仅内联 C 不可用。
+`build.bat` 会先检查工具链版本，然后构建 `gtc`、标准库、GTO（`gto.dll`），并组装可分发的 `res/` 目录，**无需任何参数**。内联 `C { ... }` 块直接用 clang 编译，无需 TCC。
 
 产物：
-- `target\release\gtc.exe` —— 编译器 & 解释器
-- `target\release\gtc.exe` —— 编译器 / 解释器
-- `res\lib\*.dll` —— 标准库
+- `target\release\gtc.exe` —— 编译器
+- `res\lib\*.dll` —— 标准库（共享 DLL）+ `gto.dll`
+- `res\runtime\*` —— 运行时源码/对象
 
 ### 运行第一个程序
 
@@ -132,9 +127,6 @@ fn main() {
 然后：
 
 ```bat
-REM 直接运行（Cranelift JIT）
-target\release\gtc.exe --run hello.gt
-
 REM 编译为独立可执行文件（LLVM + clang）
 target\release\gtc.exe hello.gt -o hello.exe -O 2
 hello.exe
@@ -360,19 +352,14 @@ a, b = b, a                // 交换
 
 ---
 
-## 双后端
+## 后端与运行时
 
-GTLang 提供**两个后端**，消费同一份 AST：
+GTLang 经 LLVM + clang 编译为**独立原生可执行文件**，无解释器/JIT —— 每个程序都是原生二进制。
 
-| | `--c`（LLVM） | `--run`（Cranelift） |
-|---|---|---|
-| **产物** | 独立原生可执行文件 | 内存中 |
-| **编译速度** | 慢（clang） | 快（JIT） |
-| **运行速度** | 快（优化充分） | 基线 |
-| **适用** | 发布 / 分发 | 开发 / 脚本 |
-| **一致性** | — | **输出逐字节一致** |
-
-一致性由 `tests/consistency.rs` 强制：每个测试用同一份源码跑两个后端，断言 stdout 相同。
+- **标准库**：以共享 DLL（`res/lib/*.dll`）分发。构建时生成一段 shim，运行期 `LoadLibrary` 仅加载程序实际用到的 DLL，并按精确签名转发每个调用。因此产物**不链接任何标准库 `.lib`**，只依赖系统 DLL（`KERNEL32.dll`）。
+- **并发**：`go` 起真线程；`chan` 由 **GTO**（`gto.dll`，运行期加载）驱动。
+- **整数**：`int` 是 8 字节 tagged 值 —— 小值内联（i63），溢出自动升级为堆 bignum，整数运算永不终止。
+- **十进制**：`decimal` 类型（`3.14d`）提供精确十进制运算。
 
 ---
 
@@ -399,13 +386,11 @@ GTLang 提供**两个后端**，消费同一份 AST：
 
 ```text
 gtc --c        <文件.gt> [...] [-o 输出] [-O 0..3]   编译为可执行文件
-gtc --run      <文件.gt> [...]                        解释执行（Cranelift JIT）
 gtc --check    <文件.gt> [...]                        仅检查（词法/语法/类型）
 gtc --lint     <文件.gt> [...]                        静态检查（未用函数/变量/参数、不可达代码等）
 gtc --lint --strict <文件.gt>                         警告视为错误
 gtc --lint --json   <文件.gt>                         JSON 输出（供 CI）
 gtc --emit-llvm <文件.gt> [...]                       仅生成 LLVM IR
-gtc --test     <文件.gt>                              运行 test_ 前缀的测试
 gtc --watch/-w <文件.gt> ...                          监控变更自动重跑
 gtc --version / --verbose                             版本 / 详细日志
 gtc ... zh                                            中文诊断
@@ -426,13 +411,12 @@ ast.rs            统一 AST
 lexer.rs          词法（中文标识符、字符串插值、原始串）
 parser.rs         递归下降语法
 parser_recover.rs 语法错误恢复（panic-mode）
-sema.rs           语义 / 类型检查
-type.rs           类型系统（单一事实来源）
-codegen/          LLVM 后端（mod / expr / call）
-jit/              Cranelift 后端（mod / stmt / expr / call / rt / symbol）
-own.rs            所有权 / 借用检查（流敏感 NLL）
+sema/             语义 / 类型检查（mod + sema_const/infer/match/stmt/util）
+type/             类型系统（mod.rs 单一事实来源 + type_gtlib.rs）
+codegen/          LLVM 后端（mod / expr / call / builtins / value / stmt）
+own/              所有权 / 借用检查（流敏感 NLL）
 cblock.rs         内联 C 提取 + 桥接 + C 头解析
-tcc.rs            libtcc 动态绑定
+stdlib_shim.rs    生成运行期 DLL 加载/转发 C（零 .lib AOT）
 driver.rs         工具链定位 + clang 调用
 module.rs         import 模块系统 + import c
 hoist.rs          嵌套函数 / 闭包提升 + impl/trait 展平
@@ -444,11 +428,12 @@ diag.rs           诊断类型 + 源码位置
 encoding.rs       源文件解码
 tmp.rs            临时目录
 lang.rs           全局语言开关 + 双语消息
-runtime/gt_rt.c   内置 C 运行时（并发、通道、容器）
-stdlib/           标准库源码（math.rs / string.rs）
-res/lib/            标准库产物（math.dll / string.dll + .lib）
+runtime/gt_rt.c   内置 C 运行时（tagged int/bignum、decimal、容器、chan->GTO）
+GTO/              GTO 并发框架（编为 gto.dll）
+gtlib/            标准库源码（math.rs / string.rs / ...）
+res/lib/            标准库产物（math.dll / string.dll / gto.dll，无 .lib）
 examples/  tests/  bench/
-toolchain/          （可选）vendored Rust + LLVM + TCC
+toolchain/          （可选）vendored Rust + LLVM
 ```
 
 ---
@@ -475,8 +460,7 @@ sema(2)（完整类型检查）
 │  own（所有权/借用，NLL）
 │  opt.dead_code
 ▼
-Unit ──┬── jit::run（Cranelift）
-└── codegen（LLVM IR → clang）
+Unit ── codegen（LLVM IR → clang）+ stdlib_shim（运行期 DLL 加载器）
 ```
 
 ---
@@ -487,10 +471,10 @@ Unit ──┬── jit::run（Cranelift）
 cargo test --release
 ```
 
-**814 个测试**：
-- **142 个单元测试**（`--lib`）—— 类型系统、unify、cblock、tmp、AST 遍历完备性
-- **149 个双后端一致性测试**（`tests/consistency.rs`）—— 同一源码、两个后端、stdout 相同（含递归扫描 examples/）
-- **522 个前端批量测试**（`tests/bulk.rs`）—— parse + type-check 覆盖
+**827 个测试**：
+- **143 个单元测试**（`--lib`）—— 类型系统、unify、cblock、tmp、AST 遍历完备性
+- **166 个端到端测试**（`tests/consistency.rs`）—— 逐个编译并运行示例（含递归扫描 examples/），断言输出正确
+- **518 个前端批量测试**（`tests/bulk.rs`）—— parse + type-check 覆盖
 
 ---
 
@@ -515,7 +499,7 @@ cargo test --release
 A：GTLang 把 Unicode 标识符视为一等公民。`计数器`、`累加` 与 `counter`、`sum` 同样合法，便于中文开发者与领域命名（数学、几何），无需音译。
 
 **Q：为什么有两个后端？**
-A：JIT（Cranelift）提供开发时的即时反馈；LLVM 后端产出优化的原生二进制用于发布。两者消费同一 AST 且输出一致 —— 测试保证。
+A：没有。GTLang 把每个程序经 LLVM 编译为独立原生可执行文件。标准库以共享 DLL 形式随启动加载 —— 产物不链接任何标准库 `.lib`，只依赖系统 DLL。
 
 **Q：性能为何接近 C？**
 A：溢出检查是唯一成本。流敏感范围分析在可证明安全时省略检查（如 `for i in 0..N { s += i }`），让 LLVM 向量化循环。详见 `doc/bench.md`。

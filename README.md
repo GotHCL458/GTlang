@@ -4,10 +4,10 @@
 
 # GTLang
 
-**GTLang is a statically-typed, compiled, expression-oriented language that runs on a dual backend (LLVM + Cranelift) and speaks Chinese identifiers natively — and its safe defaults match C on tight loops.**
+**GTLang is a statically-typed, compiled, expression-oriented language (LLVM backend) that speaks Chinese identifiers natively — and its safe defaults match C on tight loops.**
 
-[![Tests](https://img.shields.io/badge/tests-814%20passed-brightgreen)]()
-[![Backends](https://img.shields.io/badge/backends-LLVM%20%2B%20Cranelift-blue)]()
+[![Tests](https://img.shields.io/badge/tests-827%20passed-brightgreen)]()
+[![Backend](https://img.shields.io/badge/backend-LLVM-blue)]()
 [![Warnings](https://img.shields.io/badge/warnings-0-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)]()
 
@@ -26,7 +26,7 @@
 ## Why GTLang?
 
 - **Fast by default.** Flow-sensitive range analysis elides provably-safe overflow checks, so checked arithmetic still reaches C-level speed (`loop_sum(2×10⁸)`: **5.9 ms**, within 7% of `clang -O2`).
-- **One AST, two backends.** The same source compiles to a native executable (LLVM) or runs in memory (Cranelift JIT) with **byte-for-byte identical output**.
+- **Native code, no interpreter.** Every program compiles to a standalone executable via LLVM — no JIT, no runtime VM.
 - **Safe, not sloppy.** Static types, ownership/borrow checking (flow-sensitive NLL), bounds/overflow/divide-by-zero checks, exhaustive `match`.
 - **Bilingual from the ground up.** Chinese identifiers (`计数器`, `累加`, `点`) are first-class, and diagnostics are localized.
 - **Genuinely productive.** Generics, traits, `dyn Trait`, enums with payloads, closures, **first-class functions** (pass a `fn` name as a value), macros, `@derive`, real threads, channels, and C interop.
@@ -59,7 +59,9 @@ GTLang is a **statically-typed**, **compiled**, **expression-oriented** programm
 - **C-level performance** — native machine code via LLVM; tight loops match C
 - **Python-like brevity** — expression-oriented, optional type annotations, closures, comprehensions
 - **First-class Chinese identifiers** — `计数器`, `累加`, `点` are all valid names
-- **Dual backends** — the same AST compiles to a native executable (LLVM) **or** runs in-memory (Cranelift JIT), with **byte-for-byte identical output** enforced by tests
+- **Two-tier integers** — `int` is a tagged 8-byte value: small values inline (i63), overflow auto-promotes to arbitrary-precision bignum (never aborts)
+- **High-precision decimals** — a built-in `decimal` type for exact base-10 arithmetic (`0.1 + 0.2 == 0.3`)
+- **Zero-link stdlib** — standard library ships as shared DLLs loaded at startup; no `.lib` needed
 
 ---
 
@@ -69,7 +71,10 @@ GTLang is a **statically-typed**, **compiled**, **expression-oriented** programm
 |---|---|
 | 🧠 | **Static typing** with bidirectional inference |
 | 🛡️ | **Memory safety** — ownership, borrowing, NLL, bounds/overflow checks |
-| ⚡ | **Dual backend** — LLVM (release) + Cranelift (JIT), identical semantics |
+| ⚡ | **Native LLVM backend** — compiles to a standalone executable |
+| 🔢 | **Two-tier int** — small ints inline (i63), overflow auto-promotes to bignum |
+| 🎯 | **Decimal** — exact high-precision base-10 (`3.14d`) |
+| 🧵 | **GTO concurrency** — `chan` backed by the GTO runtime (`gto.dll`) |
 | 🌏 | **Chinese identifiers** — no transliteration needed |
 | 🧬 | **Generics** (monomorphization), traits, **dyn Trait** (vtable dispatch) |
 | 🎯 | **Enums with payloads** + exhaustive `match` (ranges, guards, OR-patterns) |
@@ -81,7 +86,7 @@ GTLang is a **statically-typed**, **compiled**, **expression-oriented** programm
 | 🧷 | **Rich patterns** — ident bindings, nested destructuring (`Some(Some(v))`) |
 | 💬 | **Smart diagnostics** — stable codes, bilingual, "did you mean X?" |
 | 📦 | **Modules** — `import math` (builtin), `import a.b` (user), `import "x.gt"` |
-| 🛠️ | **Toolchain** — `gtc` (compiler / interpreter) |
+| 🛠️ | **Toolchain** — `gtc` (the compiler) |
 
 ---
 
@@ -89,38 +94,27 @@ GTLang is a **statically-typed**, **compiled**, **expression-oriented** programm
 
 ### Build
 
-> **Prebuilt bundle** (no Rust/LLVM needed): download [`dist/gtlang-res-win-x64.zip`](dist/gtlang-res-win-x64.zip) (10 MB),
+> **Prebuilt bundle** (no Rust/LLVM needed): download [`dist/gtlang-res-win-x64.zip`](dist/gtlang-res-win-x64.zip),
 extract it anywhere, and run `gtc.exe`. It bundles `gtc`, the standard
-library, the runtime, and TCC. It does **not** bundle `clang`/`lld-link`
-(≈176 MB) — GTLang locates them on your system `PATH` (or via `GTC_CLANG`).
+library (shared DLLs), the runtime and GTO. It does **not** bundle `clang`/`lld-link`
+— GTLang locates them on your system `PATH` (or via `GTC_CLANG`).
 
 Or build from source:
 
 ```bat
 REM Requires Rust (>= 1.75) and LLVM/clang (>= 15) on PATH.
 REM Set GTC_CLANG to the full path of clang.exe to override auto-detection.
-REM TCC is optional (for inline C blocks); see GTC_TCC below.
 build.bat
 ```
 
 `build.bat` checks the toolchain versions, then builds `gtc`, the
-standard library, and assembles a portable `res/` directory.
-It takes **no arguments**.
-
-**Optional: TCC for inline C blocks.** GTLang executes inline `C { ... }` blocks
-via [TCC](https://bellard.org/tcc/). `build.bat` looks for it in this order:
-
-1. `GTC_TCC` environment variable (a directory containing `libtcc.dll`)
-2. `.\tcc` (vendored in this repo)
-3. `.\toolchain\tcc`
-4. `tcc` on `PATH`
-
-If none is found, the build still succeeds — only inline C becomes unavailable.
+standard library, GTO (`gto.dll`) and assembles a portable `res/` directory.
+Inline `C { ... }` blocks are compiled with clang — no TCC needed.
 
 This produces:
-- `target\release\gtc.exe` — compiler & interpreter
-- `target\release\gtc.exe` — compiler / interpreter
-- `res\lib\*.dll` — standard library
+- `target\release\gtc.exe` — the compiler
+- `res\lib\*.dll` — standard library (shared DLLs) + `gto.dll`
+- `res\runtime\*` — runtime sources/objects
 
 ### Run your first program
 
@@ -135,9 +129,6 @@ fn main() {
 Then:
 
 ```bat
-REM Run directly (Cranelift JIT)
-target\release\gtc.exe --run hello.gt
-
 REM Compile to a standalone executable (LLVM + clang)
 target\release\gtc.exe hello.gt -o hello.exe -O 2
 hello.exe
@@ -363,19 +354,14 @@ a, b = b, a                // swap
 
 ---
 
-## Dual Backend
+## Backend & Runtime
 
-GTLang ships with **two backends** that consume the same AST:
+GTLang compiles to a **standalone native executable** via LLVM + clang. There is no interpreter/JIT — every program is a native binary.
 
-| | `--c` (LLVM) | `--run` (Cranelift) |
-|---|---|---|
-| **Output** | Standalone native executable | In-memory |
-| **Speed (compile)** | Slower (clang) | Fast (JIT) |
-| **Speed (run)** | Faster (optimized) | Baseline |
-| **Use case** | Release / distribution | Development / scripting |
-| **Consistency** | — | **Byte-for-byte identical output** |
-
-This consistency is enforced by the `tests/consistency.rs` test suite: every test runs the same source through both backends and asserts identical stdout.
+- **Standard library**: shipped as shared DLLs (`res/lib/*.dll`). At build time a small shim is generated that `LoadLibrary`s only the DLLs the program actually uses and forwards each call by its exact signature. The produced executable therefore links **no stdlib `.lib`** — only system DLLs (`KERNEL32.dll`).
+- **Concurrency**: `go` runs real threads; `chan` is backed by **GTO** (`gto.dll`), loaded at runtime.
+- **Integers**: `int` is a tagged 8-byte value — small values inline (i63), overflow auto-promotes to a heap bignum, so integer arithmetic never aborts.
+- **Decimals**: the `decimal` type (`3.14d`) provides exact base-10 arithmetic.
 
 ---
 
@@ -402,13 +388,11 @@ See [doc/bench.md](doc/bench.md) for methodology.
 
 ```text
 gtc --c        <file.gt> [...] [-o out.exe] [-O 0..3]   compile to executable
-gtc --run      <file.gt> [...]                          run with Cranelift JIT
 gtc --check    <file.gt> [...]                          lex/parse/type-check only
 gtc --lint     <file.gt> [...]                          static checks (unused fns/vars, unreachable, ...)
 gtc --lint --strict <file.gt>                           warnings are errors
 gtc --lint --json   <file.gt>                           JSON output (for CI)
 gtc --emit-llvm <file.gt> [...]                         emit LLVM IR
-gtc --test     <file.gt>                                run test_ prefixed functions
 gtc --watch/-w <file.gt> ...                            watch and rebuild
 gtc --version / --verbose                               version / verbose
 gtc ... zh                                              Chinese diagnostics
@@ -429,13 +413,12 @@ ast.rs            unified AST
 lexer.rs          lexer (Chinese identifiers, string interpolation, raw strings)
 parser.rs         recursive-descent parser
 parser_recover.rs syntax error recovery (panic-mode)
-sema.rs           semantic / type checking
-type.rs           type system (single source of truth)
-codegen/          LLVM backend (mod / expr / call)
-jit/              Cranelift backend (mod / stmt / expr / call / rt / symbol)
-own.rs            ownership / borrow checking (flow-sensitive NLL)
+sema/             semantic / type checking (mod + sema_const/infer/match/stmt/util)
+type/             type system (mod.rs single source of truth + type_gtlib.rs)
+codegen/          LLVM backend (mod / expr / call / builtins / value / stmt)
+own/              ownership / borrow checking (flow-sensitive NLL)
 cblock.rs         inline C extraction + bridging + C header parsing
-tcc.rs            libtcc dynamic binding
+stdlib_shim.rs    generates runtime DLL loader/forwarding C for zero-.lib AOT
 driver.rs         toolchain location + clang invocation
 module.rs         import system + import c
 hoist.rs          nested fn / closure lifting + impl/trait flattening
@@ -447,11 +430,12 @@ diag.rs           diagnostic types + source spans
 encoding.rs       source decoding
 tmp.rs            temp directories
 lang.rs           global language switch + bilingual messages
-runtime/gt_rt.c   built-in C runtime (concurrency, channels, containers)
-stdlib/           standard library source (math.rs / string.rs)
-res/lib/            stdlib artifacts (math.dll / string.dll + .lib)
+runtime/gt_rt.c   built-in C runtime (tagged int/bignum, decimal, containers, chan->GTO)
+GTO/              GTO concurrency framework (compiled to gto.dll)
+gtlib/            standard library source (math.rs / string.rs / ...)
+res/lib/            stdlib artifacts (math.dll / string.dll / gto.dll, no .lib)
 examples/  tests/  bench/
-toolchain/          (optional) vendored Rust + LLVM + TCC
+toolchain/          (optional) vendored Rust + LLVM
 ```
 
 ---
@@ -478,8 +462,7 @@ sema(2)  (full type check)
 │  own   (ownership / borrow, NLL)
 │  opt.dead_code
 ▼
-Unit ──┬── jit::run      (Cranelift)
-└── codegen       (LLVM IR → clang)
+Unit ── codegen       (LLVM IR → clang)  +  stdlib_shim (runtime DLL loader)
 ```
 
 ---
@@ -490,10 +473,10 @@ Unit ──┬── jit::run      (Cranelift)
 cargo test --release
 ```
 
-**814 tests**:
-- **142 unit tests** (`--lib`) — type system, unify, cblock, tmp, AST-traversal completeness
-- **149 dual-backend consistency tests** (`tests/consistency.rs`) — same source, both backends, identical stdout (incl. examples/ recursively)
-- **522 frontend bulk tests** (`tests/bulk.rs`) — parse + type-check coverage
+**827 tests**:
+- **143 unit tests** (`--lib`) — type system, unify, cblock, tmp, AST-traversal completeness
+- **166 end-to-end tests** (`tests/consistency.rs`) — compile + run each sample (incl. examples/ recursively), assert expected output
+- **518 frontend bulk tests** (`tests/bulk.rs`) — parse + type-check coverage
 
 ---
 
@@ -517,14 +500,17 @@ All docs are available in both **Chinese** (`doc/`) and **English** (`doc/en/`).
 **Q: Why Chinese identifiers?**
 A: GTLang treats Unicode identifiers as first-class. Chinese names like `计数器` or `累加` are as valid as `counter` or `sum`. This makes the language more approachable for Chinese-speaking developers and enables domain-specific naming (e.g. math, geometry) without transliteration.
 
-**Q: Why two backends?**
-A: The JIT (Cranelift) gives instant feedback during development; the LLVM backend produces optimized native binaries for release. Both consume the same AST and produce identical output — tests enforce this.
+**Q: Is there an interpreter or JIT?**
+A: No. GTLang compiles every program to a standalone native executable via LLVM. The standard library ships as shared DLLs loaded at startup — the produced executable links no stdlib `.lib`, only system DLLs.
+
+**Q: What about big integers and decimals?**
+A: `int` is a tagged 8-byte value: small values inline, and arithmetic that overflows i63 automatically promotes to a heap bignum (no abort). For exact base-10 math there is a `decimal` type (literal suffix `d`, e.g. `3.14d`).
 
 **Q: How is performance so close to C?**
 A: Overflow checks are the only cost. Flow-sensitive range analysis elides them when provably safe (e.g. `for i in 0..N { s += i }`), letting LLVM vectorize the loop. See `doc/bench.md`.
 
 **Q: Is there a garbage collector?**
-A: Not yet. Containers are reference-semantics and live until process exit. RC primitives (`gt_rc_inc` / `gt_rc_dec`) are in place; instrumentation is pending.
+A: Not yet. Containers are reference-semantics and live until process exit. RC primitives (`gt_rc_inc` / `gt_rc_dec`) are in place; instrumentation is pending. Bignum/decimal objects are likewise heap-allocated and live until exit.
 
 **Q: What's not implemented?**
 A: Inline assembly (removed), `async/await` (overlaps with `go`), full GC instrumentation, cross-compilation, procedural macros. See [doc/syntax_status.md](doc/syntax_status.md).

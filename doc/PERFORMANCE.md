@@ -2,7 +2,7 @@
 
 > [English](en/PERFORMANCE.md)
 
-> 双后端：LLVM（编译）+ Cranelift（JIT）｜ 优化级别 -O0..3
+> LLVM 原生后端（无解释器）｜ 优化级别 -O0..3
 
 ---
 
@@ -30,19 +30,16 @@
 | 映射 get/insert | 均摊 O(1) | 开放寻址哈希表（Fibonacci hashing） |
 | 字符串拼接 | O(n) | StringBuilder（rt_sb_*） |
 | 字符串查找 | O(n*m) | — |
-| 通道 send/recv | O(1) | 无界队列 + 互斥锁 |
-| `go` 任务派发 | ~µs | AOT/JIT 均用固定 worker 线程池（非每任务起线程） |
+| 通道 send/recv | O(1) | 由 GTO（`gto.dll`）提供 |
+| `go` 任务派发 | ~µs | 固定 worker 线程池（非每任务起线程） |
+| 整数算术 | O(1) 快路径 | 小整数内联；溢出才走 bignum |
+| 十进制运算 | O(位数²) | 精确十进制（`decimal`） |
 
 ---
 
-## 3. 双后端对比
+## 3. 后端
 
-| 维度 | LLVM（--c） | Cranelift（--run） |
-|---|---|---|
-| 编译速度 | 慢（clang） | 快（内存 JIT） |
-| 运行速度 | 快（优化充分） | 中（基线） |
-| 产物 | 独立 exe | 无（内存） |
-| 适用 | 发布 | 开发/脚本 |
+GTLang 只有 **LLVM 原生后端**：经 clang 编译为独立可执行文件，无解释器/JIT。标准库以共享 DLL 形式在启动时按需 `LoadLibrary`（零 `.lib`），产物只依赖系统 DLL。
 
 ---
 
@@ -57,6 +54,7 @@
 | 枚举/Result/Option | 堆块 | 进程退出（RC 基础已就绪） |
 | 字符串 | 堆/静态池 | 进程退出 |
 | 闭包 | 堆块 | 进程退出 |
+| bignum / decimal | 堆 | 进程退出 |
 
 **注**：RC 基础（gt_rc_inc/dec）已实现，插桩待续；当前长运行程序可能内存增长。
 
@@ -70,7 +68,8 @@
 | 执行 | 编译为机器码 | 字节码解释 |
 | 循环 | 原生机器码 | 解释器开销 |
 | 函数调用 | 直接调用 | 动态查找 |
-| 整型 | i64 装箱 | 任意精度对象 |
+| 整型 | 双层（i63 内联 / 溢出 bignum） | 任意精度对象 |
+| 十进制 | 内置 `decimal` | `decimal` 模块 |
 | 数组 | 原生/紧凑 | list 指针数组 |
 | 预期 | **10-100×** Python（数值密集） | 基准 |
 
@@ -80,7 +79,6 @@
 
 ## 6. 运行基准
 
-    gtc --run bench/xxx.gt        # JIT
     gtc bench/xxx.gt -o x.exe -O2 # 编译（-O2）
     gtc bench/xxx.gt -o x.exe -O3 # 编译（-O3）
 

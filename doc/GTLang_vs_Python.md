@@ -9,7 +9,7 @@
 | 维度 | GTLang | Python 3.12 |
 |---|---|---|
 | 类型系统 | **静态**（推导 + 可选标注） | 动态 |
-| 执行 | 编译 LLVM 到 exe / Cranelift JIT | 解释 CPython |
+| 执行 | 编译 LLVM 到原生 exe | 解释 CPython |
 | 缩进敏感 | 否（大括号分块） | 是 |
 | 标识符 | 中文与任意 Unicode | Unicode |
 | 内存模型 | 值（struct/数组）+ 引用（容器） | 全引用 |

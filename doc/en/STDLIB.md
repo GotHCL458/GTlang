@@ -80,7 +80,7 @@ Response may carry `{status}` and `{Header: value}` prefixes, or `@file:` / `@di
 Placeholders: `{{body}}` `{{param:name}}` `{{query:name}}` `{{header:Name}}` `{{cookie:Name}}` `{{form:name}}` (urlencoded body).
 Routes support `:name` (single segment) and `/*name` (greedy, matches the rest of the path).
 
-### Handler callback (`serve_fn`, **--run / JIT only**)
+### Handler callback (`serve_fn`, **removed with the interpreter**)
 
 ```gt
 import web
@@ -91,7 +91,7 @@ fn handle(req: str) -> str {
 fn main() { serve_fn(8080, handle) }
 ```
 
-> `serve_fn` needs a function address, so it is **JIT-only**; use `serve` when compiling to an exe.
+> The interpreter has been removed, so `serve_fn` is no longer available; use `serve` instead.
 
 ## http — HTTP client
 

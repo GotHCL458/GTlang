@@ -163,7 +163,7 @@ serve(8080, routes)
 
 **通配符**：`:name` 匹配单段；`/*name` 贪婪匹配剩余整条路径（注入 `{{param:name}}`）。
 
-### 模式二：处理函数回调（`serve_fn`，**仅 --run / JIT**）
+### 模式二：处理函数回调（`serve_fn`，**已随解释器移除**）
 
 ```gt
 import web
@@ -178,7 +178,7 @@ fn main() { serve_fn(8080, 处理) }
 
 处理函数返回响应串（同样支持 `{status}{Header}` 前缀）。
 
-> ⚠️ `serve_fn` 依赖函数地址，**仅解释器（`--run`）支持**；编译为 exe（`--c`）请用 `serve`。
+> ⚠️ 解释器已移除，`serve_fn` 不再可用；请改用 `serve`。
 
 ### 辅助函数
 

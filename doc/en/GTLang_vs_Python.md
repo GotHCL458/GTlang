@@ -11,7 +11,7 @@ See [COMPARISON.md](COMPARISON.md) for the summary version.
 | Aspect | GTLang | Python 3.12 |
 |---|---|---|
 | Type system | static (inference + optional annotations) | dynamic |
-| Execution | LLVM exe / Cranelift JIT | CPython interpreter |
+| Execution | compiled LLVM native exe | CPython interpreter |
 | Indentation-sensitive | no (braces) | yes |
 | Identifiers | Chinese + any Unicode | Unicode |
 | Memory model | value (struct/array) + reference (containers) | all reference |

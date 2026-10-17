@@ -2,7 +2,7 @@
 
 > [English](en/syntax_status.md)
 
-> 版本 0.0.1d ｜ 双后端（LLVM + Cranelift）逐字节一致
+> 版本 0.0.1d ｜ LLVM 原生后端（无解释器）；双层 int、decimal、零 `.lib` 标准库
 
 ---
 
@@ -82,7 +82,7 @@ mem_*（裸内存）、chan/sleep
 
 | 工具 | 功能 |
 |---|---|
-| `gtc` | 编译器/解释器（--c/--run/--check/--lint/--emit-llvm/--test/--watch） |
+| `gtc` | 编译器（--c/--check/--lint/--emit-llvm/--watch） |
 | `gtc --lint` | 静态检查（未用函数/变量/参数、不可达、空 if、常量条件、自比较） |
 
 **统一**：`-h`/`--help` + 末尾 `zh`（双语帮助）
@@ -93,7 +93,7 @@ mem_*（裸内存）、chan/sleep
 
 | 项 | 说明 |
 |---|---|
-| 内联汇编 | 已移除（双后端一致性优先） |
+| 内联汇编 | 已移除 |
 | `async/await` | 与 `go` 重复，复杂度高 |
 | 完整 GC 插桩 | RC 基础已就绪，插桩待续 |
 | 跨平台交叉编译 | 当前 Windows |
@@ -104,6 +104,6 @@ mem_*（裸内存）、chan/sleep
 
 ## 4. 测试
 
-**814 测试**（142 单元 + 149 双后端一致性 + 522 前端批量），`cargo test --release` 全绿，**0 warning**。
+**827 测试**（143 单元 + 166 端到端 + 518 前端批量），`cargo test --release` 全绿。
 
 
