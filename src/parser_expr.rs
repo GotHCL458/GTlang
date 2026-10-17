@@ -426,6 +426,10 @@ impl Parser {
                 self.bump();
                 Ok(Expr::new(ExprKind::Float(v), line))
             }
+            Tok::Decimal(s) => {
+                self.bump();
+                Ok(Expr::new(ExprKind::Decimal(s), line))
+            }
             Tok::Str(raw) => {
                 self.bump();
                 Ok(Expr::new(interp(&raw, line)?, line))

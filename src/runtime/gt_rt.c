@@ -942,6 +942,294 @@ long long gt_i64_to_int(long long v) {
     return GT_FROM_BIG(gt_big_from_i64(v));
 }
 
+/* ============================================================
+ * 高精度十进制（decimal）
+ *
+ * 表示（8 字节指针，指向 GtDec）：
+ *   sign: 0=正 1=负
+ *   scale: 小数点后位数（>=0）
+ *   n: 有效数字个数（digits）
+ *   d: 十进制数字数组（0..9，高位在前，不含前导 0；0 表示为 n=0）
+ * 值为 (sign?-1:1) * (digits 组成的整数) / 10^scale。
+ * 运算按十进制；除法保留足够位数（DEC_DIV_PREC）。
+ * ============================================================ */
+#define DEC_DIV_PREC 40
+typedef struct GtDec {
+    int sign;
+    long long scale;
+    long long n;
+    unsigned char *d; /* 每字节一个 0..9 */
+} GtDec;
+
+static GtDec *gt_dec_alloc(long long n) {
+    GtDec *x = (GtDec *)gt_alloc(sizeof(GtDec));
+    x->sign = 0; x->scale = 0; x->n = n;
+    x->d = n > 0 ? (unsigned char *)gt_alloc((size_t)n) : 0;
+    for (long long i = 0; i < n; i++) x->d[i] = 0;
+    return x;
+}
+static void gt_dec_trim(GtDec *x) {
+    long long lead = 0;
+    while (lead < x->n && x->d[lead] == 0) lead++;
+    if (lead > 0) {
+        for (long long i = lead; i < x->n; i++) x->d[i - lead] = x->d[i];
+        x->n -= lead;
+    }
+    if (x->n == 0) x->sign = 0;
+}
+/* 复制 */
+static GtDec *gt_dec_copy(const GtDec *a) {
+    GtDec *r = gt_dec_alloc(a->n);
+    r->sign = a->sign; r->scale = a->scale;
+    for (long long i = 0; i < a->n; i++) r->d[i] = a->d[i];
+    return r;
+}
+/* 按 scale 对齐：返回按 max_scale 扩展后的新数（尾随补 0） */
+static GtDec *gt_dec_align(const GtDec *a, long long max_scale) {
+    long long extra = max_scale - a->scale;
+    GtDec *r = gt_dec_alloc(a->n + extra);
+    r->sign = a->sign; r->scale = max_scale;
+    for (long long i = 0; i < a->n; i++) r->d[i] = a->d[i];
+    for (long long i = 0; i < extra; i++) r->d[a->n + i] = 0;
+    return r;
+}
+/* 十进制字符串解析（可带符号、小数点、科学计数法 E/e） */
+GtDec *gt_dec_from_str(const char *s) {
+    if (!s) return gt_dec_alloc(0);
+    int neg = 0; const char *p = s;
+    while (*p == ' ' || *p == '\t') p++;
+    if (*p == '+' || *p == '-') { neg = (*p == '-'); p++; }
+    /* 收集数字与小数点位置 */
+    char buf[4096]; long long bn = 0; long long dot = -1; int seen = 0;
+    while (*p && (isdigit((unsigned char)*p) || *p == '.')) {
+        if (*p == '.') { if (dot >= 0) break; dot = bn; }
+        else { if (bn < (long long)sizeof(buf)) buf[bn++] = *p; }
+        p++; seen = 1;
+    }
+    (void)seen;
+    int exp = 0;
+    if (*p == 'e' || *p == 'E') { p++; exp = atoi(p); }
+    long long scale = 0;
+    if (dot >= 0) scale = bn - dot;
+    /* 应用指数 */
+    scale -= exp;
+    if (scale < 0) { /* 补 0 到整数位 */ long long add = -scale; for (long long i = 0; i < add && bn < (long long)sizeof(buf); i++) buf[bn++] = '0'; scale = 0; }
+    GtDec *x = gt_dec_alloc(bn);
+    for (long long i = 0; i < bn; i++) x->d[i] = (unsigned char)(buf[i] - '0');
+    x->scale = scale;
+    x->sign = neg ? 1 : 0;
+    /* 去掉多余小数尾 0 */
+    while (x->scale > 0 && x->n > 0 && x->d[x->n - 1] == 0) { x->n--; x->scale--; }
+    gt_dec_trim(x);
+    return x;
+}
+/* 从 i64 */
+GtDec *gt_dec_from_i64(long long v) {
+    char tmp[32]; snprintf(tmp, sizeof tmp, "%lld", v);
+    return gt_dec_from_str(tmp);
+}
+/* 从 double（按 %.17g 精确回读） */
+GtDec *gt_dec_from_f64(double v) {
+    char tmp[64]; snprintf(tmp, sizeof tmp, "%.17g", v);
+    return gt_dec_from_str(tmp);
+}
+/* 转字符串（调用方缓冲） */
+long long gt_dec_fmt(const GtDec *x, char *buf, long long cap) {
+    long long o = 0;
+    if (x->sign && !(x->n == 0)) { if (o < cap - 1) buf[o++] = '-'; }
+    if (x->n == 0) { if (o < cap - 1) buf[o++] = '0'; buf[o] = 0; return o; }
+    if (x->scale == 0) {
+        for (long long i = 0; i < x->n && o < cap - 1; i++) buf[o++] = (char)('0' + x->d[i]);
+        buf[o] = 0; return o;
+    }
+    /* 整数部分位数 = n - scale（可能 <=0 → 0.xxx） */
+    long long intpart = x->n - x->scale;
+    if (intpart <= 0) {
+        if (o < cap - 1) buf[o++] = '0';
+        if (o < cap - 1) buf[o++] = '.';
+        for (long long i = 0; i < -intpart && o < cap - 1; i++) buf[o++] = '0';
+        for (long long i = 0; i < x->n && o < cap - 1; i++) buf[o++] = (char)('0' + x->d[i]);
+    } else {
+        for (long long i = 0; i < intpart && o < cap - 1; i++) buf[o++] = (char)('0' + x->d[i]);
+        if (o < cap - 1) buf[o++] = '.';
+        for (long long i = intpart; i < x->n && o < cap - 1; i++) buf[o++] = (char)('0' + x->d[i]);
+    }
+    buf[o] = 0; return o;
+}
+/* 绝对大小比较：|a| vs |b| */
+static int gt_dec_cmp_abs(const GtDec *a, const GtDec *b) {
+    long long ia = a->n - a->scale, ib = b->n - b->scale;
+    if (ia != ib) return ia > ib ? 1 : -1;
+    long long m = a->n > b->n ? a->n : b->n;
+    for (long long i = 0; i < m; i++) {
+        unsigned char da = i < a->n ? a->d[i] : 0;
+        unsigned char db = i < b->n ? b->d[i] : 0;
+        if (da != db) return da > db ? 1 : -1;
+    }
+    return 0;
+}
+/* 有符号比较 */
+long long gt_dec_cmp(const GtDec *a, const GtDec *b) {
+    if (a->n == 0 && b->n == 0) return 0;
+    if (a->sign != b->sign) return a->sign ? -1 : 1;
+    int c = gt_dec_cmp_abs(a, b);
+    return a->sign ? -c : c;
+}
+/* 加绝对值（同 scale 对齐后逐位） */
+static GtDec *gt_dec_add_abs(const GtDec *a, const GtDec *b, long long scale) {
+    long long m = a->n > b->n ? a->n : b->n;
+    GtDec *r = gt_dec_alloc(m + 1);
+    r->scale = scale;
+    int carry = 0;
+    for (long long i = 0; i < m; i++) {
+        long long ia = a->n - 1 - i, ib = b->n - 1 - i;
+        int da = ia >= 0 ? a->d[ia] : 0, db = ib >= 0 ? b->d[ib] : 0;
+        int s = da + db + carry;
+        r->d[m - i] = (unsigned char)(s % 10); carry = s / 10;
+    }
+    r->d[0] = (unsigned char)carry;
+    gt_dec_trim(r);
+    return r;
+}
+/* 减绝对值（要求 |a|>=|b|） */
+static GtDec *gt_dec_sub_abs(const GtDec *a, const GtDec *b, long long scale) {
+    GtDec *r = gt_dec_alloc(a->n);
+    r->scale = scale;
+    int borrow = 0;
+    for (long long i = 0; i < a->n; i++) {
+        long long ia = a->n - 1 - i, ib = b->n - 1 - i;
+        int da = a->d[ia];
+        int db = ib >= 0 ? b->d[ib] : 0;
+        int s = da - db - borrow;
+        if (s < 0) { s += 10; borrow = 1; } else borrow = 0;
+        r->d[a->n - 1 - i] = (unsigned char)s;
+    }
+    gt_dec_trim(r);
+    return r;
+}
+/* 对齐 scale 后相加 */
+GtDec *gt_dec_add(const GtDec *a, const GtDec *b) {
+    long long sc = a->scale > b->scale ? a->scale : b->scale;
+    GtDec *A = gt_dec_align(a, sc), *B = gt_dec_align(b, sc);
+    GtDec *r;
+    if (A->sign == B->sign) { r = gt_dec_add_abs(A, B, sc); r->sign = A->sign; }
+    else {
+        int c = gt_dec_cmp_abs(A, B);
+        if (c == 0) r = gt_dec_alloc(0);
+        else if (c > 0) { r = gt_dec_sub_abs(A, B, sc); r->sign = A->sign; }
+        else { r = gt_dec_sub_abs(B, A, sc); r->sign = B->sign; }
+    }
+    gt_dec_trim(r);
+    return r;
+}
+GtDec *gt_dec_sub(const GtDec *a, const GtDec *b) {
+    GtDec *nb = gt_dec_copy(b); nb->sign = nb->n ? !nb->sign : 0;
+    return gt_dec_add(a, nb);
+}
+GtDec *gt_dec_neg(const GtDec *a) { GtDec *r = gt_dec_copy(a); if (r->n) r->sign = !r->sign; return r; }
+/* 乘法：逐位卷积（十进制），结果 scale = a.scale + b.scale */
+GtDec *gt_dec_mul(const GtDec *a, const GtDec *b) {
+    if (a->n == 0 || b->n == 0) return gt_dec_alloc(0);
+    long long n = a->n + b->n;
+    int *acc = (int *)gt_alloc(sizeof(int) * (size_t)n);
+    for (long long i = 0; i < n; i++) acc[i] = 0;
+    for (long long i = 0; i < a->n; i++)
+        for (long long j = 0; j < b->n; j++)
+            acc[i + j + 1] += a->d[i] * b->d[j];
+    for (long long i = n - 1; i > 0; i--) { acc[i - 1] += acc[i] / 10; acc[i] %= 10; }
+    GtDec *r = gt_dec_alloc(n);
+    r->scale = a->scale + b->scale;
+    r->sign = (a->sign != b->sign);
+    for (long long i = 0; i < n; i++) r->d[i] = (unsigned char)acc[i];
+    gt_free(acc);
+    gt_dec_trim(r);
+    return r;
+}
+/* 除法：保留 DEC_DIV_PREC 位小数（结果 scale = a.scale + prec） */
+GtDec *gt_dec_div(const GtDec *a, const GtDec *b) {
+    if (b->n == 0) { return gt_dec_alloc(0); }
+    if (a->n == 0) return gt_dec_alloc(0);
+    /* 转为整数长除：把 a/b 扩展 prec 位 */
+    long long prec = DEC_DIV_PREC;
+    /* 被除数 = a.digits 后补 (prec + b.scale - a.scale) 个 0（确保精度） */
+    long long extra = prec + b->scale - a->scale + 1;
+    if (extra < 0) extra = 0;
+    long long dn = a->n + extra;
+    unsigned char *divid = (unsigned char *)gt_alloc((size_t)dn);
+    for (long long i = 0; i < a->n; i++) divid[i] = a->d[i];
+    for (long long i = 0; i < extra; i++) divid[a->n + i] = 0;
+    long long rn = b->n;
+    unsigned char *divis = (unsigned char *)gt_alloc((size_t)rn);
+    for (long long i = 0; i < rn; i++) divis[i] = b->d[i];
+    /* 长除 */
+    unsigned char *q = (unsigned char *)gt_alloc((size_t)dn);
+    unsigned char *rem = (unsigned char *)gt_alloc((size_t)(rn + 2));
+    long long remn = 0;
+    for (long long i = 0; i < dn; i++) {
+        /* rem = rem*10 + divid[i] */
+        if (remn == 0 && divid[i] == 0) { q[i] = 0; continue; }
+        rem[remn++] = divid[i];
+        while (remn > 1 && rem[0] == 0) { for (long long k = 0; k < remn - 1; k++) rem[k] = rem[k+1]; remn--; }
+        int qd = 0;
+        while (remn > rn || (remn == rn && ({ int cc = 0; for (long long k = 0; k < rn; k++) { if (rem[k] != divis[k]) { cc = rem[k] > divis[k] ? 1 : -1; break; } } cc; }) >= 0)) {
+            int borrow = 0;
+            for (long long k = 0; k < remn; k++) {
+                long long ri = remn - 1 - k, di = rn - 1 - k;
+                int dv = di >= 0 ? divis[di] : 0;
+                int s = rem[ri] - dv - borrow;
+                if (s < 0) { s += 10; borrow = 1; } else borrow = 0;
+                rem[ri] = (unsigned char)s;
+            }
+            while (remn > 1 && rem[0] == 0) { for (long long k = 0; k < remn - 1; k++) rem[k] = rem[k+1]; remn--; }
+            qd++;
+        }
+        q[i] = (unsigned char)qd;
+    }
+    GtDec *r = gt_dec_alloc(dn);
+    for (long long i = 0; i < dn; i++) r->d[i] = q[i];
+    r->scale = a->scale + extra - b->scale;
+    if (r->scale < 0) r->scale = 0;
+    r->sign = (a->sign != b->sign);
+    gt_dec_trim(r);
+    /* 去掉多余小数尾 0 */
+    while (r->scale > 0 && r->n > 0 && r->d[r->n - 1] == 0) { r->n--; r->scale--; }
+    gt_free(divid); gt_free(divis); gt_free(q); gt_free(rem);
+    return r;
+}
+
+/* decimal → i64（截断向零）/ f64 */
+long long gt_dec_to_i64(GtDec *x) {
+    /* 取整数部分 */
+    long long intpart = x->n - x->scale;
+    unsigned long long v = 0;
+    if (intpart > 0) {
+        for (long long i = 0; i < intpart; i++) {
+            if (v > (0x7FFFFFFFFFFFFFFFULL - 9) / 10) { v = 0x7FFFFFFFFFFFFFFFULL; break; }
+            v = v * 10 + x->d[i];
+        }
+    }
+    return x->sign ? -(long long)v : (long long)v;
+}
+double gt_dec_to_f64(GtDec *x) {
+    char buf[8192]; gt_dec_fmt(x, buf, (long long)sizeof(buf));
+    return atof(buf);
+}
+/* decimal 打印到 stdout */
+void gt_dec_print(GtDec *x) {
+    char buf[8192];
+    long long n = gt_dec_fmt(x, buf, (long long)sizeof(buf));
+    if (n > 0) gt_write(buf, n);
+}
+/* decimal → 字符串（返回新分配的 NUL 结尾串） */
+char *gt_dec_to_str(GtDec *x) {
+    char buf[8192];
+    long long n = gt_dec_fmt(x, buf, (long long)sizeof(buf));
+    char *p = (char *)gt_alloc((size_t)n + 1);
+    for (long long i = 0; i < n; i++) p[i] = buf[i];
+    p[n] = 0;
+    return p;
+}
+
 /* ---------- 数值内置 ---------- */
 long long gt_abs_i(long long v) { return v < 0 ? -v : v; }
 double gt_abs_f(double v) { return v < 0 ? -v : v; }

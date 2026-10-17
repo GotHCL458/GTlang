@@ -153,6 +153,7 @@ impl Parser {
             Tok::Ident(n) => format!("标识符 '{}'", n),
             Tok::Int(v) => format!("整数 {}", v),
             Tok::Float(v) => format!("浮点 {}", v),
+            Tok::Decimal(s) => format!("十进制 {}", s),
             Tok::Str(_) => "字符串".into(),
             Tok::RawStr(_) => "原始字符串".into(),
             Tok::Punct(p) => format!("'{}'", p),

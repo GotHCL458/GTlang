@@ -8,6 +8,7 @@ impl Ctx {
         let ty = match &mut e.kind {
             ExprKind::Int(_) => Ty::I64,
             ExprKind::Float(_) => Ty::F64,
+            ExprKind::Decimal(_) => Ty::Decimal,
             ExprKind::Bool(_) => Ty::Bool,
             ExprKind::Comptime(_) => Ty::I64,
             ExprKind::TupleLit(items) => { let mut ts = Vec::new(); for it in items.iter_mut() { ts.push(self.infer(it)?); } Ty::Tuple(ts) },

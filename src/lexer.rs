@@ -10,6 +10,8 @@ pub enum Tok {
     Ident(String),
     Int(i64),
     Float(f64),
+    /// 高精度十进制字面量（如 `3.14d`），保留原文本
+    Decimal(String),
     /// 普通字符串：内容已解转义，其中的 `$name` / `${expr}` 由语法阶段展开
     Str(String),
     /// 原始字符串 `r"..."`：不解转义、不做插值
@@ -312,6 +314,11 @@ impl Lexer {
         }
 
         let text: String = self.c[start..self.i].iter().filter(|c| **c != '_').collect();
+        // decimal 字面量：数字后紧跟 'd'（如 3.14d / 1d）
+        if self.peek() == Some('d') && self.peek_at(1).map_or(true, |c| !is_ident_cont(c)) {
+            self.bump();
+            return Ok(Tok::Decimal(text));
+        }
         if is_float {
             text.parse::<f64>()
                 .map(Tok::Float)

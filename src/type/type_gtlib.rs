@@ -288,7 +288,7 @@ pub fn is_builtin_name(name: &str) -> bool {
     matches!(
         name,
         // 输出 / 长度 / 转换
-        "put" | "print" | "len" | "str" | "string" | "int" | "i64" | "f64" | "float" | "bool" | "read_line" | "readline" | "input" | "read_int" | "readint" | "fn_addr"
+        "put" | "print" | "len" | "str" | "string" | "int" | "i64" | "f64" | "float" | "bool" | "decimal" | "dec" | "read_line" | "readline" | "input" | "read_int" | "readint" | "fn_addr"
         // 容器构造
         | "list" | "List" | "set" | "Set" | "map" | "Map" | "dict" | "range" | "assert" | "sleep" | "chan" | "chan_send" | "chan_recv"
         // list 操作

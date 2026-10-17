@@ -18,6 +18,15 @@ use super::*;
 impl<'a> Codegen<'a> {
     pub(crate) fn expr(&mut self, e: &Expr) -> Result<Val, String> {
         match &e.kind {
+            ExprKind::Decimal(s) => {
+                // 字面量构造：gt_dec_from_str（返回 tagged 指针）
+                self.declare("declare ptr @gt_dec_from_str(ptr)");
+                let lit = self.intern(s.as_bytes());
+                let r = self.new_reg();
+                self.body.push_str(&format!("  {} = call ptr @gt_dec_from_str(ptr {})
+", r, lit));
+                Ok(Val::new_ptr(&Ty::Decimal, r))
+            }
             ExprKind::Int(v) => {
                 // tagged int：小整数编码为 (v << 1)；超出 i63 的用 bignum（编译期常量，
                 // 在 runtime 里由 gt_i64_to_int 从 i64 升成 tagged，此处只在 i63 内直接编码）。
@@ -798,6 +807,42 @@ impl<'a> Codegen<'a> {
                 return Ok(Val::new(&Ty::Bool, c));
             }
             return Err(crate::lb!(line, "strings only support == / != comparison", "字符串只支持 == / != 比较"));
+        }
+
+        // 高精度十进制：任一侧为 Decimal 时，两侧都转 Decimal，调 gt_dec_*。
+        if matches!(a.ty, Ty::Decimal) || matches!(b.ty, Ty::Decimal) {
+            self.declare("declare ptr @gt_dec_from_i64(i64)");
+            self.declare("declare ptr @gt_dec_from_f64(double)");
+            let todec = |cg: &mut Self, v: &Val| -> Result<String, String> {
+                Ok(match v.ty {
+                    Ty::Decimal => v.s.clone(),
+                    Ty::I64 => { let r = cg.new_reg(); let raw = cg.as_i64(v); cg.body.push_str(&format!("  {} = call i64 @gt_int_to_i64(i64 {})\n", r, raw)); let d = cg.new_reg(); cg.body.push_str(&format!("  {} = call ptr @gt_dec_from_i64(i64 {})\n", d, r)); d }
+                    Ty::F64 => { let d = cg.new_reg(); cg.body.push_str(&format!("  {} = call ptr @gt_dec_from_f64(double {})\n", d, v.s)); d }
+                    _ => v.s.clone(),
+                })
+            };
+            let x = todec(self, a)?;
+            let y = todec(self, b)?;
+            if op.is_cmp() {
+                self.declare("declare i64 @gt_dec_cmp(ptr, ptr)");
+                let c = self.new_reg();
+                self.body.push_str(&format!("  {} = call i64 @gt_dec_cmp(ptr {}, ptr {})\n", c, x, y));
+                let pred = match op { BinOp::Eq => "eq", BinOp::Ne => "ne", BinOp::Lt => "slt", BinOp::Le => "sle", BinOp::Gt => "sgt", _ => "sge" };
+                let r = self.new_reg();
+                self.body.push_str(&format!("  {} = icmp {} i64 {}, 0\n", r, pred, c));
+                return Ok(Val::new(&Ty::Bool, r));
+            }
+            let fname = match op {
+                BinOp::Add => "gt_dec_add",
+                BinOp::Sub => "gt_dec_sub",
+                BinOp::Mul => "gt_dec_mul",
+                BinOp::Div | BinOp::FloorDiv => "gt_dec_div",
+                _ => "gt_dec_div",
+            };
+            self.declare(&format!("declare ptr @{}(ptr, ptr)", fname));
+            let r = self.new_reg();
+            self.body.push_str(&format!("  {} = call ptr @{}(ptr {}, ptr {})\n", r, fname, x, y));
+            return Ok(Val::new_ptr(&Ty::Decimal, r));
         }
 
         let use_float = a.ty.is_float() || b.ty.is_float();

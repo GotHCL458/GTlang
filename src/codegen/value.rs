@@ -30,6 +30,12 @@ impl<'a> Codegen<'a> {
 ", n, v.s, buf, INTERP_BUF));
                 return Ok(Val::new(&Ty::Str, buf));
             }
+            Ty::Decimal => {
+                self.declare("declare ptr @gt_dec_to_str(ptr)");
+                let r = self.new_reg();
+                self.body.push_str(&format!("  {} = call ptr @gt_dec_to_str(ptr {})\n", r, v.s));
+                return Ok(Val::new(&Ty::Str, r));
+            }
             _ => "%lld",
         };
         let f = self.intern(fmt.as_bytes());
@@ -55,6 +61,7 @@ impl<'a> Codegen<'a> {
             Ty::Str => { self.declare("declare i64 @gt_to_i64(ptr)"); let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_to_i64(ptr {})\n", r, v.s)); r }
             Ty::F64 => { let r = self.new_reg(); self.body.push_str(&format!("  {} = fptosi double {} to i64\n", r, v.s)); r }
             Ty::Bool => { let r = self.new_reg(); self.body.push_str(&format!("  {} = zext i1 {} to i64\n", r, v.s)); r }
+            Ty::Decimal => { self.declare("declare i64 @gt_dec_to_i64(ptr)"); let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_dec_to_i64(ptr {})\n", r, v.s)); r }
             Ty::I64 => { return Ok(Val::new(&Ty::I64, v.s.clone())); }
             _ => v.s.clone(),
         };
@@ -64,6 +71,7 @@ impl<'a> Codegen<'a> {
     pub(crate) fn to_f64(&mut self, v: &Val, _line: usize) -> Result<Val, String> {
         match v.ty {
             Ty::Str => { self.declare("declare double @gt_to_f64(ptr)"); let r = self.new_reg(); self.body.push_str(&format!("  {} = call double @gt_to_f64(ptr {})\n", r, v.s)); Ok(Val::new(&Ty::F64, r)) }
+            Ty::Decimal => { self.declare("declare double @gt_dec_to_f64(ptr)"); let r = self.new_reg(); self.body.push_str(&format!("  {} = call double @gt_dec_to_f64(ptr {})\n", r, v.s)); Ok(Val::new(&Ty::F64, r)) }
             Ty::F64 => Ok(Val::new(&Ty::F64, v.s.clone())),
             Ty::Bool => { let z = self.new_reg(); self.body.push_str(&format!("  {} = zext i1 {} to i64\n", z, v.s)); let r = self.new_reg(); self.body.push_str(&format!("  {} = sitofp i64 {} to double\n", r, z)); Ok(Val::new(&Ty::F64, r)) }
             _ => { let r = self.new_reg(); self.body.push_str(&format!("  {} = sitofp i64 {} to double\n", r, v.s)); Ok(Val::new(&Ty::F64, r)) }

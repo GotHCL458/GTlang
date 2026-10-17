@@ -655,6 +655,7 @@ fn rewrite_expr(e: &mut Expr, own: &HashMap<String, String>, visible: &HashMap<S
     match &mut e.kind {
         ExprKind::Ident(name) => resolve_name(name, own, visible),
         ExprKind::Comptime(_) => {}
+        ExprKind::Decimal(_) => {}
         ExprKind::CallNamed(_, named) => { for (_, v) in named.iter_mut() { rewrite_expr(v, own, visible); } }
         ExprKind::TupleLit(items) => for v in items.iter_mut() { rewrite_expr(v, own, visible); },
         ExprKind::Slice(b, lo, hi) => { rewrite_expr(b, own, visible); rewrite_expr(lo, own, visible); rewrite_expr(hi, own, visible); },

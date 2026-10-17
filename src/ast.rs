@@ -72,6 +72,8 @@ impl Expr {
 pub enum ExprKind {
     Int(i64),
     Float(f64),
+    /// 高精度十进制字面量（保留原文本，如 "3.14"）
+    Decimal(String),
     Bool(bool),
     Str(String),
     /// 带 `{expr}` 插值的字符串

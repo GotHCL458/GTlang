@@ -206,6 +206,19 @@ impl<'a> Codegen<'a> {
             "int" | "i64" => { let v = self.expr(&args[0])?; self.to_i64(&v, line) }
             "f64" | "float" => { let v = self.expr(&args[0])?; self.to_f64(&v, line) }
             "bool" => { let v = self.expr(&args[0])?; self.to_bool(&v, line) }
+            "decimal" | "dec" => {
+                let v = self.expr(&args[0])?;
+                self.declare("declare ptr @gt_dec_from_str(ptr)");
+                self.declare("declare ptr @gt_dec_from_i64(i64)");
+                self.declare("declare ptr @gt_dec_from_f64(double)");
+                match v.ty {
+                    Ty::Decimal => Ok(Val::new_ptr(&Ty::Decimal, v.s)),
+                    Ty::Str => { let r = self.new_reg(); self.body.push_str(&format!("  {} = call ptr @gt_dec_from_str(ptr {})\n", r, v.s)); Ok(Val::new_ptr(&Ty::Decimal, r)) }
+                    Ty::F64 => { let r = self.new_reg(); self.body.push_str(&format!("  {} = call ptr @gt_dec_from_f64(double {})\n", r, v.s)); Ok(Val::new_ptr(&Ty::Decimal, r)) }
+                    Ty::I64 => { let raw = self.as_i64(&v); let rr = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_int_to_i64(i64 {})\n", rr, raw)); let r = self.new_reg(); self.body.push_str(&format!("  {} = call ptr @gt_dec_from_i64(i64 {})\n", r, rr)); Ok(Val::new_ptr(&Ty::Decimal, r)) }
+                    _ => { let r = self.new_reg(); self.body.push_str(&format!("  {} = call ptr @gt_dec_from_i64(i64 0)\n", r)); Ok(Val::new_ptr(&Ty::Decimal, r)) }
+                }
+            }
             "list" | "List" => {
                 // 元素引用计数：取 List 的元素类型判断是否堆指针（Unknown 保守取 0）
                 let ep = match call_ty { Ty::List(e) => elem_is_ptr(e), _ => 0 };

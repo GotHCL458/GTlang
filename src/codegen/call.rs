@@ -179,6 +179,7 @@ impl<'a> Codegen<'a> {
         }
         match ty {
             Ty::F64 => { let f = self.intern(b"%g"); self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, double {})\n", f, v.s)); }
+            Ty::Decimal => { self.declare("declare void @gt_dec_print(ptr)"); self.body.push_str(&format!("  call void @gt_dec_print(ptr {})\n", v.s)); }
             Ty::Str => { let f = self.intern(b"%s"); self.body.push_str(&format!("  call i32 (ptr, ...) @gt_printf(ptr {}, ptr {})\n", f, v.s)); }
             Ty::Bool => {
                 let t = self.intern(b"true"); let fa = self.intern(b"false");

@@ -30,6 +30,8 @@ pub enum Ty {
     Bool,
     I64,
     F64,
+    /// 高精度十进制（引用语义，指向 GtDec；精确十进制运算）
+    Decimal,
     Str,
     /// 定长数组：元素类型 + 长度（值语义，栈分配）
     Array(Box<Ty>, usize),
@@ -74,12 +76,12 @@ impl Ty {
 
     /// 是否数值（可参与算术）
     pub fn is_num(&self) -> bool {
-        self.is_int() || self.is_float() || matches!(self, Ty::Generic(_))
+        self.is_int() || self.is_float() || matches!(self, Ty::Decimal) || matches!(self, Ty::Generic(_))
     }
 
     /// 是否标量（可比较）
     pub fn is_scalar(&self) -> bool {
-        matches!(self, Ty::Bool | Ty::I64 | Ty::F64 | Ty::Str)
+        matches!(self, Ty::Bool | Ty::I64 | Ty::F64 | Ty::Decimal | Ty::Str)
     }
 
     /// 后端统一使用的 LLVM IR 类型
@@ -89,6 +91,7 @@ impl Ty {
             Ty::Bool => "i1".into(),
             Ty::I64 | Ty::Unknown => "i64".into(),
             Ty::F64 => "double".into(),
+            Ty::Decimal => "ptr".into(),
             Ty::Str | Ty::Array(..) | Ty::List(..) | Ty::Set(..) | Ty::Map(..) | Ty::Struct(_)
             | Ty::Result(..) | Ty::Option(_) | Ty::Tuple(_) | Ty::Enum(_) | Ty::Dyn(_) => "ptr".into(),
             // 单态化/推断前不应用；给出合理占位
@@ -101,6 +104,7 @@ impl Ty {
     pub fn zero(&self) -> &'static str {
         match self {
             Ty::F64 => "0.0",
+            Ty::Decimal => "null",
             Ty::Str | Ty::Array(..) | Ty::List(..) | Ty::Set(..) | Ty::Map(..)
             | Ty::Struct(_) | Ty::Result(..) | Ty::Option(_) | Ty::Dyn(_) => "null",
             _ => "0",
@@ -115,6 +119,7 @@ impl Ty {
             "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "char" | "i64" | "u64" | "isize"
             | "usize" | "int" => Ty::I64,
             "f32" | "f64" | "float" => Ty::F64,
+            "decimal" | "dec" => Ty::Decimal,
             "str" | "string" => Ty::Str,
             "list" => Ty::List(Box::new(Ty::Unknown)),
             "set" => Ty::Set(Box::new(Ty::Unknown)),
@@ -134,6 +139,7 @@ impl Ty {
             Ty::Bool => "bool".into(),
             Ty::I64 => "int".into(),
             Ty::F64 => "f64".into(),
+            Ty::Decimal => "decimal".into(),
             Ty::Str => "str".into(),
             Ty::Void => "void".into(),
             Ty::Struct(n) | Ty::Enum(n) => n.clone(),
@@ -151,6 +157,7 @@ impl fmt::Display for Ty {
             Ty::Bool => write!(f, "布尔(bool)"),
             Ty::I64 => write!(f, "整数(i64)"),
             Ty::F64 => write!(f, "浮点(f64)"),
+            Ty::Decimal => write!(f, "十进制(decimal)"),
             Ty::Str => write!(f, "字符串(str)"),
             Ty::Tuple(ts) => { write!(f, "元组(")?; for (i, t) in ts.iter().enumerate() { if i > 0 { write!(f, ", ")?; } write!(f, "{}", t)?; } write!(f, ")") }
             Ty::Enum(n) => write!(f, "枚举({})", n),
@@ -193,6 +200,8 @@ pub fn is_assignable(expected: &Ty, actual: &Ty) -> bool {
     }
     match (expected, actual) {
         (Ty::F64, t) if t.is_int() => true,
+        // decimal：int/f64 可隐式升级为 decimal；decimal 不隐式降级。
+        (Ty::Decimal, t) if t.is_int() || t.is_float() => true,
         (Ty::Array(a, n), Ty::Array(b, m)) => n == m && is_assignable(a, b),
         // 容器：元素类型兼容即可（含 Unknown 通配）
         (Ty::List(a), Ty::List(b)) => is_assignable(a, b),
@@ -496,6 +505,11 @@ fn builtin_check(name: &str, args: &[Ty]) -> Result<Ty, String> {
         "f64" | "float" => match one()? {
             t if t.is_scalar() || *t == Ty::Unknown => Ok(Ty::F64),
             other => Err(crate::te!("f64() cannot convert {}", "f64() 不能转换 {}", other)),
+        },
+        // decimal(x)：int/f64/str → 高精度十进制
+        "decimal" | "dec" => match one()? {
+            t if t.is_num() || matches!(t, Ty::Str | Ty::Decimal | Ty::Unknown) => Ok(Ty::Decimal),
+            other => Err(crate::te!("decimal() cannot convert {}", "decimal() 不能转换 {}", other)),
         },
         // bool(x)：非零/非空为真
         "bool" => match one()? {

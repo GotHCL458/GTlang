@@ -194,6 +194,7 @@ impl Parser {
                     Tok::Ident(s) => s.clone(),
                     Tok::Int(n) => n.to_string(),
                     Tok::Float(f) => f.to_string(),
+                    Tok::Decimal(s) => s.clone(),
                     Tok::Str(s) | Tok::RawStr(s) => s.clone(),
                     Tok::Punct(p) => p.clone(),
                     Tok::Eof => break,
