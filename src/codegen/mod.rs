@@ -99,6 +99,8 @@ struct FnInfo {
     cname: String,
     params: Vec<Ty>,
     ret: Ty,
+    /// true = C 函数（内联 C / extern "C"）：int 参数/返回值在边界按"裸 i64"处理。
+    is_c: bool,
 }
 
 #[derive(Clone)]
@@ -251,6 +253,7 @@ impl<'a> Codegen<'a> {
                             .map(|p| p.ty.clone().unwrap_or(Ty::I64))
                             .collect(),
                         ret: if is_main { Ty::Void } else { f.ret_ty.clone() },
+                        is_c: false,
                     },
                 );
             }
@@ -270,7 +273,7 @@ impl<'a> Codegen<'a> {
             self.declare(&d);
             self.fns.insert(
                 cf.name.clone(),
-                FnInfo { cname: sym, params: cf.params.clone(), ret: cf.ret.clone() },
+                FnInfo { cname: sym, params: cf.params.clone(), ret: cf.ret.clone(), is_c: true },
             );
         }
 
@@ -286,7 +289,7 @@ impl<'a> Codegen<'a> {
                         format!("declare {} @{}({})", ef.ret.llvm(), sym, params.join(", "))
                     };
                     self.declare(&d);
-                    self.fns.insert(ef.name.clone(), FnInfo { cname: sym, params: ef.params.clone(), ret: ef.ret.clone() });
+                    self.fns.insert(ef.name.clone(), FnInfo { cname: sym, params: ef.params.clone(), ret: ef.ret.clone(), is_c: true });
                 }
             }
         }

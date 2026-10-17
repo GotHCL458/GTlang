@@ -512,6 +512,12 @@ impl<'a> Codegen<'a> {
                 }
                 self.emit_puts_lit(")");
             }
+            Ty::I64 => {
+                // tagged int：交运行时按"小整数/bignum"分派打印。
+                let iv = self.as_i64(v);
+                self.declare("declare void @gt_int_print(i64)");
+                self.body.push_str(&format!("  call void @gt_int_print(i64 {})\n", iv));
+            }
             _ => {
                 let iv = self.as_i64(v);
                 let f = self.intern(b"%lld");
@@ -647,6 +653,16 @@ impl<'a> Codegen<'a> {
                         "结构体 '{}' 不能用于字符串插值；请加 @derive(Debug) 或用 put() 打印", sname))
                 }
             }
+            Ty::I64 => {
+                // tagged int → 十进制字符串，再用 %s（避免直接 %lld 打印 tagged 原始位）。
+                self.declare("declare i64 @gt_int_fmt(i64, ptr, i64)");
+                let buf = self.new_alloca_raw(&format!("[{} x i8]", INTERP_BUF));
+                let iv = self.as_i64(&v);
+                let n = self.new_reg();
+                self.body.push_str(&format!("  {} = call i64 @gt_int_fmt(i64 {}, ptr {}, i64 {})
+", n, iv, buf, INTERP_BUF));
+                Ok(("%s".into(), (Ty::Str, buf)))
+            }
             _ => Ok(("%lld".into(), (Ty::I64, self.as_i64(&v)))),
         }
     }
@@ -694,5 +710,6 @@ impl<'a> Codegen<'a> {
         Ok(Val::new(&e.ty.clone(), base))
     }
 }
+
 
 

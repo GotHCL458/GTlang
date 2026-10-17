@@ -21,6 +21,15 @@ impl<'a> Codegen<'a> {
                 let fmts = self.intern(b"%s"); self.body.push_str(&format!("  {} = call i32 (ptr, i64, ptr, ...) @gt_sprintf(ptr {}, i64 {}, ptr {}, ptr {})\n", sv, buf, INTERP_BUF, fmts, r));
                 return Ok(Val::new(&Ty::Str, buf));
             }
+            Ty::I64 => {
+                // tagged int → 十进制字符串：交运行时按小整数/bignum 分派。
+                self.declare("declare i64 @gt_int_fmt(i64, ptr, i64)");
+                let buf = self.new_alloca_raw(&format!("[{} x i8]", INTERP_BUF));
+                let n = self.new_reg();
+                self.body.push_str(&format!("  {} = call i64 @gt_int_fmt(i64 {}, ptr {}, i64 {})
+", n, v.s, buf, INTERP_BUF));
+                return Ok(Val::new(&Ty::Str, buf));
+            }
             _ => "%lld",
         };
         let f = self.intern(fmt.as_bytes());
@@ -31,13 +40,25 @@ impl<'a> Codegen<'a> {
         Ok(Val::new(&Ty::Str, buf))
     }
 
+    /// 裸 i64（内部计数，如 len/索引）→ tagged int（对外 int 值）。
+    pub(crate) fn raw_to_int(&mut self, raw: &str) -> Val {
+        self.declare("declare i64 @gt_i64_to_int(i64)");
+        let r = self.new_reg();
+        self.body.push_str(&format!("  {} = call i64 @gt_i64_to_int(i64 {})
+", r, raw));
+        Val::new(&Ty::I64, r)
+    }
+
     pub(crate) fn to_i64(&mut self, v: &Val, _line: usize) -> Result<Val, String> {
-        match v.ty {
-            Ty::Str => { self.declare("declare i64 @gt_to_i64(ptr)"); let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_to_i64(ptr {})\n", r, v.s)); Ok(Val::new(&Ty::I64, r)) }
-            Ty::F64 => { let r = self.new_reg(); self.body.push_str(&format!("  {} = fptosi double {} to i64\n", r, v.s)); Ok(Val::new(&Ty::I64, r)) }
-            Ty::Bool => { let r = self.new_reg(); self.body.push_str(&format!("  {} = zext i1 {} to i64\n", r, v.s)); Ok(Val::new(&Ty::I64, r)) }
-            _ => Ok(Val::new(&Ty::I64, v.s.clone())),
-        }
+        // int(x) 的结果是"用户 int 值"→ tagged。
+        let raw: String = match v.ty {
+            Ty::Str => { self.declare("declare i64 @gt_to_i64(ptr)"); let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_to_i64(ptr {})\n", r, v.s)); r }
+            Ty::F64 => { let r = self.new_reg(); self.body.push_str(&format!("  {} = fptosi double {} to i64\n", r, v.s)); r }
+            Ty::Bool => { let r = self.new_reg(); self.body.push_str(&format!("  {} = zext i1 {} to i64\n", r, v.s)); r }
+            Ty::I64 => { return Ok(Val::new(&Ty::I64, v.s.clone())); }
+            _ => v.s.clone(),
+        };
+        Ok(self.raw_to_int(&raw))
     }
 
     pub(crate) fn to_f64(&mut self, v: &Val, _line: usize) -> Result<Val, String> {
@@ -476,6 +497,7 @@ impl<'a> Codegen<'a> {
         Ok(r)
     }
 }
+
 
 
 

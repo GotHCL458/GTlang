@@ -81,12 +81,29 @@ impl<'a> Codegen<'a> {
         // 用户函数优先于内置/标准库（同名时遮蔽）
         if self.fns.contains_key(name) {
             if let Some(info) = self.fns.get(name).cloned() {
+                self.declare("declare i64 @gt_int_to_i64(i64)");
+                self.declare("declare i64 @gt_i64_to_int(i64)");
                 let mut ops = Vec::new();
-                for (i, a) in args.iter().enumerate() { let want = info.params.get(i).cloned().unwrap_or(Ty::I64); let v = self.expr(a)?; let v = self.coerce(&v, &want)?; ops.push(format!("{} {}", want.llvm(), v.s)); }
+                for (i, a) in args.iter().enumerate() {
+                    let want = info.params.get(i).cloned().unwrap_or(Ty::I64);
+                    let v = self.expr(a)?;
+                    let v = self.coerce(&v, &want)?;
+                    let operand = if info.is_c && matches!(want, Ty::I64) {
+                        let r = self.new_reg();
+                        self.body.push_str(&format!("  {} = call i64 @gt_int_to_i64(i64 {})\n", r, v.s));
+                        r
+                    } else { v.s };
+                    ops.push(format!("{} {}", want.llvm(), operand));
+                }
                 let argstr = ops.join(", ");
                 if info.ret == Ty::Void { self.body.push_str(&format!("  call void @{}({})\n", info.cname, argstr)); return Ok(Val::new(&Ty::Void, "0")); }
                 let r = self.new_reg();
                 self.body.push_str(&format!("  {} = call {} @{}({})\n", r, info.ret.llvm(), info.cname, argstr));
+                if info.is_c && matches!(info.ret, Ty::I64) {
+                    let t = self.new_reg();
+                    self.body.push_str(&format!("  {} = call i64 @gt_i64_to_int(i64 {})\n", t, r));
+                    return Ok(Val::new(&Ty::I64, t));
+                }
                 return Ok(Val::new(&info.ret, r));
             }
         }
@@ -176,12 +193,15 @@ impl<'a> Codegen<'a> {
                 self.body.push_str(&format!("  {} = call ptr @gt_sb_finish(i64 {})\n", r, hs));
                 Ok(Val::new(&Ty::Str, r))
             }
-            "len" => match args[0].ty.clone() {
-                Ty::Array(_, n) => Ok(Val::new(&Ty::I64, n.to_string())),
-                Ty::Str => { self.declare("declare i64 @strlen(ptr)"); let v = self.expr(&args[0])?; let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @strlen(ptr {})\n", r, v.s)); Ok(Val::new(&Ty::I64, r)) }
-                Ty::List(_) | Ty::Set(_) | Ty::Map(..) => { let v = self.expr(&args[0])?; let key = match args[0].ty.clone() { Ty::List(_) => "gt_list_len", Ty::Set(_) => "gt_set_len", _ => "gt_map_len" }; self.declare(&format!("declare i64 @{}(ptr)", key)); let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @{}(ptr {})\n", r, key, v.s)); Ok(Val::new(&Ty::I64, r)) }
-                other => Err(crate::lb!(line, "len() does not support {}", "len() 不支持 {}", other)),
-            },
+            "len" => {
+                let raw: String = match args[0].ty.clone() {
+                    Ty::Array(_, n) => n.to_string(),
+                    Ty::Str => { self.declare("declare i64 @strlen(ptr)"); let v = self.expr(&args[0])?; let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @strlen(ptr {})\n", r, v.s)); r }
+                    Ty::List(_) | Ty::Set(_) | Ty::Map(..) => { let v = self.expr(&args[0])?; let key = match args[0].ty.clone() { Ty::List(_) => "gt_list_len", Ty::Set(_) => "gt_set_len", _ => "gt_map_len" }; self.declare(&format!("declare i64 @{}(ptr)", key)); let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @{}(ptr {})\n", r, key, v.s)); r }
+                    other => return Err(crate::lb!(line, "len() does not support {}", "len() 不支持 {}", other)),
+                };
+                Ok(self.raw_to_int(&raw))
+            }
             "str" | "string" => { let v = self.expr(&args[0])?; self.to_str(&v, line) }
             "int" | "i64" => { let v = self.expr(&args[0])?; self.to_i64(&v, line) }
             "f64" | "float" => { let v = self.expr(&args[0])?; self.to_f64(&v, line) }
@@ -345,13 +365,24 @@ impl<'a> Codegen<'a> {
                     if info.ret == Ty::Void { self.body.push_str(&format!("  call void @{}({})\n", info.cname, argstr)); Ok(Val::new(&Ty::Void, "0")) }
                     else { let r = self.new_reg(); self.body.push_str(&format!("  {} = call {} @{}({})\n", r, info.ret.llvm(), info.cname, argstr)); Ok(Val::new(&info.ret, r)) }
                 } else if let Some(sf) = crate::types::gtlib_fn(name) {
+                    // 标准库是 C 函数：int 参数传裸 i64，int 返回值转 tagged。
+                    self.declare("declare i64 @gt_int_to_i64(i64)"); self.declare("declare i64 @gt_i64_to_int(i64)");
                     let mut ops = Vec::new();
-                    for (i, a) in args.iter().enumerate() { let want = sf.params.get(i).cloned().unwrap_or(Ty::I64); let v = self.expr(a)?; let v = self.coerce(&v, &want)?; ops.push(format!("{} {}", want.llvm(), v.s)); }
+                    for (i, a) in args.iter().enumerate() {
+                        let want = sf.params.get(i).cloned().unwrap_or(Ty::I64);
+                        let v = self.expr(a)?; let v = self.coerce(&v, &want)?;
+                        let opd = if matches!(want, Ty::I64) { let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_int_to_i64(i64 {})\n", r, v.s)); r } else { v.s };
+                        ops.push(format!("{} {}", want.llvm(), opd));
+                    }
                     let ret = if sf.ret == Ty::Void { "void".to_string() } else { sf.ret.llvm() };
                     let argstr = ops.join(", ");
                     self.declare(&format!("declare {} @{}({})", ret, sf.symbol, sf.params.iter().map(|t| t.llvm()).collect::<Vec<_>>().join(", ")));
                     if sf.ret == Ty::Void { self.body.push_str(&format!("  call void @{}({})\n", sf.symbol, argstr)); Ok(Val::new(&Ty::Void, "0")) }
-                    else { let r = self.new_reg(); self.body.push_str(&format!("  {} = call {} @{}({})\n", r, ret, sf.symbol, argstr)); Ok(Val::new(&sf.ret, r)) }
+                    else {
+                        let r = self.new_reg(); self.body.push_str(&format!("  {} = call {} @{}({})\n", r, ret, sf.symbol, argstr));
+                        if matches!(sf.ret, Ty::I64) { let t = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_i64_to_int(i64 {})\n", t, r)); Ok(Val::new(&Ty::I64, t)) }
+                        else { Ok(Val::new(&sf.ret, r)) }
+                    }
                 } else {
                     Err(crate::lb!(line, "undefined function '{}'", "未定义的函数 '{}'", name))
                 }
@@ -361,6 +392,9 @@ impl<'a> Codegen<'a> {
 
     // ---------- 类型转换内置 ----------
 }
+
+
+
 
 
 

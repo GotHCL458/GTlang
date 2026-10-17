@@ -355,65 +355,43 @@ impl<'a> Codegen<'a> {
                 self.emit_label(&lend);
             }
             Stmt::ForRange { var, from, to, body, els, .. } => {
-                let fv = self.expr(from)?;
-                let fv = self.coerce(&fv, &Ty::I64)?;
-                let tv = self.expr(to)?;
-                let tv = self.coerce(&tv, &Ty::I64)?;
-                let iv = self.new_alloca(&Ty::I64);
-                self.body
-                    .push_str(&format!("  store i64 {}, ptr {}\n", fv.s, iv));
-
-                let lcond = self.new_label();
-                let lbody = self.new_label();
-                let linc = self.new_label();
-                let lend = self.new_label();
-
+                // 范围变量对用户是 tagged int；内部用裸 i64 计数，另设 tagged 视图供用户读取。
+                self.declare("declare i64 @gt_int_to_i64(i64)");
+                self.declare("declare i64 @gt_i64_to_int(i64)");
+                let fv = self.expr(from)?; let fs = self.as_i64(&fv);
+                let fr = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_int_to_i64(i64 {})\n", fr, fs));
+                let tv = self.expr(to)?; let ts = self.as_i64(&tv);
+                let tr = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_int_to_i64(i64 {})\n", tr, ts));
+                let iv = self.new_alloca(&Ty::I64);   // 裸计数
+                let itv = self.new_alloca(&Ty::I64);  // tagged 视图
+                self.body.push_str(&format!("  store i64 {}, ptr {}\n", fr, iv));
+                let it0 = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_i64_to_int(i64 {})\n", it0, fr));
+                self.body.push_str(&format!("  store i64 {}, ptr {}\n", it0, itv));
+                let lcond = self.new_label(); let lbody = self.new_label(); let linc = self.new_label(); let lend = self.new_label();
                 self.body.push_str(&format!("  br label %{}\n", lcond));
                 self.emit_label(&lcond);
-                let cur = self.new_reg();
-                self.body
-                    .push_str(&format!("  {} = load i64, ptr {}\n", cur, iv));
-                let cmp = self.new_reg();
-                self.body
-                    .push_str(&format!("  {} = icmp slt i64 {}, {}\n", cmp, cur, tv.s));
-                self.body.push_str(&format!(
-                    "  br i1 {}, label %{}, label %{}\n",
-                    cmp, lbody, lend
-                ));
-
+                let cur = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n", cur, iv));
+                let cmp = self.new_reg(); self.body.push_str(&format!("  {} = icmp slt i64 {}, {}\n", cmp, cur, tr));
+                self.body.push_str(&format!("  br i1 {}, label %{}, label %{}\n", cmp, lbody, lend));
                 self.emit_label(&lbody);
                 let (ob, oc) = (self.break_label.clone(), self.continue_label.clone());
-                self.break_label = Some(lend.clone());
-                self.continue_label = Some(linc.clone());
+                self.break_label = Some(lend.clone()); self.continue_label = Some(linc.clone());
                 if let Some(lbl) = self.labeled.last().cloned() { self.label_targets.insert(lbl, (lend.clone(), linc.clone())); }
                 self.push_scope();
-                self.scopes
-                    .last_mut()
-                    .unwrap()
-                    .insert(var.clone(), Local { ptr: iv.clone(), ty: Ty::I64 });
-                // 记录 `for v in 0..N` 的上界，用于省略 a[v] 的边界检查
-                let bounded = matches!(&from.kind, ExprKind::Int(0))
-                    .then(|| if let ExprKind::Int(n) = &to.kind { Some(*n) } else { None })
-                    .flatten();
+                self.scopes.last_mut().unwrap().insert(var.clone(), Local { ptr: itv.clone(), ty: Ty::I64 });
+                let bounded = matches!(&from.kind, ExprKind::Int(0)).then(|| if let ExprKind::Int(n) = &to.kind { Some(*n) } else { None }).flatten();
                 if let Some(n) = bounded { self.bounded.insert(var.clone(), n); }
                 self.block(body)?;
                 if bounded.is_some() { self.bounded.remove(var); }
                 self.pop_scope();
-                self.break_label = ob;
-                self.continue_label = oc;
-
-                if !self.terminated {
-                    self.body.push_str(&format!("  br label %{}\n", linc));
-                }
+                self.break_label = ob; self.continue_label = oc;
+                if !self.terminated { self.body.push_str(&format!("  br label %{}\n", linc)); }
                 self.emit_label(&linc);
-                let c2 = self.new_reg();
-                self.body
-                    .push_str(&format!("  {} = load i64, ptr {}\n", c2, iv));
-                let nx = self.new_reg();
-                self.body
-                    .push_str(&format!("  {} = add i64 {}, 1\n", nx, c2));
-                self.body
-                    .push_str(&format!("  store i64 {}, ptr {}\n", nx, iv));
+                let c2 = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n", c2, iv));
+                let nx = self.new_reg(); self.body.push_str(&format!("  {} = add i64 {}, 1\n", nx, c2));
+                self.body.push_str(&format!("  store i64 {}, ptr {}\n", nx, iv));
+                let nxt = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_i64_to_int(i64 {})\n", nxt, nx));
+                self.body.push_str(&format!("  store i64 {}, ptr {}\n", nxt, itv));
                 self.body.push_str(&format!("  br label %{}\n", lcond));
                 self.emit_label(&lend);
                 // for-else：正常结束（i 达到终值）才执行 else
@@ -423,7 +401,7 @@ impl<'a> Codegen<'a> {
                     let ci = self.new_reg();
                     self.body.push_str(&format!("  {} = load i64, ptr {}\n", ci, iv));
                     let done = self.new_reg();
-                    self.body.push_str(&format!("  {} = icmp eq i64 {}, {}\n", done, ci, tv.s));
+                    self.body.push_str(&format!("  {} = icmp eq i64 {}, {}\n", done, ci, tr));
                     self.body.push_str(&format!("  br i1 {}, label %{}, label %{}\n", done, lsel, lskip));
                     self.emit_label(&lsel);
                     self.terminated = false;
@@ -682,5 +660,7 @@ impl<'a> Codegen<'a> {
         Ok(())
     }
 }
+
+
 
 

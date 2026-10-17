@@ -593,6 +593,355 @@ GtList *gt_map_values(GtMap *m) {
     return l;
 }
 
+/* ============================================================
+ * 大整数（bignum）与 tagged int
+ *
+ * 表示（8 字节，低位 tag）：
+ *   偶数 (v & 1 == 0)：小整数，值 = v >> 1（算术右移，i63 范围）
+ *   奇数 (v & 1 == 1)：bignum 指针，值 = (GtBig*)(v ^ 1)
+ * 小整数运算走寄存器快路径；溢出才升 bignum。比较/打印/转换/哈希按此分派。
+ * ============================================================ */
+typedef struct GtBig {
+    long long rc;      /* 引用计数（-1 = 不回收，便于简单起见先常驻） */
+    int neg;           /* 是否负数 */
+    long long n;       /* limb 个数 */
+    unsigned int *limb;/* 基 2^32 limb（小端） */
+} GtBig;
+
+/* tagged 值构造/判定 */
+#define GT_INT_TAG(v)   ((v) & 1LL)
+#define GT_SMALL(n)     ((long long)((unsigned long long)(n) << 1))
+#define GT_BIGP(v)      ((GtBig *)(size_t)((v) & ~1LL))
+#define GT_FROM_BIG(p)  ((long long)(size_t)((unsigned long long)(size_t)(p) | 1ULL))
+
+static void gt_big_normalize(GtBig *b);
+static GtBig *gt_big_from_i64(long long v);
+static long long gt_big_to_i64_if_fits(const GtBig *b, int *ok);
+
+/* 小整数（tagged）→ 有符号 i63 值 */
+static long long gt_small_val(long long v) { return v >> 1; }
+
+/* bignum 分配（n 个 limb 全 0） */
+static GtBig *gt_big_alloc(long long n) {
+    GtBig *b = (GtBig *)gt_alloc(sizeof(GtBig));
+    b->rc = -1; b->neg = 0; b->n = n;
+    b->limb = n > 0 ? (unsigned int *)gt_alloc(sizeof(unsigned int) * (size_t)n) : 0;
+    for (long long i = 0; i < n; i++) b->limb[i] = 0;
+    return b;
+}
+
+/* 去掉高位 0，维护 0 的符号 */
+static void gt_big_normalize(GtBig *b) {
+    while (b->n > 0 && b->limb[b->n - 1] == 0) b->n--;
+    if (b->n == 0) b->neg = 0;
+}
+
+/* i64 → bignum（绝对值） */
+static GtBig *gt_big_from_i64(long long v) {
+    unsigned long long a = v < 0 ? (unsigned long long)(-(v + 1)) + 1ULL : (unsigned long long)v;
+    long long n = a == 0 ? 0 : (a <= 0xFFFFFFFFULL ? 1 : 2);
+    GtBig *b = gt_big_alloc(n);
+    b->neg = v < 0 ? 1 : 0;
+    if (n >= 1) b->limb[0] = (unsigned int)(a & 0xFFFFFFFFULL);
+    if (n >= 2) b->limb[1] = (unsigned int)(a >> 32);
+    gt_big_normalize(b);
+    return b;
+}
+
+/* 若 bignum 落在 i63（tagged 小整数）范围，返回其值并置 ok=1 */
+static long long gt_big_to_i64_if_fits(const GtBig *b, int *ok) {
+    if (b->n > 2) { *ok = 0; return 0; }
+    unsigned long long a = 0;
+    if (b->n >= 1) a |= (unsigned long long)b->limb[0];
+    if (b->n >= 2) a |= ((unsigned long long)b->limb[1]) << 32;
+    /* tagged 小整数可表示 [-2^62, 2^62-1]（左移 1 位 + tag） */
+    if (b->neg) {
+        if (a <= 0x4000000000000000ULL) { *ok = 1; return -(long long)a; }
+    } else {
+        if (a <= 0x3FFFFFFFFFFFFFFFULL) { *ok = 1; return (long long)a; }
+    }
+    *ok = 0;
+    return 0;
+}
+
+/* 把 tagged 值读成"符号 + 绝对值 limb 视图"（用于统一运算）；返回临时 bignum 或小整数 */
+static GtBig *gt_int_to_big(long long v) {
+    if (GT_INT_TAG(v)) return GT_BIGP(v);
+    return gt_big_from_i64(gt_small_val(v));
+}
+
+/* 可能"把小整数结果收窄回 tagged 小整数"：给定 bignum，能收窄则返回 tagged 小整数 */
+static long long gt_big_maybe_narrow(GtBig *b) {
+    int ok = 0;
+    long long v = gt_big_to_i64_if_fits(b, &ok);
+    if (ok) return GT_SMALL(v);
+    return GT_FROM_BIG(b);
+}
+
+/* 归一化一个 tagged 结果：若是 bignum 且能收窄为小整数，则收窄 */
+static long long gt_int_narrow(long long v) {
+    if (GT_INT_TAG(v)) return gt_big_maybe_narrow(GT_BIGP(v));
+    return v;
+}
+
+/* ---------- bignum 加法（|a| + |b| 或差），带符号 ---------- */
+/* 比较绝对值：a>b 返回 1，a<b 返回 -1，相等 0 */
+static int gt_big_cmp_abs(const GtBig *a, const GtBig *b) {
+    if (a->n != b->n) return a->n > b->n ? 1 : -1;
+    for (long long i = a->n - 1; i >= 0; i--) {
+        if (a->limb[i] != b->limb[i]) return a->limb[i] > b->limb[i] ? 1 : -1;
+    }
+    return 0;
+}
+
+/* |a| + |b|（结果符号另定） */
+static GtBig *gt_big_add_abs(const GtBig *a, const GtBig *b) {
+    long long n = (a->n > b->n ? a->n : b->n) + 1;
+    GtBig *r = gt_big_alloc(n);
+    unsigned long long carry = 0;
+    for (long long i = 0; i < n; i++) {
+        unsigned long long s = carry;
+        if (i < a->n) s += a->limb[i];
+        if (i < b->n) s += b->limb[i];
+        r->limb[i] = (unsigned int)(s & 0xFFFFFFFFULL);
+        carry = s >> 32;
+    }
+    gt_big_normalize(r);
+    return r;
+}
+
+/* |a| - |b|（要求 |a| >= |b|） */
+static GtBig *gt_big_sub_abs(const GtBig *a, const GtBig *b) {
+    GtBig *r = gt_big_alloc(a->n);
+    long long borrow = 0;
+    for (long long i = 0; i < a->n; i++) {
+        long long d = (long long)a->limb[i] - (i < b->n ? (long long)b->limb[i] : 0) - borrow;
+        if (d < 0) { d += 0x100000000LL; borrow = 1; } else { borrow = 0; }
+        r->limb[i] = (unsigned int)d;
+    }
+    gt_big_normalize(r);
+    return r;
+}
+
+/* 带符号加 */
+static GtBig *gt_big_add_signed(const GtBig *a, const GtBig *b) {
+    if (a->neg == b->neg) {
+        GtBig *r = gt_big_add_abs(a, b);
+        r->neg = a->neg;
+        gt_big_normalize(r);
+        return r;
+    }
+    int c = gt_big_cmp_abs(a, b);
+    if (c == 0) { GtBig *z = gt_big_alloc(0); return z; }
+    if (c > 0) { GtBig *r = gt_big_sub_abs(a, b); r->neg = a->neg; return r; }
+    GtBig *r = gt_big_sub_abs(b, a); r->neg = b->neg; return r;
+}
+
+/* 带符号乘 */
+static GtBig *gt_big_mul_signed(const GtBig *a, const GtBig *b) {
+    if (a->n == 0 || b->n == 0) return gt_big_alloc(0);
+    GtBig *r = gt_big_alloc(a->n + b->n);
+    for (long long i = 0; i < a->n; i++) {
+        unsigned long long carry = 0;
+        for (long long j = 0; j < b->n; j++) {
+            unsigned long long cur = (unsigned long long)r->limb[i + j]
+                + (unsigned long long)a->limb[i] * b->limb[j] + carry;
+            r->limb[i + j] = (unsigned int)(cur & 0xFFFFFFFFULL);
+            carry = cur >> 32;
+        }
+        long long k = i + b->n;
+        while (carry) {
+            unsigned long long cur = (unsigned long long)r->limb[k] + carry;
+            r->limb[k] = (unsigned int)(cur & 0xFFFFFFFFULL);
+            carry = cur >> 32;
+            k++;
+        }
+    }
+    r->neg = (a->neg != b->neg);
+    gt_big_normalize(r);
+    return r;
+}
+
+/* ---------- 对外运算（tagged 入口，快路径优先） ---------- */
+long long gt_int_add(long long a, long long b) {
+    if (!GT_INT_TAG(a) && !GT_INT_TAG(b)) {
+        long long x = gt_small_val(a), y = gt_small_val(b);
+        long long r;
+        if (!__builtin_add_overflow(x, y, &r) && r <= 0x3FFFFFFFFFFFFFFFLL && r >= -0x4000000000000000LL) {
+            return GT_SMALL(r);
+        }
+    }
+    GtBig *A = gt_int_to_big(a), *B = gt_int_to_big(b);
+    return gt_big_maybe_narrow(gt_big_add_signed(A, B));
+}
+long long gt_int_sub(long long a, long long b) {
+    if (!GT_INT_TAG(a) && !GT_INT_TAG(b)) {
+        long long x = gt_small_val(a), y = gt_small_val(b);
+        long long r;
+        if (!__builtin_sub_overflow(x, y, &r) && r <= 0x3FFFFFFFFFFFFFFFLL && r >= -0x4000000000000000LL) {
+            return GT_SMALL(r);
+        }
+    }
+    GtBig *A = gt_int_to_big(a);
+    GtBig *B = gt_int_to_big(b);
+    B->neg = !B->neg; /* a - b = a + (-b) */
+    return gt_big_maybe_narrow(gt_big_add_signed(A, B));
+}
+long long gt_int_mul(long long a, long long b) {
+    if (!GT_INT_TAG(a) && !GT_INT_TAG(b)) {
+        long long x = gt_small_val(a), y = gt_small_val(b);
+        long long r;
+        if (!__builtin_mul_overflow(x, y, &r) && r <= 0x3FFFFFFFFFFFFFFFLL && r >= -0x4000000000000000LL) {
+            return GT_SMALL(r);
+        }
+    }
+    GtBig *A = gt_int_to_big(a), *B = gt_int_to_big(b);
+    return gt_big_maybe_narrow(gt_big_mul_signed(A, B));
+}
+
+long long gt_int_fmt(long long v, char *buf, long long cap);
+/* tagged int 打印到 stdout。 */
+void gt_int_print(long long v) {
+    char buf[4096];
+    long long n = gt_int_fmt(v, buf, (long long)sizeof(buf));
+    if (n > 0) { gt_write(buf, n); }
+}
+
+/* ---------- 打印 / 转字符串 ---------- */
+/* tagged int → 十进制字符串（写入调用方缓冲；返回写入长度）。 */
+long long gt_int_fmt(long long v, char *buf, long long cap) {
+    if (!GT_INT_TAG(v)) {
+        return (long long)snprintf(buf, (size_t)cap, "%lld", gt_small_val(v));
+    }
+    GtBig *b = GT_BIGP(v);
+    if (b->n == 0) { if (cap > 1) { buf[0] = '0'; buf[1] = 0; return 1; } return 0; }
+    /* 复制 limb 到临时，反复除以 10 取余 */
+    unsigned int *tmp = (unsigned int *)gt_alloc(sizeof(unsigned int) * (size_t)b->n);
+    for (long long i = 0; i < b->n; i++) tmp[i] = b->limb[i];
+    long long n = b->n;
+    char rev[2048]; long long rn = 0;
+    while (n > 0 && rn < (long long)sizeof(rev) - 2) {
+        unsigned long long rem = 0;
+        for (long long i = n - 1; i >= 0; i--) {
+            unsigned long long cur = (rem << 32) | tmp[i];
+            tmp[i] = (unsigned int)(cur / 10);
+            rem = cur % 10;
+        }
+        while (n > 0 && tmp[n - 1] == 0) n--;
+        rev[rn++] = (char)('0' + (int)rem);
+    }
+    long long out = 0;
+    if (b->neg && cap > 1) buf[out++] = '-';
+    while (rn > 0 && out < cap - 1) buf[out++] = rev[--rn];
+    buf[out] = 0;
+    gt_free(tmp);
+    return out;
+}
+
+/* ---------- 除法 / 取余（tagged；结果收窄） ---------- */
+static GtBig *gt_big_copy(const GtBig *b) {
+    GtBig *r = gt_big_alloc(b->n);
+    r->neg = b->neg;
+    for (long long i = 0; i < b->n; i++) r->limb[i] = b->limb[i];
+    return r;
+}
+/* 长除法：a / b（带符号，截断向零），返回商；余数可选写入 *rem */
+static GtBig *gt_big_divmod(const GtBig *a, const GtBig *b, GtBig **rem) {
+    /* 简化：若都能放进 i64 且不越界，走原生 */
+    /* 通用：逐位二进制长除法（够用，非最快） */
+    GtBig *q = gt_big_alloc(a->n);
+    GtBig *r = gt_big_alloc(0);
+    for (long long bit = a->n * 32 - 1; bit >= 0; bit--) {
+        /* r = r*2 + bit(a) */
+        /* r <<= 1 */
+        long long rn = r->n + 1;
+        unsigned int *nl = (unsigned int *)gt_alloc(sizeof(unsigned int) * (size_t)rn);
+        for (long long i = 0; i < rn; i++) nl[i] = 0;
+        unsigned long long carry = 0;
+        for (long long i = 0; i < r->n; i++) {
+            unsigned long long s = ((unsigned long long)r->limb[i] << 1) | carry;
+            nl[i] = (unsigned int)(s & 0xFFFFFFFFULL);
+            carry = s >> 32;
+        }
+        if (carry) nl[r->n] = (unsigned int)carry;
+        gt_free(r->limb); r->limb = nl; r->n = rn;
+        unsigned int abit = (a->limb[bit / 32] >> (bit % 32)) & 1u;
+        r->limb[0] |= abit;
+        gt_big_normalize(r);
+        if (gt_big_cmp_abs(r, b) >= 0) {
+            /* r -= b */
+            GtBig *nr = gt_big_sub_abs(r, b);
+            gt_free(r->limb); r->limb = nr->limb; r->n = nr->n;
+            gt_free(nr);
+            gt_big_normalize(r);
+            q->limb[bit / 32] |= (1u << (bit % 32));
+        }
+    }
+    gt_big_normalize(q);
+    if (rem) { *rem = r; } else { gt_free(r->limb); gt_free(r); }
+    return q;
+}
+long long gt_int_div(long long a, long long b) {
+    if (!GT_INT_TAG(a) && !GT_INT_TAG(b)) {
+        long long x = gt_small_val(a), y = gt_small_val(b);
+        if (y != 0) {
+            long long r = x / y;
+            if (r <= 0x3FFFFFFFFFFFFFFFLL && r >= -0x4000000000000000LL) return GT_SMALL(r);
+        }
+    }
+    GtBig *A = gt_int_to_big(a), *B = gt_int_to_big(b);
+    if (B->n == 0) return GT_SMALL(0); /* 除零由 codegen 的 gt_bounds/div0 检查拦 */
+    GtBig *q = gt_big_divmod(A, B, 0);
+    q->neg = (A->neg != B->neg);
+    gt_big_normalize(q);
+    return gt_big_maybe_narrow(q);
+}
+long long gt_int_rem(long long a, long long b) {
+    if (!GT_INT_TAG(a) && !GT_INT_TAG(b)) {
+        long long x = gt_small_val(a), y = gt_small_val(b);
+        if (y != 0) {
+            long long r = x % y;
+            if (r <= 0x3FFFFFFFFFFFFFFFLL && r >= -0x4000000000000000LL) return GT_SMALL(r);
+        }
+    }
+    GtBig *A = gt_int_to_big(a), *B = gt_int_to_big(b);
+    if (B->n == 0) return GT_SMALL(0);
+    GtBig *r = 0;
+    gt_big_divmod(A, B, &r);
+    r->neg = A->neg;
+    gt_big_normalize(r);
+    return gt_big_maybe_narrow(r);
+}
+
+/* ---------- 比较（tagged）：返回 -1/0/1 ---------- */
+long long gt_int_cmp(long long a, long long b) {
+    if (!GT_INT_TAG(a) && !GT_INT_TAG(b)) {
+        long long x = gt_small_val(a), y = gt_small_val(b);
+        return x < y ? -1 : (x > y ? 1 : 0);
+    }
+    GtBig *A = gt_int_to_big(a), *B = gt_int_to_big(b);
+    if (A->n == 0 && B->n == 0) return 0;
+    if (A->neg != B->neg) return A->neg ? -1 : 1;
+    int c = gt_big_cmp_abs(A, B);
+    return A->neg ? -c : c;
+}
+long long gt_int_eq(long long a, long long b) { return gt_int_cmp(a, b) == 0 ? 1 : 0; }
+
+/* tagged int → C long long（溢出则饱和？此处仅用于转换；返回 i64 视角的值） */
+long long gt_int_to_i64(long long v) {
+    if (!GT_INT_TAG(v)) return gt_small_val(v);
+    GtBig *b = GT_BIGP(v);
+    unsigned long long a = 0;
+    if (b->n >= 1) a |= (unsigned long long)b->limb[0];
+    if (b->n >= 2) a |= ((unsigned long long)b->limb[1]) << 32;
+    return b->neg ? -(long long)a : (long long)a;
+}
+/* C long long → tagged int */
+long long gt_i64_to_int(long long v) {
+    if (v <= 0x3FFFFFFFFFFFFFFFLL && v >= -0x4000000000000000LL) return GT_SMALL(v);
+    return GT_FROM_BIG(gt_big_from_i64(v));
+}
+
 /* ---------- 数值内置 ---------- */
 long long gt_abs_i(long long v) { return v < 0 ? -v : v; }
 double gt_abs_f(double v) { return v < 0 ? -v : v; }

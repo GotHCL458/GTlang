@@ -2521,9 +2521,9 @@ fn overflow_not_folded_away() {
     let c = Command::new(gtc()).arg("--c").arg(&p).arg("-o").arg(&exe).arg("zh").output().expect("无法启动 gtc --c");
     assert!(c.status.success(), "编译失败：\n{}", decode(&c.stderr));
     let ran = Command::new(&exe).output().expect("无法运行产物");
-    assert!(!ran.status.success(), "编译产物未拦下溢出");
+    assert!(ran.status.success(), "溢出应自动升级 bignum 而非终止");
     let ce = decode(&ran.stderr) + &decode(&ran.stdout);
-    assert!(ce.contains("溢出"), "编译产物缺诊断：\n{}", ce);
+    assert!(ce.contains("9223372036854775808"), "大数结果不正确：\n{}", ce);
 }
 
 // ============================================================
@@ -3425,8 +3425,7 @@ fn pipe_to_function_still_works() {
 
 #[test]
 fn runtime_errors_match() {
-    // 溢出 / 除零 / 越界：双端给出相同的运行时错误（非 panic）
-    assert_runtime_error_matches("overflow", "fn main() { a := 9223372036854775807  put(a + 1) }");
+    // 除零 / 越界：运行时错误（非 panic）。溢出已改为自动升级 bignum，不再报错。
     assert_runtime_error_matches("div0", "fn main() { a := 1  b := 0  put(a / b) }");
     assert_runtime_error_matches("index", "fn main() { xs := list()  push(xs, 1)  put(xs[100]) }");
 }
