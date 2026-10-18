@@ -28,7 +28,7 @@ fn c_ty(t: &Ty) -> &'static str {
 pub fn generate_shim(dlls: &[&'static str], syms: &BTreeSet<&'static str>) -> String {
     let mut s = String::new();
     s.push_str("/* 自动生成：标准库运行期加载与转发。请勿手改。 */\n");
-    s.push_str("#include <windows.h>\n#include <string.h>\n\n");
+    s.push_str("#include <windows.h>\n#include <string.h>\n#include <stdio.h>\n\n");
 
     // 每个符号：静态函数指针 + 转发函数
     // 先收集"符号 → StdFn"（按符号名反查）。
@@ -81,11 +81,11 @@ pub fn generate_shim(dlls: &[&'static str], syms: &BTreeSet<&'static str>) -> St
     s.push_str("    char envdir[MAX_PATH]; DWORD en = GetEnvironmentVariableA(\"GTC_STDLIB_DIR\", envdir, MAX_PATH);\n");
     s.push_str("    for (int i = 0; i < ndll && nh < 64; ++i) {\n");
     s.push_str("        HMODULE h = 0;\n");
-    s.push_str("        if (en > 0 && en < MAX_PATH) { char p[MAX_PATH]; strcpy(p, envdir); if (p[strlen(p)-1] != '\\\\') strcat(p, \"\\\\\"); strcat(p, dlls[i]); h = LoadLibraryA(p); }\n");
-    s.push_str("        char root[MAX_PATH]; strcpy(root, base);\n");
+    s.push_str("        if (en > 0 && en < MAX_PATH) { char p[MAX_PATH]; snprintf(p, MAX_PATH, \"%s%s%s\", envdir, (en > 0 && envdir[en-1] != '\\\\') ? \"\\\\\" : \"\", dlls[i]); h = LoadLibraryA(p); }\n");
+    s.push_str("        char root[MAX_PATH]; snprintf(root, MAX_PATH, \"%s\", base);\n");
     s.push_str("        for (int up = 0; up < 8 && !h; ++up) {\n");
-    s.push_str("            char p[MAX_PATH]; strcpy(p, root); strcat(p, dlls[i]); h = LoadLibraryA(p);\n");
-    s.push_str("            if (!h) { strcpy(p, root); strcat(p, \"res\\\\lib\\\\\"); strcat(p, dlls[i]); h = LoadLibraryA(p); }\n");
+    s.push_str("            char p[MAX_PATH]; snprintf(p, MAX_PATH, \"%s%s\", root, dlls[i]); h = LoadLibraryA(p);\n");
+    s.push_str("            if (!h) { snprintf(p, MAX_PATH, \"%s%s%s\", root, \"res\\\\lib\\\\\", dlls[i]); h = LoadLibraryA(p); }\n");
     s.push_str("            if (!h) { int L = (int)strlen(root); if (L > 0) { root[L-1] = 0; char *sl = strrchr(root, '\\\\'); if (sl) sl[1] = 0; else root[0] = 0; } }\n");
     s.push_str("        }\n");
     s.push_str("        if (!h) h = LoadLibraryA(dlls[i]);\n");

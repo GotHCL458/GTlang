@@ -1,10 +1,14 @@
-﻿//! 优化 pass：内联 + 常量折叠 + 死代码消除（AST 级，双后端共享）。
+﻿//! 优化 pass（AST 级）。
 //!
-//! 分两段调用（在 frontend 里）：
-//!   - inline_and_fold：sema(1) 之后（sema(2) 会重推断类型）
-//!   - dead_code：sema(2) 之后（类型检查已过，删除安全）
+//! 两段流水线（由 frontend 调用）：
+//!   - opt_pre_sema(level)：sema(2) 之前（折叠/传播/内联，sema(2) 会重推断类型）
+//!   - opt_post_sema(level)：sema(2) 之后（if 剪枝 / 无用变量 / CSE / LICM / 死代码，
+//!     此时类型检查已过、删除安全）
+//!
+//! 等级（-O1..-O4）：O1 折叠+传播；O2 +if剪枝/无用变量/CSE；O3 +内联+LICM；O4 +多轮。
+//! 另有 passes.rs 提供 4 个额外 pass，见其文档。
 
-mod passes;
+pub(crate) mod passes;
 
 use crate::ast::*;
 
@@ -787,6 +791,84 @@ fn e(kind: ExprKind) -> Expr { Expr::new(kind, 0) }
 
 fn lit_int(v: i64) -> Expr { e(ExprKind::Int(v)) }
 fn lit_bool(v: bool) -> Expr { e(ExprKind::Bool(v)) }
+
+// ---- passes.rs 的 4 个 pass 单元测试 ----
+fn mk_prog(stmts: Block) -> Program {
+    let mut p = Program::default();
+    p.items.push(Item::Fn(crate::ast::FnDef {
+        name: "main".into(), type_params: vec![], params: vec![], ret: None,
+        ret_ty: Ty::Void, body: stmts, line: 0, is_pub: false, bounds: vec![], attrs: vec![],
+    }));
+    p
+}
+
+#[test]
+fn if_const_prune_true_branch() {
+    let then = vec![Stmt::Expr(e(ExprKind::Int(1)))];
+    let els = Some(vec![Stmt::Expr(e(ExprKind::Int(2)))]);
+    let p = mk_prog(vec![Stmt::If { cond: lit_bool(true), then, els, line: 0 }]);
+    let mut p2 = p.clone();
+    crate::opt::passes::const_if_prune(&mut p2);
+    // 应变成 Block([Int(1)])，无 If
+    let f = match &p2.items[0] { Item::Fn(f) => f, _ => panic!() };
+    assert!(matches!(f.body[0], Stmt::Block(_)), "if true 应剪枝为 Block");
+}
+
+#[test]
+fn remove_unused_let() {
+    let p = mk_prog(vec![
+        Stmt::Let { name: "x".into(), ty: None, value: lit_int(42), mutable: false, line: 0 },
+    ]);
+    let mut p2 = p.clone();
+    crate::opt::passes::remove_unused_lets(&mut p2);
+    let f = match &p2.items[0] { Item::Fn(f) => f, _ => panic!() };
+    assert!(f.body.is_empty(), "未使用的 let 应被删除");
+}
+
+#[test]
+fn remove_unused_let_kept_when_used() {
+    let p = mk_prog(vec![
+        Stmt::Let { name: "x".into(), ty: None, value: lit_int(42), mutable: false, line: 0 },
+        Stmt::Expr(e(ExprKind::Ident("x".into()))),
+    ]);
+    let mut p2 = p.clone();
+    crate::opt::passes::remove_unused_lets(&mut p2);
+    let f = match &p2.items[0] { Item::Fn(f) => f, _ => panic!() };
+    assert_eq!(f.body.len(), 2, "被使用的 let 应保留");
+}
+
+#[test]
+fn cse_merges_identical_immutable_lets() {
+    let p = mk_prog(vec![
+        Stmt::Let { name: "a".into(), ty: None, value: lit_int(7), mutable: false, line: 0 },
+        Stmt::Let { name: "b".into(), ty: None, value: lit_int(7), mutable: false, line: 0 },
+        Stmt::Expr(e(ExprKind::Call("use2".into(), vec![e(ExprKind::Ident("a".into())), e(ExprKind::Ident("b".into()))]))),
+    ]);
+    let mut p2 = p.clone();
+    crate::opt::passes::cse(&mut p2);
+    let f = match &p2.items[0] { Item::Fn(f) => f, _ => panic!() };
+    // b 的初值应被替换为 Ident("a")
+    if let Stmt::Let { value, .. } = &f.body[1] {
+        assert!(matches!(&value.kind, ExprKind::Ident(n) if n == "a"), "CSE 应把 b 复用为 a");
+    } else { panic!(); }
+}
+
+#[test]
+fn cse_skips_mutable_lets() {
+    let p = mk_prog(vec![
+        Stmt::Let { name: "a".into(), ty: None, value: lit_int(7), mutable: true, line: 0 },
+        Stmt::Let { name: "b".into(), ty: None, value: lit_int(7), mutable: true, line: 0 },
+        Stmt::Expr(e(ExprKind::Ident("a".into()))),
+        Stmt::Expr(e(ExprKind::Ident("b".into()))),
+    ]);
+    let mut p2 = p.clone();
+    crate::opt::passes::cse(&mut p2);
+    let f = match &p2.items[0] { Item::Fn(f) => f, _ => panic!() };
+    // mutable 的 b 初值应保持 Int(7)
+    if let Stmt::Let { value, .. } = &f.body[1] {
+        assert!(matches!(&value.kind, ExprKind::Int(7)), "CSE 不应处理 let mut");
+    } else { panic!(); }
+}
 
 fn let_stmt(name: &str, value: Expr) -> Stmt {
     Stmt::Let { name: name.into(), ty: None, value, line: 0, mutable: false }

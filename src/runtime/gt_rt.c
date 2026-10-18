@@ -1710,16 +1710,16 @@ static void gt_gto_init(void) {
     for (DWORD i = n; i > 0; --i) { if (base[i-1] == '\\' || base[i-1] == '/') { base[i] = 0; break; } }
     char envdir[MAX_PATH]; DWORD en = GetEnvironmentVariableA("GTC_STDLIB_DIR", envdir, MAX_PATH);
     if (en > 0 && en < MAX_PATH) {
-        char p[MAX_PATH]; strcpy(p, envdir);
-        if (p[strlen(p)-1] != '\\') strcat(p, "\\");
-        strcat(p, "gto.dll");
+        char p[MAX_PATH];
+        { size_t L = strlen(envdir); int sep = (L > 0 && envdir[L-1] != '\\' && envdir[L-1] != '/');
+          snprintf(p, MAX_PATH, "%s%s%s", envdir, sep ? "\\" : "", "gto.dll"); }
         g_gto_mod = LoadLibraryA(p);
     }
     if (!g_gto_mod) {
-        char root[MAX_PATH]; strcpy(root, base);
+        char root[MAX_PATH]; snprintf(root, MAX_PATH, "%s", base);
         for (int up = 0; up < 8 && !g_gto_mod; ++up) {
-            char p[MAX_PATH]; strcpy(p, root); strcat(p, "gto.dll"); g_gto_mod = LoadLibraryA(p);
-            if (!g_gto_mod) { strcpy(p, root); strcat(p, "res\\lib\\gto.dll"); g_gto_mod = LoadLibraryA(p); }
+            char p[MAX_PATH]; snprintf(p, MAX_PATH, "%s%s", root, "gto.dll"); g_gto_mod = LoadLibraryA(p);
+            if (!g_gto_mod) { snprintf(p, MAX_PATH, "%s%s", root, "res\\lib\\gto.dll"); g_gto_mod = LoadLibraryA(p); }
             if (!g_gto_mod) { int L = (int)strlen(root); if (L > 0) { root[L-1] = 0; char *sl = strrchr(root, '\\'); if (sl) sl[1] = 0; else root[0] = 0; } }
         }
     }
