@@ -4,6 +4,8 @@
 //!   - inline_and_fold：sema(1) 之后（sema(2) 会重推断类型）
 //!   - dead_code：sema(2) 之后（类型检查已过，删除安全）
 
+mod passes;
+
 use crate::ast::*;
 
 /// 第一段：内联 + 常量折叠。
@@ -252,6 +254,18 @@ pub fn opt_pre_sema(prog: &mut Program, level: u8) {
 
 /// sema(2) 之后的优化段：按等级做死代码消除（需要类型检查已通过）。
 pub fn opt_post_sema(prog: &mut Program, level: u8) {
+    // O2 起：if 常量条件剪枝、无用变量删除、公共子表达式消除（类型检查已过，安全）。
+    if level >= 2 {
+        passes::const_if_prune(prog);
+        passes::remove_unused_lets(prog);
+        passes::cse(prog);
+        fold_and_propagate(prog);
+    }
+    // O3 起：循环不变量提升。
+    if level >= 3 {
+        passes::licm(prog);
+        fold_and_propagate(prog);
+    }
     if level >= 1 {
         dead_code(prog);
     }

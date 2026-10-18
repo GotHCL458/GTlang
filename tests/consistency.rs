@@ -25,9 +25,13 @@ fn gtc() -> PathBuf {
 /// 测试用临时目录：统一放在 `%TEMP%\gtc\consistency_<pid>\`，
 /// 与编译器自身的中间目录同级，便于识别与清理。
 fn tmp_dir() -> PathBuf {
+    // 每个测试（线程）用唯一子目录，避免并行时 exe 名冲突。
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let n = COUNTER.fetch_add(1, Ordering::Relaxed);
     let d = std::env::temp_dir()
         .join("gtc")
-        .join(format!("consistency_{}", std::process::id()));
+        .join(format!("consistency_{}_{}", std::process::id(), n));
     std::fs::create_dir_all(&d).expect("无法创建临时目录");
     d
 }
