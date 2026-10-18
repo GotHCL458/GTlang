@@ -70,16 +70,24 @@ fn propagate_block(b: &mut Block) {
 }
 
 fn propagate_stmt(s: &mut Stmt, consts: &std::collections::HashMap<String, Expr>) {
+    // 进入子块前，屏蔽子块内 let 定义的同名变量（shadow），避免用外层常量替换内层同名变量。
+    fn block_with_shadow(b: &mut Block, consts: &std::collections::HashMap<String, Expr>) {
+        let mut inner = consts.clone();
+        for st in b.iter() {
+            if let Stmt::Let { name, .. } | Stmt::Const { name, .. } = st { inner.remove(name); }
+        }
+        for st in b.iter_mut() { propagate_stmt(st, &inner); }
+    }
     match s {
         Stmt::Let { value, .. } | Stmt::Const { value, .. } => subst_consts(value, consts),
         Stmt::Assign { value, index, .. } => { subst_consts(value, consts); if let Some(i) = index { subst_consts(i, consts); } }
         Stmt::FieldAssign { value, .. } => subst_consts(value, consts),
         Stmt::Expr(e) | Stmt::Return(Some(e), _) => subst_consts(e, consts),
-        Stmt::If { cond, then, els, .. } => { subst_consts(cond, consts); for st in then.iter_mut() { propagate_stmt(st, consts); } if let Some(e) = els { for st in e.iter_mut() { propagate_stmt(st, consts); } } }
-        Stmt::While { cond, body, .. } => { subst_consts(cond, consts); for st in body.iter_mut() { propagate_stmt(st, consts); } }
-        Stmt::ForRange { from, to, body, .. } => { subst_consts(from, consts); subst_consts(to, consts); for st in body.iter_mut() { propagate_stmt(st, consts); } }
-        Stmt::ForEach { iter, body, .. } => { subst_consts(iter, consts); for st in body.iter_mut() { propagate_stmt(st, consts); } }
-        Stmt::Block(inner) => for st in inner.iter_mut() { propagate_stmt(st, consts); },
+        Stmt::If { cond, then, els, .. } => { subst_consts(cond, consts); block_with_shadow(then, consts); if let Some(e) = els { block_with_shadow(e, consts); } }
+        Stmt::While { cond, body, .. } => { subst_consts(cond, consts); block_with_shadow(body, consts); }
+        Stmt::ForRange { from, to, body, .. } => { subst_consts(from, consts); subst_consts(to, consts); block_with_shadow(body, consts); }
+        Stmt::ForEach { iter, body, .. } => { subst_consts(iter, consts); block_with_shadow(body, consts); }
+        Stmt::Block(inner) => block_with_shadow(inner, consts),
         Stmt::Throw(e, _) => subst_consts(e, consts),
         _ => {}
     }
@@ -104,7 +112,7 @@ fn subst_consts(e: &mut Expr, consts: &std::collections::HashMap<String, Expr>) 
         ExprKind::Interp(parts) => for p in parts { if let StrPart::Expr(i) = p { subst_consts(i, consts); } },
         ExprKind::Field(base, _) => subst_consts(base, consts),
         ExprKind::StructLit(_, fs) => for (_, v) in fs { subst_consts(v, consts); },
-        ExprKind::If { cond, then, els } => { subst_consts(cond, consts); for st in then.iter_mut() { propagate_stmt(st, consts); } if let Some(x) = els { for st in x.iter_mut() { propagate_stmt(st, consts); } } }
+        ExprKind::If { cond, then, els } => { subst_consts(cond, consts); let mut inner = consts.clone(); for st in then.iter() { if let Stmt::Let { name, .. } | Stmt::Const { name, .. } = st { inner.remove(name); } } for st in then.iter_mut() { propagate_stmt(st, &inner); } if let Some(x) = els { let mut ie = consts.clone(); for st in x.iter() { if let Stmt::Let { name, .. } | Stmt::Const { name, .. } = st { ie.remove(name); } } for st in x.iter_mut() { propagate_stmt(st, &ie); } } }
         _ => {}
     }
 }
