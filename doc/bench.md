@@ -61,6 +61,18 @@ GTLang 在 4 个基准上整体追平/超越 Rust；与 C 相当（array 更快�
 >
 > **优化器有效**：`-O0 → -O4` 把 loop_sum 从 ~40ms 降到 ~4.2ms、fib 从 ~40ms 降到 ~26ms（常量折叠/内联/死代码）。
 
+### 更多基准（GTLang vs C）
+
+| 基准 | GTLang -O4 | C (clang -O2) | 备注 |
+|---|---:|---:|---|
+| arr10(1e8 次小数组访问) | ~4.9 | ~4.4 | 定长数组 + 边界检查消除 |
+| list push(1e6) | ~16 | ~13 | 动态数组翻倍增长 |
+| map 1e6 插入+查找 | ~194 | ~154 | MurmurHash3 + 开放寻址 |
+| `go` spawn 1000 | **~12** | ~23.5 | 线程池（C 每次 CreateThread） |
+| `chan` 1e6 send+recv | ~35 | ~22 | 锁 + 条件变量（同 C） |
+
+GTLang 整体接近 C（多数差距 <30%），部分超越（array/spawn）；`chan` 因函数指针转发略慢。
+
 ## 3. 分析
 
 GTLang 的范围分析（src/range.rs）对整数运算做流敏感分析：当能静态证明某次
