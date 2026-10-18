@@ -256,3 +256,55 @@ fn args_list(s: &mut String, xs: &[Expr], depth: usize) {
     let parts: Vec<String> = xs.iter().map(|e| { let mut t = String::new(); expr(&mut t, e, depth); t }).collect();
     s.push_str(&parts.join(", "));
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn prog(stmts: Block) -> Program {
+        let mut p = Program::default();
+        p.items.push(Item::Fn(crate::ast::FnDef {
+            name: "main".into(), type_params: vec![], params: vec![], ret: None,
+            ret_ty: Ty::Void, body: stmts, line: 0, is_pub: false, bounds: vec![], attrs: vec![],
+        }));
+        p
+    }
+    fn e(k: ExprKind) -> Expr { Expr::new(k, 0) }
+
+    #[test]
+    fn unparse_int_arith() {
+        let p = prog(vec![Stmt::Expr(e(ExprKind::Call("put".into(), vec![
+            e(ExprKind::Binary(BinOp::Add, Box::new(e(ExprKind::Int(1))), Box::new(e(ExprKind::Int(2))))),
+        ])))]);
+        let s = program(&p);
+        assert!(s.contains("put(") && s.contains("1 + 2"), "got: {}", s);
+    }
+
+    #[test]
+    fn unparse_string_escapes_dollar_and_quote() {
+        let p = prog(vec![Stmt::Expr(e(ExprKind::Call("put".into(), vec![
+            e(ExprKind::Str("a$b\"c".to_string())),
+        ])))]);
+        let s = program(&p);
+        assert!(s.contains("\\$"), "dollar escaped: {}", s);
+        assert!(s.contains("\\\""), "quote escaped: {}", s);
+    }
+
+    #[test]
+    fn unparse_captureless_closure_is_fn_name() {
+        let p = prog(vec![Stmt::Expr(e(ExprKind::Call("map".into(), vec![
+            e(ExprKind::ClosureNew { fn_name: "sq".into(), captures: vec![] }),
+        ])))]);
+        let s = program(&p);
+        assert!(s.contains("sq") && !s.contains("sq()"), "closureless → fn name: {}", s);
+    }
+
+    #[test]
+    fn unparse_dollar_in_interp_lit_escaped() {
+        let p = prog(vec![Stmt::Expr(e(ExprKind::Call("put".into(), vec![
+            e(ExprKind::Interp(vec![StrPart::Lit("cost: $5".into())])),
+        ])))]);
+        let s = program(&p);
+        assert!(s.contains("\\$5"), "dollar in interp lit escaped: {}", s);
+    }
+}
