@@ -61,11 +61,28 @@ fn propagate_block(b: &mut Block) {
             }
         }
     }
-    if consts.is_empty() { return; }
-    // 替换：先处理本块后续语句，再递归子块（用同一映射）
-    // 简化：直接对每条语句做替换（变量在被绑定后才可用，但字面量替换语义等价）
+    // 按语句顺序处理：遇到 let 时更新/移除 consts（重定义后旧常量失效）。
+    let assigned2 = assigned.clone();
+    let mut cur = consts;
     for s in b.iter_mut() {
-        propagate_stmt(s, &consts);
+        // 裸块不引入作用域：展开其 let 更新（覆盖外层），块后继续沿用。
+        if let Stmt::Block(inner) = s {
+            for st in inner.iter_mut() {
+                if let Stmt::Let { name, value, .. } | Stmt::Const { name, value, .. } = st {
+                    subst_consts(value, &cur);
+                    if !assigned2.contains(name) && is_literal(value) { cur.insert(name.clone(), value.clone()); } else { cur.remove(name); }
+                    continue;
+                }
+                propagate_stmt(st, &cur);
+            }
+            continue;
+        }
+        if let Stmt::Let { name, value, .. } | Stmt::Const { name, value, .. } = s {
+            subst_consts(value, &cur);
+            if !assigned2.contains(name) && is_literal(value) { cur.insert(name.clone(), value.clone()); } else { cur.remove(name); }
+            continue;
+        }
+        propagate_stmt(s, &cur);
     }
 }
 
@@ -74,7 +91,12 @@ fn propagate_stmt(s: &mut Stmt, consts: &std::collections::HashMap<String, Expr>
     fn block_with_shadow(b: &mut Block, consts: &std::collections::HashMap<String, Expr>) {
         let mut inner = consts.clone();
         for st in b.iter() {
-            if let Stmt::Let { name, .. } | Stmt::Const { name, .. } = st { inner.remove(name); }
+            match st {
+                Stmt::Let { name, .. } | Stmt::Const { name, .. } => { inner.remove(name); }
+                // 循环变量（for i / for x in）在循环体内 shadow 外层同名变量。
+                Stmt::ForRange { var, .. } | Stmt::ForEach { var, .. } => { inner.remove(var); }
+                _ => {}
+            }
         }
         for st in b.iter_mut() { propagate_stmt(st, &inner); }
     }
@@ -85,9 +107,21 @@ fn propagate_stmt(s: &mut Stmt, consts: &std::collections::HashMap<String, Expr>
         Stmt::Expr(e) | Stmt::Return(Some(e), _) => subst_consts(e, consts),
         Stmt::If { cond, then, els, .. } => { subst_consts(cond, consts); block_with_shadow(then, consts); if let Some(e) = els { block_with_shadow(e, consts); } }
         Stmt::While { cond, body, .. } => { subst_consts(cond, consts); block_with_shadow(body, consts); }
-        Stmt::ForRange { from, to, body, .. } => { subst_consts(from, consts); subst_consts(to, consts); block_with_shadow(body, consts); }
-        Stmt::ForEach { iter, body, .. } => { subst_consts(iter, consts); block_with_shadow(body, consts); }
-        Stmt::Block(inner) => block_with_shadow(inner, consts),
+        Stmt::ForRange { from, to, body, var, .. } => { subst_consts(from, consts); subst_consts(to, consts); let mut inner = consts.clone(); inner.remove(var); block_with_shadow(body, &inner); }
+        Stmt::ForEach { iter, body, var, .. } => { subst_consts(iter, consts); let mut inner = consts.clone(); inner.remove(var); block_with_shadow(body, &inner); }
+        Stmt::Block(inner) => {
+            // 裸块不引入新作用域（codegen 不隔离）：块内 let 覆盖外层同名，
+            // 因此后续语句用块内值，块结束后恢复外层（用 consts.clone 模拟）。
+            let mut cur = consts.clone();
+            for st in inner.iter_mut() {
+                if let Stmt::Let { name, value, .. } | Stmt::Const { name, value, .. } = st {
+                    subst_consts(value, &cur);
+                    if is_literal(value) { cur.insert(name.clone(), value.clone()); } else { cur.remove(name); }
+                    continue;
+                }
+                propagate_stmt(st, &cur);
+            }
+        }
         Stmt::Throw(e, _) => subst_consts(e, consts),
         _ => {}
     }

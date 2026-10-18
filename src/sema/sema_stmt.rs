@@ -15,7 +15,9 @@ pub(crate) fn check_stmt(ctx: &mut Ctx, s: &mut Stmt, errors: &mut Vec<String>) 
     match s {
         Stmt::Labeled { inner, .. } => {
             let mut inner_blk: Block = vec![(**inner).clone()];
+            ctx.scopes.push(HashMap::new());
             check_block(ctx, &mut inner_blk, errors);
+            ctx.scopes.pop();
         }
         Stmt::Let { name, ty, value, line, mutable } => {
             match ctx.infer(value) {
@@ -230,22 +232,30 @@ pub(crate) fn check_stmt(ctx: &mut Ctx, s: &mut Stmt, errors: &mut Vec<String>) 
         }
         Stmt::If { cond, then, els, line } => {
             check_cond(ctx, cond, line, errors);
+            ctx.scopes.push(HashMap::new());
             check_block(ctx, then, errors);
+            ctx.scopes.pop();
             if let Some(e) = els {
+                ctx.scopes.push(HashMap::new());
                 check_block(ctx, e, errors);
+                ctx.scopes.pop();
             }
         }
         Stmt::DoWhile { body, cond, line } => {
+            ctx.scopes.push(HashMap::new());
             ctx.loop_depth += 1;
             check_block(ctx, body, errors);
             ctx.loop_depth -= 1;
+            ctx.scopes.pop();
             check_cond(ctx, cond, line, errors);
         }
         Stmt::While { cond, body, line } => {
             check_cond(ctx, cond, line, errors);
+            ctx.scopes.push(HashMap::new());
             ctx.loop_depth += 1;
             check_block(ctx, body, errors);
             ctx.loop_depth -= 1;
+            ctx.scopes.pop();
         }
         Stmt::ForRange { var, from, to, body, els: _, line } => {
             for e in [from, to] {

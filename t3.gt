@@ -1,3 +1,0 @@
-fn main() {
-    put(str(42))
-}

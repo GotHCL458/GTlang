@@ -597,7 +597,7 @@ impl<'a> Codegen<'a> {
                 self.terminated = true;
             }
             Stmt::Block(b) => {
-                // 不引入新作用域：与 sema/jit 对齐（解构块依赖此）
+                // 裸块不引入新作用域：解构（desugar_destructure 生成 Stmt::Block）依赖此。
                 self.block(b)?;
             }
             // 嵌套函数已在 hoist 阶段提升为顶层

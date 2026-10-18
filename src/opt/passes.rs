@@ -23,14 +23,23 @@ fn prune_block(b: &mut Block) {
                 prune_block(then);
                 if let Some(e) = els { prune_block(e); }
                 if let ExprKind::Bool(c) = cond.kind {
+                    // 若被选中的块内声明了变量（let/const/循环变量），剪枝成裸块会
+                    // 丢失作用域（裸块不隔离），故保守保留 if（维持块作用域）。
+                    let has_decl = |blk: &Block| blk.iter().any(|st| matches!(st,
+                        Stmt::Let { .. } | Stmt::Const { .. } | Stmt::LocalFn(_)
+                        | Stmt::ForRange { .. } | Stmt::ForEach { .. }));
                     if c {
-                        let taken = std::mem::take(then);
-                        *s = Stmt::Block(taken);
-                        if let Stmt::Block(inner) = s { prune_block(inner); }
-                    } else if let Some(mut e) = els.take() {
-                        prune_block(&mut e);
-                        *s = Stmt::Block(e);
-                        if let Stmt::Block(inner) = s { prune_block(inner); }
+                        if !has_decl(then) {
+                            let taken = std::mem::take(then);
+                            *s = Stmt::Block(taken);
+                            if let Stmt::Block(inner) = s { prune_block(inner); }
+                        }
+                    } else if let Some(e) = els {
+                        if !has_decl(e) {
+                            let taken = std::mem::take(e);
+                            *s = Stmt::Block(taken);
+                            if let Stmt::Block(inner) = s { prune_block(inner); }
+                        }
                     } else {
                         *s = Stmt::Block(Vec::new());
                     }
@@ -289,7 +298,11 @@ fn licm_block(b: &mut Block) {
                     if let Stmt::Let { name, value, .. } = &st {
                         let is_const_val = matches!(value.kind, ExprKind::Ident(_) | ExprKind::Int(_) | ExprKind::Float(_) | ExprKind::Bool(_) | ExprKind::Str(_));
                         let uses_loopvar = if let Some(lv) = &loopvar { expr_uses(value, lv) } else { false };
-                        if is_const_val && !assigned.contains(name) && !uses_loopvar {
+                        // 初值引用的变量若在循环体内被赋值（非循环不变量），则不能提升。
+                        let mut val_vars = std::collections::HashSet::new();
+                        collect_used_expr(value, &mut val_vars);
+                        let uses_assigned = val_vars.iter().any(|v| assigned.contains(v));
+                        if is_const_val && !assigned.contains(name) && !uses_loopvar && !uses_assigned {
                             do_hoist = true;
                         }
                     }
