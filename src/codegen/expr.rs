@@ -275,13 +275,39 @@ impl<'a> Codegen<'a> {
                 let hv = self.expr(hi)?;
                 let l = self.as_i64(&lv);
                 let h = self.as_i64(&hv);
-                // list 切片：返回新 list（[lo, hi)）
                 if matches!(b.ty, Ty::List(_)) {
                     let bp = self.as_ptr(&b);
                     self.declare("declare ptr @gt_list_slice(ptr, i64, i64)");
                     let r = self.new_reg();
                     self.body.push_str(&format!("  {} = call ptr @gt_list_slice(ptr {}, i64 {}, i64 {})\n", r, bp, l, h));
                     return Ok(Val::new(&Ty::List(Box::new(Ty::I64)), r));
+                }
+                if let Ty::Array(el, _n) = &b.ty {
+                    let el = (**el).clone();
+                    self.declare("declare ptr @gt_list_new(i64)");
+                    self.declare("declare void @gt_list_push(ptr, i64)");
+                    let ep = elem_is_ptr(&el);
+                    let lst = self.new_reg();
+                    self.body.push_str(&format!("  {} = call ptr @gt_list_new(i64 {})\n", lst, ep));
+                    let lslot = self.new_alloca(&Ty::I64);
+                    self.body.push_str(&format!("  store i64 {}, ptr {}\n", l, lslot));
+                    let bp = self.as_ptr(&b);
+                    let lc = self.new_label(); let le = self.new_label(); let lb = self.new_label();
+                    self.body.push_str(&format!("  br label %{}\n", lc));
+                    self.emit_label(&lc);
+                    let iv = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n", iv, lslot));
+                    let cmp = self.new_reg(); self.body.push_str(&format!("  {} = icmp slt i64 {}, {}\n", cmp, iv, h));
+                    self.body.push_str(&format!("  br i1 {}, label %{}, label %{}\n", cmp, lb, le));
+                    self.emit_label(&lb);
+                    let off = self.new_reg(); self.body.push_str(&format!("  {} = mul i64 {}, 8\n", off, iv));
+                    let ep2 = self.new_reg(); self.body.push_str(&format!("  {} = getelementptr i8, ptr {}, i64 {}\n", ep2, bp, off));
+                    let ev = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n", ev, ep2));
+                    self.body.push_str(&format!("  call void @gt_list_push(ptr {}, i64 {})\n", lst, ev));
+                    let nx = self.new_reg(); self.body.push_str(&format!("  {} = add i64 {}, 1\n", nx, iv));
+                    self.body.push_str(&format!("  store i64 {}, ptr {}\n", nx, lslot));
+                    self.body.push_str(&format!("  br label %{}\n", lc));
+                    self.emit_label(&le);
+                    return Ok(Val::new_ptr(&Ty::List(Box::new(el)), lst));
                 }
                 let len = self.new_reg();
                 self.body.push_str(&format!("  {} = sub i64 {}, {}\n", len, h, l));
@@ -980,6 +1006,7 @@ impl<'a> Codegen<'a> {
     }
 
 }
+
 
 
 
