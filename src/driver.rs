@@ -135,7 +135,7 @@ pub fn compile_ll(
         srcs.push(sfile);
     }
 
-    link(clang, &rt, &srcs, ll, out, opt, &[])
+    link(clang, &rt, &srcs, ll, out, opt, &[], !cblock.trim().is_empty())
 }
 
 /// 运行时的两种输入形式：预编译静态库（优先）或按需编译的对象文件。
@@ -271,7 +271,7 @@ pub fn find_std_libs_for(needed: &[&'static str]) -> Vec<PathBuf> {
     out
 }
 
-fn link(clang: &Path, rt: &RtInput, srcs: &[PathBuf], ll: &Path, out: &Path, opt: u8, needed: &[&'static str]) -> Result<(), String> {
+fn link(clang: &Path, rt: &RtInput, srcs: &[PathBuf], ll: &Path, out: &Path, opt: u8, needed: &[&'static str], has_cblock: bool) -> Result<(), String> {
     // 首次带上 lld（LLVM 自带，通常位于 clang 同目录）；失败则退回默认链接器
     let attempts: Vec<Vec<String>> = vec![vec!["-fuse-ld=lld".into()], vec![]];
     // 标准库静态库：只链接"用到的"模块
@@ -292,6 +292,11 @@ fn link(clang: &Path, rt: &RtInput, srcs: &[PathBuf], ll: &Path, out: &Path, opt
             cmd.arg("-march=native");
             cmd.arg("-fno-stack-protector");
             cmd.arg("-fno-asynchronous-unwind-tables");
+        }
+        // 链接时优化（仅含内联 C 块时：跨 inline_c.c 与 GTLang IR 内联简单 C 函数）。
+        // 对纯 GTLang 程序有害（LTO 可能破坏向量化），故仅按需开启。
+        if has_cblock && std::env::var("GTC_NO_LTO").is_err() {
+            cmd.arg("-flto");
         }
         // 产物只依赖系统库（kernel32 等）；标准库/运行时/WinHTTP/SQLite 的调用
         // 都发生在各自 dll 内部，运行期由 shim LoadLibrary，无需在此链接 .lib。
