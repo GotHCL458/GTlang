@@ -312,7 +312,7 @@ impl<'a> Codegen<'a> {
                 let (ob, oc) = (self.break_label.clone(), self.continue_label.clone());
                 self.break_label = Some(lend.clone());
                 self.continue_label = Some(lcond.clone());
-                if let Some(lbl) = self.labeled.last().cloned() { self.label_targets.insert(lbl, (lend.clone(), lcond.clone())); }
+                if let Some(lbl) = self.labeled.last().cloned() { self.label_targets.entry(lbl).or_insert((lend.clone(), lcond.clone())); }
                 self.push_scope();
                 self.block(body)?;
                 self.pop_scope();
@@ -330,6 +330,8 @@ impl<'a> Codegen<'a> {
                 let inner_blk: Block = vec![(**inner).clone()];
                 self.block(&inner_blk)?;
                 self.labeled.pop();
+                // 标签作用域结束：移除映射，避免同名标签在后续代码中残留。
+                self.label_targets.remove(label);
             }
             Stmt::DoWhile { body, cond, .. } => {
                 // 先执行 body，末尾判 cond：真→回到 body，假→退出
@@ -369,7 +371,7 @@ impl<'a> Codegen<'a> {
                 self.emit_label(&lbody);
                 let (ob, oc) = (self.break_label.clone(), self.continue_label.clone());
                 self.break_label = Some(lend.clone()); self.continue_label = Some(linc.clone());
-                if let Some(lbl) = self.labeled.last().cloned() { self.label_targets.insert(lbl, (lend.clone(), linc.clone())); }
+                if let Some(lbl) = self.labeled.last().cloned() { self.label_targets.entry(lbl).or_insert((lend.clone(), linc.clone())); }
                 self.push_scope();
                 self.scopes.last_mut().unwrap().insert(var.clone(), Local { ptr: iv.clone(), ty: Ty::I64 });
                 let bounded = matches!(&from.kind, ExprKind::Int(0)).then(|| if let ExprKind::Int(n) = &to.kind { Some(*n) } else { None }).flatten();
