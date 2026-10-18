@@ -370,17 +370,14 @@ GTLang 经 LLVM + clang 编译为**独立原生可执行文件**，无解释器/
 
 基准：`loop_sum(2e8)` —— 累加 `0..200_000_000`。
 
-| 实现 | fib(35) | loop_sum(2e8) |
-|---|---:|---:|
-| C（clang -O2） | ~22 ms | ~5 ms |
-| Rust（rustc -O） | ~24 ms | ~5 ms |
-| nasm（手写汇编） | ~36 ms | ~50 ms |
-| **GTLang -O4（裸 i64）** | ~22 ms | ~5.1 ms |
-| GTLang -O2 | ~30 ms | ~5 ms |
-| GTLang -O0 | ~40 ms | ~40 ms |
-| Node.js 24（V8 JIT） | ~144 ms | ~195 ms |
-| Lua 5.4 | ~445 ms | ~673 ms |
-| Python 3.12 | ~1300 ms | ~6788 ms |
+| 基准 | GTLang -O4 | C（clang -O2） | Rust（rustc -O） |
+|---|---:|---:|---:|
+| loop_sum(2e8) | **5.2 ms** | 4.8 ms | 7.5 ms |
+| fib(35) | **23.9 ms** | 22.5 ms | 25.2 ms |
+| loop_lcg(1e7) | **34.3 ms** | 25.7 ms | 34.4 ms |
+| array(1e8) | **9.1 ms** | 12.1 ms | 11.9 ms |
+
+GTLang 在 4 个基准上整体追平/超越 Rust，与 C 相当（array 更快；loop_lcg 略慢因 C 内联了 C 块辅助函数）。详见 [doc/bench.md](doc/bench.md)。
 
 **GTLang 的 `int` 是裸 64 位整数** —— 溢出回绕（C 语义）。紧循环编译为 LLVM 原生 `add/sub/mul`，零运行时开销，因此 `loop_sum` 追平 C（~4.2ms）、递归 `fib` 接近 C（~26ms）。高精度运算用独立的 `decimal` 类型。GTLang AST 优化器（`-O0..-O4`）在 LLVM 前做常量折叠、内联、死代码消除。
 

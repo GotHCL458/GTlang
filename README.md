@@ -372,17 +372,14 @@ GTLang compiles to a **standalone native executable** via LLVM + clang. There is
 
 Benchmark: `loop_sum(2e8)` — sum `0..200_000_000`.
 
-| Implementation | fib(35) | loop_sum(2e8) |
-|---|---:|---:|
-| C (clang -O2) | ~22 ms | ~5 ms |
-| Rust (rustc -O) | ~24 ms | ~5 ms |
-| nasm (hand-written) | ~36 ms | ~50 ms |
-| **GTLang -O4 (raw i64)** | ~22 ms | ~5.1 ms |
-| GTLang -O2 | ~30 ms | ~5 ms |
-| GTLang -O0 | ~40 ms | ~40 ms |
-| Node.js 24 (V8 JIT) | ~144 ms | ~195 ms |
-| Lua 5.4 | ~445 ms | ~673 ms |
-| Python 3.12 | ~1300 ms | ~6788 ms |
+| Benchmark | GTLang -O4 | C (clang -O2) | Rust (rustc -O) |
+|---|---:|---:|---:|
+| loop_sum(2e8) | **5.2 ms** | 4.8 ms | 7.5 ms |
+| fib(35) | **23.9 ms** | 22.5 ms | 25.2 ms |
+| loop_lcg(1e7) | **34.3 ms** | 25.7 ms | 34.4 ms |
+| array(1e8) | **9.1 ms** | 12.1 ms | 11.9 ms |
+
+GTLang matches or beats Rust on all four, and is on par with C (faster on array; slower on loop_lcg because C inlines the C-block helper). See [doc/bench.md](doc/bench.md).
 
 **GTLang's `int` is a raw 64-bit integer** — overflow wraps (C semantics). Tight loops compile to plain LLVM `add/sub/mul` with zero runtime overhead, so GTLang matches C on `loop_sum` (~4.2 ms) and comes close on recursive `fib` (~26 ms). For exact high-precision arithmetic, use the separate `decimal` type. The GTLang AST optimizer (`-O0..-O4`) folds constants, inlines, and removes dead code before LLVM.
 
