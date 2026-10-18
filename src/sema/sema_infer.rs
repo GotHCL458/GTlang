@@ -419,7 +419,9 @@ impl Ctx {
                         }
                     }
                     // 标准库（libGT.dll）：检查元数，参数按需数值提升
-                    if sf.params.len() != arg_tys.len() {
+                    // strip/lstrip/rstrip 的第二个参数（字符集）可省略，默认去空白。
+                    let opt2 = (name == "strip" || name == "lstrip" || name == "rstrip") && arg_tys.len() == 1;
+                    if sf.params.len() != arg_tys.len() && !opt2 {
                         return Err(crate::error::msg::arity_mismatch(e.line, &name, sf.params.len(), arg_tys.len()).render());
                     }
                     for (want, got) in sf.params.iter().zip(arg_tys.iter()) {

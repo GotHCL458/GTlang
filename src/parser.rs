@@ -286,8 +286,9 @@ fn match_parses() {
 }
 
 #[test]
-fn loop_without_count_reports_friendly() {
-    err("fn main() { loop { put(1) } }", "loop");
+fn loop_without_count_is_infinite() {
+    // loop { ... } 现在表示无限循环（While(true)），不再报错。
+    ok("fn main() { loop { put(1) } }");
 }
 
 #[test]
@@ -321,4 +322,5 @@ mod parser_expr;
 #[path = "parser_util.rs"]
 mod parser_util;
 pub(crate) use parser_util::*;
+
 

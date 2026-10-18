@@ -3500,16 +3500,9 @@ fn deeply_nested_if_is_rejected() {
 }
 
 #[test]
-fn loop_without_count_is_rejected() {
-    assert_rejected(
-        "loop_no_count",
-        &[
-            "fn main() {",
-            "    loop { put(1) }",
-            "}",
-        ],
-        "循环次数",
-    );
+fn loop_without_count_is_infinite() {
+    // loop { ... } 现为无限循环（while true），可编译运行。
+    assert_consistent_src("loop_inf", &["fn main() { i := 0 loop { i = i + 1 if i >= 3 { break } } put(i) }"]);
 }
 
 // ============================================================

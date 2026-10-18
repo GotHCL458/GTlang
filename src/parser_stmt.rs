@@ -353,7 +353,10 @@ impl Parser {
         if self.at_ident("loop") {
             // 特判：`loop {`（缺计数）给出更友好的提示
             if matches!(&self.peek_at(1).tok, Tok::Punct(p) if p == "{") {
-                return Err(crate::lb!(self.line(), "loop requires a count: loop N {{ ... }}", "loop 需要循环次数：loop N {{ ... }}"));
+                // 无计数：无限循环（等价 while true）。
+                self.bump(); // 吃 'loop'
+                let body = self.block()?;
+                return Ok(Stmt::While { cond: Expr::new(ExprKind::Bool(true), line), body, line });
             }
             self.bump();
             let saved = self.no_struct_lit;

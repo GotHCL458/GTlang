@@ -589,6 +589,8 @@ fn builtin_check(name: &str, args: &[Ty]) -> Result<Ty, String> {
         // ---------- list 操作 ----------
         // push(lst, v) / append：原地追加，返回 void
         "push" | "append" => {
+            // set 也接受 push（等价 insert）。
+            if args.first().map_or(false, |t| matches!(t, &Ty::Set(_))) { arity(2)?; return Ok(Ty::Void); }
             arity(2)?;
             match &args[0] {
                 Ty::List(elem) => {

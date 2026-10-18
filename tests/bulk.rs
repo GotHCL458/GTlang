@@ -539,7 +539,8 @@ fn err(src: &str, needle: &str) {
 #[test] fn t514() { ok("fn main() { c := chan()  go 生产者(c)  sleep(1) }  fn 生产者(c) { chan_send(c, 1) }"); }
 #[test] fn t515() { ok("fn main() { f := |a: int, b: int| a + b  put(f(1, 2)) }"); }
 
-#[test] fn t516() { err("fn main() { loop { put(1) } }", "loop requires a count"); }
+#[test] fn t516() { ok("fn main() { loop { put(1) } }"); }
 #[test] fn t517() { err("fn main() { x := 1 + ", "expected"); }
 #[test] fn t518() { err("fn main() { put(未定义函数(1)) }", "undefined"); }
+
 

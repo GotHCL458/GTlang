@@ -372,7 +372,7 @@ impl<'a> Codegen<'a> {
                 self.body.push_str(&format!("  {} = call ptr @gt_map_new(i64 {}, i64 {})\n", r, ep, ks));
                 Ok(Val::new(call_ty, r))
             }
-            "push" | "append" => { self.declare("declare void @gt_list_push(ptr, i64)"); let l = self.expr(&args[0])?; let lp = self.as_ptr(&l); let v = self.expr(&args[1])?; let vs = self.to_slot(&v); self.body.push_str(&format!("  call void @gt_list_push(ptr {}, i64 {})\n", lp, vs)); Ok(Val::new(&Ty::Void, "0")) }
+            "push" | "append" => { if let Ty::Set(_) = &args[0].ty { self.declare("declare void @gt_set_insert(ptr, i64)"); let l = self.expr(&args[0])?; let lp = self.as_ptr(&l); let v = self.expr(&args[1])?; let vs = self.to_slot(&v); self.body.push_str(&format!("  call void @gt_set_insert(ptr {}, i64 {})\n", lp, vs)); Ok(Val::new(&Ty::Void, "0")) } else { self.declare("declare void @gt_list_push(ptr, i64)"); let l = self.expr(&args[0])?; let lp = self.as_ptr(&l); let v = self.expr(&args[1])?; let vs = self.to_slot(&v); self.body.push_str(&format!("  call void @gt_list_push(ptr {}, i64 {})\n", lp, vs)); Ok(Val::new(&Ty::Void, "0")) } }
             "pop" => { self.declare("declare i64 @gt_list_pop(ptr)"); let l = self.expr(&args[0])?; let lp = self.as_ptr(&l); let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_list_pop(ptr {})\n", r, lp)); let v = self.from_slot(&r, call_ty); Ok(Val::new(call_ty, v)) }
             "at" => { let c = self.expr(&args[0])?; let i = self.expr(&args[1])?; let i = self.as_i64(&i); match args[0].ty.clone() {
                 Ty::List(e) => { let cp = self.as_ptr(&c); self.declare("declare i64 @gt_list_at(ptr, i64)"); let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_list_at(ptr {}, i64 {})\n", r, cp, i)); let v = self.from_slot(&r, &e); Ok(Val::new(&e, v)) }
@@ -444,6 +444,10 @@ impl<'a> Codegen<'a> {
                         let want = sf.params.get(i).cloned().unwrap_or(Ty::I64);
                         let v = self.expr(a)?; let v = self.coerce(&v, &want)?;
                         ops.push(format!("{} {}", want.llvm(), v.s));
+                    }
+                    // strip/lstrip/rstrip 缺第二参（字符集）时补 null（去空白）。
+                    if (name == "strip" || name == "lstrip" || name == "rstrip") && args.len() == 1 {
+                        ops.push("ptr null".to_string());
                     }
                     let ret = if sf.ret == Ty::Void { "void".to_string() } else { sf.ret.llvm() };
                     let argstr = ops.join(", ");
