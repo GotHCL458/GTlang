@@ -29,6 +29,7 @@ Options:
   --emit-optimized-gt[=DIR]  also write the optimized .gt source (default: next to each source)
   --watch, -w    watch sources and rebuild on change (Ctrl-C to quit)
   --keep-tmp     keep temp dir (for debugging; default deleted on success)
+  --native       add -march=native (max speed; per-level monotonicity not guaranteed)
   --no-color     disable colored diagnostics
   --no-overflow-check   disable integer overflow checks (faster, wraps)
   -h, --help     show this help
@@ -57,6 +58,7 @@ gtc —— GTLang 编译器
   --emit-optimized-gt[=DIR]  额外输出优化后的 .gt 源码（默认与各源文件同目录）
   --watch, -w    监控源文件，变更即重构建（Ctrl-C 退出）
   --keep-tmp     保留临时目录（排查问题用，默认成功即删）
+  --native       额外 -march=native（极致速度；各 -O 等级不保证单调）
   --no-color     关闭诊断彩色输出
   --no-overflow-check  关闭整数溢出检查（更快，溢出回绕）
   -h, --help     显示本帮助
@@ -157,6 +159,7 @@ fn main() -> ExitCode {
             "--emit-llvm" => mode = Mode::EmitLlvm,
             "--emit-llvm-opt" | "--ir-ugly" => mode = Mode::EmitLlvmOpt,
             "--no-color" => no_color = true,
+            "--native" => gtc_rust::set_native(true),
             "--keep-tmp" => keep_tmp = true,
             "--emit-optimized-gt" => emit_opt_gt = Some(None),
             s if s.starts_with("--emit-optimized-gt=") => {

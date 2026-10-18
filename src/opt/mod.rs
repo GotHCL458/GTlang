@@ -237,16 +237,16 @@ pub fn opt_pre_sema(prog: &mut Program, level: u8) {
     if level == 0 {
         return;
     }
+    // O1 起：常量折叠 + 传播（低成本、稳定提速）。
     fold_and_propagate(prog);
-    if level >= 2 {
+    // O3 起：函数内联（可能与 clang 向量化交互，故放在更高档；O1/O2 主要靠 clang 优化）。
+    if level >= 3 {
         inline_simple(prog);
         fold_and_propagate(prog);
     }
-    if level >= 3 {
-        for _ in 0..3 { inline_simple(prog); fold_and_propagate(prog); }
-    }
+    // O4：额外多轮（最激进）。
     if level >= 4 {
-        for _ in 0..4 { inline_simple(prog); fold_and_propagate(prog); }
+        for _ in 0..2 { inline_simple(prog); fold_and_propagate(prog); }
     }
 }
 

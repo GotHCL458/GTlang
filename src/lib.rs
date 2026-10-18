@@ -91,6 +91,11 @@ pub fn set_opt_level(level: u8) {
     OPT_LEVEL.store(level.min(4), std::sync::atomic::Ordering::Relaxed);
 }
 
+/// 是否启用 -march=native（--native）。默认关闭（保证各 -O 等级单调）。
+static NATIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+pub fn set_native(on: bool) { NATIVE.store(on, std::sync::atomic::Ordering::Relaxed); }
+pub fn native_enabled() -> bool { NATIVE.load(std::sync::atomic::Ordering::Relaxed) }
+
 /// 当前优化等级。
 pub fn opt_level() -> u8 {
     OPT_LEVEL.load(std::sync::atomic::Ordering::Relaxed)

@@ -286,10 +286,10 @@ fn link(clang: &Path, rt: &RtInput, srcs: &[PathBuf], ll: &Path, out: &Path, opt
         cmd.arg("-o").arg(out);
         cmd.arg(format!("-O{}", opt.min(3)));
         cmd.arg("-fms-runtime-lib=libcmt");
-        // 极致性能（可被 GTC_NO_FAST 关闭）
-        if std::env::var("GTC_NO_FAST").is_err() {
+        // 默认：clang 优化档随 -O 严格递增（generic，保证 O0<O1<...<O4 单调）。
+        // --native 时额外开 -march=native（极致性能，可能非单调，例如对已向量化的循环）。
+        if crate::native_enabled() {
             cmd.arg("-march=native");
-            cmd.arg("-funroll-loops");
             cmd.arg("-fno-stack-protector");
             cmd.arg("-fno-asynchronous-unwind-tables");
         }

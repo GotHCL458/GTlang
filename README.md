@@ -379,7 +379,7 @@ Benchmark: `loop_sum(2e8)` — sum `0..200_000_000`.
 | loop_lcg(1e7) | **34.3 ms** | 25.7 ms | 34.4 ms |
 | array(1e8) | **9.1 ms** | 12.1 ms | 11.9 ms |
 
-GTLang matches or beats Rust on all four, and is on par with C (faster on array; slower on loop_lcg because C inlines the C-block helper). See [doc/bench.md](doc/bench.md).
+GTLang matches or beats Rust on all four, and is on par with C (faster on array; slower on loop_lcg because C inlines the C-block helper). `-O0..-O4` drives both the GTLang AST optimizer and clang; `--native` adds `-march=native` for max speed. See [doc/bench.md](doc/bench.md).
 
 **GTLang's `int` is a raw 64-bit integer** — overflow wraps (C semantics). Tight loops compile to plain LLVM `add/sub/mul` with zero runtime overhead, so GTLang matches C on `loop_sum` (~4.2 ms) and comes close on recursive `fib` (~26 ms). For exact high-precision arithmetic, use the separate `decimal` type. The GTLang AST optimizer (`-O0..-O4`) folds constants, inlines, and removes dead code before LLVM.
 

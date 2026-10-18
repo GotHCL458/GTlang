@@ -377,7 +377,7 @@ GTLang 经 LLVM + clang 编译为**独立原生可执行文件**，无解释器/
 | loop_lcg(1e7) | **34.3 ms** | 25.7 ms | 34.4 ms |
 | array(1e8) | **9.1 ms** | 12.1 ms | 11.9 ms |
 
-GTLang 在 4 个基准上整体追平/超越 Rust，与 C 相当（array 更快；loop_lcg 略慢因 C 内联了 C 块辅助函数）。详见 [doc/bench.md](doc/bench.md)。
+GTLang 在 4 个基准上整体追平/超越 Rust，与 C 相当（array 更快；loop_lcg 略慢因 C 内联了 C 块辅助函数）。`-O0..-O4` 同时驱动 GTLang AST 优化器与 clang；`--native` 额外开 `-march=native` 追求极致。详见 [doc/bench.md](doc/bench.md)。
 
 **GTLang 的 `int` 是裸 64 位整数** —— 溢出回绕（C 语义）。紧循环编译为 LLVM 原生 `add/sub/mul`，零运行时开销，因此 `loop_sum` 追平 C（~4.2ms）、递归 `fib` 接近 C（~26ms）。高精度运算用独立的 `decimal` 类型。GTLang AST 优化器（`-O0..-O4`）在 LLVM 前做常量折叠、内联、死代码消除。
 
