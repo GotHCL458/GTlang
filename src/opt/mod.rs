@@ -510,9 +510,38 @@ fn fold(e: &mut Expr) {
     if let Some(v) = const_fold_expr(e) { e.kind = v; }
 }
 
+/// 表达式是否无副作用（可安全丢弃/化简）。保守：标识符与字面量视为纯。
+fn is_pure(e: &Expr) -> bool {
+    matches!(e.kind, ExprKind::Ident(_) | ExprKind::Int(_) | ExprKind::Float(_)
+        | ExprKind::Bool(_) | ExprKind::Str(_) | ExprKind::Decimal(_))
+}
+
 fn const_fold_expr(e: &Expr) -> Option<ExprKind> {
     match &e.kind {
         ExprKind::Binary(op, a, b) => {
+            // 代数化简（一侧是单位元/零元）：
+            if let Some(tv) = lit_of(b) {
+                if let LitVal::Int(v) = tv.1 {
+                    match op {
+                        BinOp::Add if v == 0 => return Some(a.kind.clone()),      // x + 0 = x
+                        BinOp::Sub if v == 0 => return Some(a.kind.clone()),      // x - 0 = x
+                        BinOp::Mul if v == 1 => return Some(a.kind.clone()),      // x * 1 = x
+                        BinOp::Mul if v == 0 && is_pure(a) => return Some(ExprKind::Int(0)), // x * 0 = 0（仅纯表达式）
+                        BinOp::Div | BinOp::FloorDiv if v == 1 && is_pure(a) => return Some(a.kind.clone()), // x / 1 = x
+                        _ => {}
+                    }
+                }
+            }
+            if let Some(tv) = lit_of(a) {
+                if let LitVal::Int(v) = tv.1 {
+                    match op {
+                        BinOp::Add if v == 0 => return Some(b.kind.clone()),      // 0 + x = x
+                        BinOp::Mul if v == 1 => return Some(b.kind.clone()),      // 1 * x = x
+                        BinOp::Mul if v == 0 && is_pure(b) => return Some(ExprKind::Int(0)), // 0 * x = 0（仅纯表达式）
+                        _ => {}
+                    }
+                }
+            }
             let (ta, va) = lit_of(a)?;
             let (tb, vb) = lit_of(b)?;
             let r = fold_binop(*op, &ta, &va, &tb, &vb)?;

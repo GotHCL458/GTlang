@@ -14,6 +14,8 @@
   #define GTO_MTX_DESTROY(m) DeleteCriticalSection(m)
   #define GTO_CND_INIT(c) InitializeConditionVariable(c)
   #define GTO_CND_WAIT(c, m) SleepConditionVariableCS(c, m, INFINITE)
+  /* 带超时等待：返回 0 成功唤醒，非 0 超时 */
+  #define GTO_CND_WAIT_TIMEOUT(c, m, ms) (SleepConditionVariableCS(c, m, (DWORD)(ms)) == 0 ? 0 : -1)
   #define GTO_CND_SIGNAL(c) WakeConditionVariable(c)
   #define GTO_CND_BROADCAST(c) WakeAllConditionVariable(c)
   #define GTO_THREAD_HANDLE HANDLE
@@ -23,6 +25,7 @@
 #else
   #include <pthread.h>
   #include <unistd.h>
+  #include <time.h>
   typedef pthread_mutex_t gto_mtx_t;
   typedef pthread_cond_t gto_cnd_t;
   #define GTO_MTX_INIT(m) pthread_mutex_init(m, NULL)
@@ -31,6 +34,14 @@
   #define GTO_MTX_DESTROY(m) pthread_mutex_destroy(m)
   #define GTO_CND_INIT(c) pthread_cond_init(c, NULL)
   #define GTO_CND_WAIT(c, m) pthread_cond_wait(c, m)
+  /* 带超时等待：返回 0 成功唤醒，非 0 超时 */
+  static inline int gto_cnd_wait_timeout_(pthread_cond_t *c, pthread_mutex_t *m, int64_t ms) {
+      struct timespec ts; clock_gettime(CLOCK_REALTIME, &ts);
+      ts.tv_sec += ms / 1000; ts.tv_nsec += (ms % 1000) * 1000000;
+      if (ts.tv_nsec >= 1000000000) { ts.tv_sec += 1; ts.tv_nsec -= 1000000000; }
+      return pthread_cond_timedwait(c, m, &ts);
+  }
+  #define GTO_CND_WAIT_TIMEOUT(c, m, ms) gto_cnd_wait_timeout_(c, m, (ms))
   #define GTO_CND_SIGNAL(c) pthread_cond_signal(c)
   #define GTO_CND_BROADCAST(c) pthread_cond_broadcast(c)
   #define GTO_THREAD_HANDLE pthread_t
@@ -130,21 +141,19 @@ int gto_cancelled(void) {
     return (id >= 0 && id < GTO_MAX_CORO) ? g_cancel_flags[id] : 0;
 }
 void gto_sleep(int64_t ms) {
-    int64_t step = 0;
-    while (step < ms && !gto_cancelled()) { GTO_SLEEP_MS(1); step++; }
+    if (ms <= 0) return;
+    /* 分段 sleep（每 10ms 检查取消），避免逐 ms 循环。 */
+    const int64_t CHUNK = 10;
+    int64_t done = 0;
+    while (done < ms) {
+        if (gto_cancelled()) return;
+        int64_t chunk = (ms - done < CHUNK) ? (ms - done) : CHUNK;
+        GTO_SLEEP_MS(chunk);
+        done += chunk;
+    }
 }
 
-int64_t gto_chan_recv_timeout(GtoChan *c, int64_t timeout_ms) {
-    int64_t waited = 0;
-    while (timeout_ms < 0 || waited < timeout_ms) {
-        int64_t v;
-        if (gto_chan_try_recv(c, &v) == 0) return v;
-        if (gto_cancelled()) return -1;
-        GTO_SLEEP_MS(1);
-        waited++;
-    }
-    return -1;
-}
+/* 条件变量超时等待版 recv：定义在 GtoChan 完整定义之后（见文件后部）。 */
 
 
 /* ============================================================
@@ -221,7 +230,13 @@ void gto_cond_broadcast(GtoCond *c) { GTO_CND_BROADCAST(&c->c); }
 
 void gto_once(int64_t *flag, GtoOnceFn fn) {
     if (gto_atomic_cas(flag, 0, 1) == 0) { fn(); gto_atomic_store(flag, 2); }
-    else { while (gto_atomic_load(flag) != 2) GTO_SLEEP_MS(1); }
+    else {
+        int64_t backoff = 1;
+        while (gto_atomic_load(flag) != 2) {
+            GTO_SLEEP_MS(backoff);
+            if (backoff < 8) backoff *= 2;
+        }
+    }
 }
 
 /* ============================================================
@@ -230,12 +245,19 @@ void gto_once(int64_t *flag, GtoOnceFn fn) {
 
 int gto_select_send(GtoChan **chans, int n, int64_t v, int64_t timeout_ms) {
     int64_t waited = 0;
+    int64_t backoff = 1;
     while (timeout_ms < 0 || waited < timeout_ms) {
         for (int i = 0; i < n; i++) {
             if (gto_chan_try_send(chans[i], v) == 0) return i;
         }
-        GTO_SLEEP_MS(1);
-        waited++;
+        if (gto_cancelled()) return -1;
+        /* 指数退避：1,2,4,8,... 上限 8ms，减少 CPU 空转 */
+        int64_t sl = backoff;
+        if (timeout_ms >= 0) { int64_t rem = timeout_ms - waited; if (sl > rem) sl = rem; }
+        if (sl <= 0) sl = 1;
+        GTO_SLEEP_MS(sl);
+        waited += sl;
+        if (backoff < 8) backoff *= 2;
     }
     return -1;
 }
@@ -546,6 +568,42 @@ int64_t gto_chan_recv_batch(GtoChan *c, int64_t *out, int64_t cap) {
     return take;
 }
 
+static int64_t gto_now_ms(void) {
+#ifdef _WIN32
+    return (int64_t)GetTickCount64();
+#else
+    struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+#endif
+}
+int64_t gto_chan_recv_timeout(GtoChan *c, int64_t timeout_ms) {
+    // 条件变量超时等待（不再忙等）。
+    int64_t deadline = timeout_ms >= 0 ? gto_now_ms() + timeout_ms : -1;
+    GTO_MTX_LOCK(&c->lock);
+    int64_t v = -1; int got = 0;
+    while (c->len == 0 && !c->closed) {
+        if (gto_cancelled()) break;
+        if (timeout_ms >= 0) {
+            int64_t now = gto_now_ms();
+            if (now >= deadline) break;
+            int rc = GTO_CND_WAIT_TIMEOUT(&c->not_empty, &c->lock, deadline - now);
+            if (rc != 0) break;
+        } else {
+            GTO_CND_WAIT(&c->not_empty, &c->lock);
+        }
+    }
+    if (c->len > 0) {
+        v = c->buf[c->head];
+        if (c->cap > 0) c->head = (c->head + 1) % c->cap;
+        else { memmove(c->buf, c->buf + 1, sizeof(int64_t) * (c->len - 1)); }
+        c->len--;
+        got = 1;
+        GTO_CND_SIGNAL(&c->not_full);
+    }
+    GTO_MTX_UNLOCK(&c->lock);
+    return got ? v : -1;
+}
+
 void gto_chan_close(GtoChan *c) {
     GTO_MTX_LOCK(&c->lock);
     c->closed = 1;
@@ -660,13 +718,20 @@ void gto_wg_wait(GtoWaitGroup *w) { GTO_MTX_LOCK(&w->lock); while (w->count > 0)
 
 int gto_select_recv(GtoChan **chans, int n, int64_t *out, int64_t timeout_ms) {
     int64_t waited = 0;
+    int64_t backoff = 1;
     while (timeout_ms < 0 || waited < timeout_ms) {
         for (int i = 0; i < n; i++) {
             int64_t v;
             if (gto_chan_try_recv(chans[i], &v) == 0) { if (out) *out = v; return i; }
         }
-        GTO_SLEEP_MS(1);
-        waited += 1;
+        if (gto_cancelled()) return -1;
+        /* 指数退避（1,2,4,8,... 上限 8ms），减少 CPU 空转。 */
+        int64_t sl = backoff;
+        if (timeout_ms >= 0) { int64_t rem = timeout_ms - waited; if (sl > rem) sl = rem; }
+        if (sl <= 0) sl = 1;
+        GTO_SLEEP_MS(sl);
+        waited += sl;
+        if (backoff < 8) backoff *= 2;
     }
     return -1;
 }
