@@ -98,8 +98,8 @@ fn lower(prog: &mut Program) -> Vec<String> {
     let _ = sema::analyze(prog);
     mono::lower_method_calls(prog, &methods);
     let errs = mono::monomorphize(prog);
-    // 优化第一段：内联 + 常量折叠（sema(2) 会重推断类型）
-    crate::opt::inline_and_fold(prog);
+    // 优化第一段（按 -O 等级）：常量折叠/传播 + 内联（sema(2) 会重推断类型）
+    crate::opt::opt_pre_sema(prog, crate::opt_level());
     errs
 }
 
@@ -151,8 +151,8 @@ pub fn build(file: &str, text: &str) -> Result<Unit, Vec<Diag>> {
                     })
                     .collect());
             }
-            // 优化第二段：死代码消除（类型检查已过）
-            crate::opt::dead_code(&mut prog);
+            // 优化第二段：死代码消除（类型检查已过，按 -O 等级）
+            crate::opt::opt_post_sema(&mut prog, crate::opt_level());
             Ok(Unit {
                 ast: prog,
                 analysis,
@@ -224,7 +224,7 @@ pub fn build_file(path: &Path) -> Result<Unit, Vec<Diag>> {
                     })
                     .collect());
             }
-            crate::opt::dead_code(&mut prog);
+            crate::opt::opt_post_sema(&mut prog, crate::opt_level());
             Ok(Unit {
                 ast: prog,
                 analysis,

@@ -13,10 +13,10 @@ use std::process::ExitCode;
 use gtc_rust::{build, lang, Diag, Span, Unit};
 
 const USAGE_EN: &str = "\
-gtc -- GTLang compiler / interpreter
+gtc -- GTLang compiler
 
 Usage:
-  gtc --c   <file.gt> [more.gt ...] [-o out.exe] [-O 0..3]   compile to executable
+  gtc --c   <file.gt> [more.gt ...] [-o out.exe] [-O 0..4]   compile to executable
   gtc --check <file.gt> [...]                               lex/parse/type-check only
   gtc --lint <file.gt> [...]                                static check (unused fn / unreachable / empty if / const cond / self-compare)
   gtc --lint --strict <file.gt>                             treat warnings as errors
@@ -25,7 +25,8 @@ Usage:
 
 Options:
   -o <path>      output path (default: same dir/name as first source)
-  -O <n>         optimization level 0..3 (default 2)
+  -O <n>         optimization level 0..4 (default 2; drives GTLang AST optimizer + clang)
+  --emit-optimized-gt[=DIR]  also write the optimized .gt source (default: next to each source)
   --watch, -w    watch sources and rebuild on change (Ctrl-C to quit)
   --keep-tmp     keep temp dir (for debugging; default deleted on success)
   --no-color     disable colored diagnostics
@@ -40,10 +41,10 @@ Notes:
 ";
 
 const USAGE_ZH: &str = "\
-gtc —— GTLang 编译器 / 解释器
+gtc —— GTLang 编译器
 
 用法：
-  gtc --c   <文件.gt> [更多文件.gt ...] [-o 输出.exe] [-O 0..3]   编译为可执行文件
+  gtc --c   <文件.gt> [更多文件.gt ...] [-o 输出.exe] [-O 0..4]   编译为可执行文件
   gtc --check <文件.gt> [...]                                    只做词法/语法/类型检查
   gtc --lint <文件.gt> [...]                                     静态检查（未用函数/不可达代码/空 if/常量条件/自比较）
   gtc --lint --strict <文件.gt>                                  把提示当作错误（有提示即退出码 1）
@@ -52,7 +53,8 @@ gtc —— GTLang 编译器 / 解释器
 
 选项：
   -o <path>      指定输出文件（默认与首个源文件同目录同名）
-  -O <n>         优化级别 0..3（默认 2）
+  -O <n>         优化级别 0..4（默认 2；同时驱动 GTLang AST 优化器与 clang）
+  --emit-optimized-gt[=DIR]  额外输出优化后的 .gt 源码（默认与各源文件同目录）
   --watch, -w    监控源文件，变更即重构建（Ctrl-C 退出）
   --keep-tmp     保留临时目录（排查问题用，默认成功即删）
   --no-color     关闭诊断彩色输出
@@ -131,6 +133,8 @@ fn main() -> ExitCode {
     let mut lint_strict = false;
     let mut lint_json = false;
     let mut sources: Vec<PathBuf> = Vec::new();
+    // --emit-optimized-gt[=DIR]：None=不输出；Some(None)=输出到源文件目录；Some(Some(dir))=指定目录
+    let mut emit_opt_gt: Option<Option<PathBuf>> = None;
 
     let mut i = 0;
     while i < args.len() {
@@ -154,6 +158,11 @@ fn main() -> ExitCode {
             "--emit-llvm-opt" | "--ir-ugly" => mode = Mode::EmitLlvmOpt,
             "--no-color" => no_color = true,
             "--keep-tmp" => keep_tmp = true,
+            "--emit-optimized-gt" => emit_opt_gt = Some(None),
+            s if s.starts_with("--emit-optimized-gt=") => {
+                let dir = &s["--emit-optimized-gt=".len()..];
+                emit_opt_gt = Some(if dir.is_empty() { None } else { Some(PathBuf::from(dir)) });
+            }
             "--watch" | "-w" => watch = true,
             "--no-overflow-check" | "-fno-overflow" => gtc_rust::disable_overflow_check(),
             "--no-gc" | "-fno-gc" => gtc_rust::disable_gc(),
@@ -170,9 +179,9 @@ fn main() -> ExitCode {
             "-O" => {
                 i += 1;
                 match args.get(i).and_then(|s| s.parse::<u8>().ok()) {
-                    Some(n) if n <= 3 => opt = n,
+                    Some(n) if n <= 4 => opt = n,
                     _ => {
-                        eprintln!("{}", lang::tr("error: -O requires 0..3", "错误：-O 后面需要 0..3"));
+                        eprintln!("{}", lang::tr("error: -O requires 0..4", "错误：-O 后面需要 0..4"));
                         return ExitCode::from(1);
                     }
                 }
@@ -227,14 +236,14 @@ fn main() -> ExitCode {
             if cur != last {
                 last = cur;
                 if lang::is_zh() { println!("\n[watch] 变更，重新构建…"); } else { println!("\n[watch] change detected, rebuilding..."); }
-                if let Err(e) = drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json) {
+                if let Err(e) = drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, emit_opt_gt.as_ref()) {
                     eprintln!("{}", e);
                 }
             }
         }
     }
 
-    match drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json) {
+    match drive(mode, &sources, out.as_deref(), opt, no_color, keep_tmp, lint_strict, lint_json, emit_opt_gt.as_ref()) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("{}", e);
@@ -293,8 +302,11 @@ fn drive(
     keep_tmp: bool,
     lint_strict: bool,
     lint_json: bool,
+    emit_opt_gt: Option<&Option<PathBuf>>,
 ) -> Result<(), String> {
     let first = &sources[0];
+    // 把 GTLang 优化等级告知前端（AST 级优化器），clang 侧随后用 min(opt,3)。
+    gtc_rust::set_opt_level(opt);
 
     // 0. 16 位汇编：直接读 .asm 文本并汇编（不经过 GTLang 前端）。
     // 1. 读入并解码（UTF-8 优先，其它编码按系统代码页转换）
@@ -331,6 +343,25 @@ fn drive(
 
     if gtc_rust::verbose() {
         eprintln!("[verbose] frontend (lex+parse+check): {:?}", t_front.elapsed());
+    }
+
+    // --emit-optimized-gt[=DIR]：把（优化后的）AST 打印回 .gt 源码。
+    if let Some(dest) = emit_opt_gt {
+        let code = gtc_rust::unparse::program(&unit.ast);
+        let stem = first.file_stem().and_then(|s| s.to_str()).unwrap_or("out");
+        let out_path: PathBuf = match dest {
+            Some(dir) => {
+                std::fs::create_dir_all(dir).map_err(|e| format!("无法创建目录 {}：{}", dir.display(), e))?;
+                dir.join(format!("{}.opt.gt", stem))
+            }
+            None => first.with_file_name(format!("{}.opt.gt", stem)),
+        };
+        std::fs::write(&out_path, code).map_err(|e| format!("无法写入优化后源码 {}：{}", out_path.display(), e))?;
+        if lang::is_zh() {
+            println!("已生成优化后源码：{}", out_path.display());
+        } else {
+            println!("optimized source written: {}", out_path.display());
+        }
     }
 
     if mode == Mode::Lint {

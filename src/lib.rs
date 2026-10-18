@@ -50,6 +50,7 @@ pub mod range;
 pub mod sema;
 pub mod stdlib_shim;
 pub mod tmp;
+pub mod unparse;
 pub mod gtlib;
 pub mod unit;
 pub mod unify;
@@ -80,6 +81,19 @@ pub fn set_verbose(on: bool) {
 /// 是否处于 verbose 模式。
 pub fn verbose() -> bool {
     lang::verbose()
+}
+
+/// 全局优化等级（0..=4，默认 2）。驱动 GTLang AST 级优化器。
+static OPT_LEVEL: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(2);
+
+/// 设置优化等级（-O0..-O4）。
+pub fn set_opt_level(level: u8) {
+    OPT_LEVEL.store(level.min(4), std::sync::atomic::Ordering::Relaxed);
+}
+
+/// 当前优化等级。
+pub fn opt_level() -> u8 {
+    OPT_LEVEL.load(std::sync::atomic::Ordering::Relaxed)
 }
 pub use frontend::{abs_of, build, build_file, load_sources, read_source};
 pub use sema::Analysis;

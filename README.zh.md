@@ -360,6 +360,7 @@ GTLang 经 LLVM + clang 编译为**独立原生可执行文件**，无解释器/
 - **并发**：`go` 起真线程；`chan` 由 **GTO**（`gto.dll`，运行期加载）驱动。
 - **整数**：`int` 是 8 字节 tagged 值 —— 小值内联（i63），溢出自动升级为堆 bignum，整数运算永不终止。
 - **十进制**：`decimal` 类型（`3.14d`）提供精确十进制运算。
+- **两段式优化器**：`-O0..-O4` 同时驱动 GTLang 自有的 AST 级优化器（常量折叠/传播、函数内联、死代码消除）与 clang 后端。`--emit-optimized-gt[=DIR]` 把优化后的 `.gt` 源码写回（扁平、面向机器、可再编译）——类似 clang 的优化 IR。
 
 ---
 
@@ -385,12 +386,13 @@ GTLang 经 LLVM + clang 编译为**独立原生可执行文件**，无解释器/
 ## CLI 速查
 
 ```text
-gtc --c        <文件.gt> [...] [-o 输出] [-O 0..3]   编译为可执行文件
+gtc --c        <文件.gt> [...] [-o 输出] [-O 0..4]   编译为可执行文件
 gtc --check    <文件.gt> [...]                        仅检查（词法/语法/类型）
 gtc --lint     <文件.gt> [...]                        静态检查（未用函数/变量/参数、不可达代码等）
 gtc --lint --strict <文件.gt>                         警告视为错误
 gtc --lint --json   <文件.gt>                         JSON 输出（供 CI）
 gtc --emit-llvm <文件.gt> [...]                       仅生成 LLVM IR
+gtc --c <文件.gt> --emit-optimized-gt[=DIR] [-O n]    额外输出优化后的 .gt 源码
 gtc --watch/-w <文件.gt> ...                          监控变更自动重跑
 gtc --version / --verbose                             版本 / 详细日志
 gtc ... zh                                            中文诊断
@@ -417,6 +419,7 @@ codegen/          LLVM 后端（mod / expr / call / builtins / value / stmt）
 own/              所有权 / 借用检查（流敏感 NLL）
 cblock.rs         内联 C 提取 + 桥接 + C 头解析
 stdlib_shim.rs    生成运行期 DLL 加载/转发 C（零 .lib AOT）
+unparse.rs        AST → .gt 源码打印器（--emit-optimized-gt）
 driver.rs         工具链定位 + clang 调用
 module.rs         import 模块系统 + import c
 hoist.rs          嵌套函数 / 闭包提升 + impl/trait 展平

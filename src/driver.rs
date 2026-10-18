@@ -218,7 +218,7 @@ fn runtime_object(clang: &Path, opt: u8) -> Result<PathBuf, String> {
         .arg(&src)
         .arg("-o")
         .arg(&obj)
-        .arg(format!("-O{}", opt))
+        .arg(format!("-O{}", opt.min(3)))
         .arg("-fms-runtime-lib=libcmt")
         .output()
         .map_err(|e| format!("无法执行 clang：{}", e))?;
@@ -284,7 +284,7 @@ fn link(clang: &Path, rt: &RtInput, srcs: &[PathBuf], ll: &Path, out: &Path, opt
         }
         cmd.arg(ll);
         cmd.arg("-o").arg(out);
-        cmd.arg(format!("-O{}", opt));
+        cmd.arg(format!("-O{}", opt.min(3)));
         cmd.arg("-fms-runtime-lib=libcmt");
         // 极致性能（可被 GTC_NO_FAST 关闭）
         if std::env::var("GTC_NO_FAST").is_err() {

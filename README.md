@@ -362,6 +362,7 @@ GTLang compiles to a **standalone native executable** via LLVM + clang. There is
 - **Concurrency**: `go` runs real threads; `chan` is backed by **GTO** (`gto.dll`), loaded at runtime.
 - **Integers**: `int` is a tagged 8-byte value — small values inline (i63), overflow auto-promotes to a heap bignum, so integer arithmetic never aborts.
 - **Decimals**: the `decimal` type (`3.14d`) provides exact base-10 arithmetic.
+- **Two-stage optimizer**: `-O0..-O4` drives both GTLang's own AST-level optimizer (constant folding/propagation, function inlining, dead-code elimination) and clang's backend. `--emit-optimized-gt[=DIR]` writes the optimized `.gt` source back out (flat, machine-oriented, re-compilable) — like clang's optimized IR.
 
 ---
 
@@ -387,12 +388,13 @@ See [doc/bench.md](doc/bench.md) for methodology.
 ## CLI Reference
 
 ```text
-gtc --c        <file.gt> [...] [-o out.exe] [-O 0..3]   compile to executable
+gtc --c        <file.gt> [...] [-o out.exe] [-O 0..4]   compile to executable
 gtc --check    <file.gt> [...]                          lex/parse/type-check only
 gtc --lint     <file.gt> [...]                          static checks (unused fns/vars, unreachable, ...)
 gtc --lint --strict <file.gt>                           warnings are errors
 gtc --lint --json   <file.gt>                           JSON output (for CI)
 gtc --emit-llvm <file.gt> [...]                         emit LLVM IR
+gtc --c <file.gt> --emit-optimized-gt[=DIR] [-O n]      also write optimized .gt source
 gtc --watch/-w <file.gt> ...                            watch and rebuild
 gtc --version / --verbose                               version / verbose
 gtc ... zh                                              Chinese diagnostics
@@ -419,6 +421,7 @@ codegen/          LLVM backend (mod / expr / call / builtins / value / stmt)
 own/              ownership / borrow checking (flow-sensitive NLL)
 cblock.rs         inline C extraction + bridging + C header parsing
 stdlib_shim.rs    generates runtime DLL loader/forwarding C for zero-.lib AOT
+unparse.rs        AST -> .gt source printer (--emit-optimized-gt)
 driver.rs         toolchain location + clang invocation
 module.rs         import system + import c
 hoist.rs          nested fn / closure lifting + impl/trait flattening

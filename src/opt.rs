@@ -197,6 +197,88 @@ pub fn optimize(prog: &mut Program) {
     dead_code(prog);
 }
 
+/// 按 GTLang 自己的优化等级（-O0..-O4）执行 AST 级优化。
+///
+/// - O0：不优化（只做必要的降级，由调用方保证）。
+/// - O1：常量折叠 + 常量传播 + 死代码消除。
+/// - O2（默认）：O1 + 小函数内联。
+/// - O3：O2 + 更激进内联（多轮）+ 二次折叠/传播。
+/// - O4：O3 + 额外多轮全开。
+pub fn optimize_level(prog: &mut Program, level: u8) {
+    if level == 0 {
+        return;
+    }
+    // O1 起：折叠 + 传播
+    fold_and_propagate(prog);
+    if level >= 2 {
+        inline_simple(prog);
+        fold_and_propagate(prog);
+    }
+    if level >= 3 {
+        // 激进内联：多轮 inline + 折叠
+        for _ in 0..3 {
+            inline_simple(prog);
+            fold_and_propagate(prog);
+        }
+    }
+    if level >= 4 {
+        for _ in 0..4 {
+            inline_simple(prog);
+            fold_and_propagate(prog);
+        }
+    }
+    // 死代码消除（所有等级 >=1）
+    dead_code(prog);
+}
+
+/// sema(2) 之前的优化段：按等级做 折叠/传播/内联（不含 dead_code，
+/// 因为 dead_code 需要类型检查已通过）。
+pub fn opt_pre_sema(prog: &mut Program, level: u8) {
+    if level == 0 {
+        return;
+    }
+    fold_and_propagate(prog);
+    if level >= 2 {
+        inline_simple(prog);
+        fold_and_propagate(prog);
+    }
+    if level >= 3 {
+        for _ in 0..3 { inline_simple(prog); fold_and_propagate(prog); }
+    }
+    if level >= 4 {
+        for _ in 0..4 { inline_simple(prog); fold_and_propagate(prog); }
+    }
+}
+
+/// sema(2) 之后的优化段：按等级做死代码消除（需要类型检查已通过）。
+pub fn opt_post_sema(prog: &mut Program, level: u8) {
+    if level >= 1 {
+        dead_code(prog);
+    }
+}
+
+/// 折叠 + 传播（不含内联）。
+fn fold_and_propagate(prog: &mut Program) {
+    for item in prog.items.iter_mut() {
+        match item {
+            Item::Fn(f) => optimize_block(&mut f.body),
+            Item::Impl { methods, .. } | Item::TraitImpl { methods, .. } => {
+                for m in methods.iter_mut() { optimize_block(&mut m.body); }
+            }
+            _ => {}
+        }
+    }
+    for item in prog.items.iter_mut() {
+        match item {
+            Item::Fn(f) => { propagate_block(&mut f.body); optimize_block(&mut f.body); }
+            Item::Impl { methods, .. } | Item::TraitImpl { methods, .. } => {
+                for m in methods.iter_mut() { propagate_block(&mut m.body); optimize_block(&mut m.body); }
+            }
+            _ => {}
+        }
+    }
+}
+
 // ============================================================
 // 内联
 // ============================================================
