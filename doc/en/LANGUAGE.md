@@ -119,6 +119,7 @@ Exhaustiveness: enum must list all variants / bool needs true+false / Option nee
     m3(10)                     // 30
 
     // higher-order: an unannotated closure param infers as a closure
+    // ⚠️ Do NOT annotate a closure param as `f: |T| -> T` (closure type syntax is unsupported); omit it.
     fn fold(f, init: int, xs: list) -> int {
         acc := init
         i := 0
@@ -126,6 +127,8 @@ Exhaustiveness: enum must list all variants / bool needs true+false / Option nee
         return acc
     }
     fold(|a: int, b: int| a + b, 0, xs)
+
+> ⚠️ `len(str)` returns **byte count**; for UTF-8 char count use `utf8_len(s)` (`import string`).
 
 ### Ergonomic borrows
 

@@ -228,6 +228,19 @@ close_listener(l)
 
 ---
 
+## json — 字符串转义（内建）
+
+`json_dumps` / `json_loads` 是**内建函数**（无需 import），只做**字符串的 JSON 转义/反转义**，**不做对象→JSON 序列化**（对象序列化需自行拼接字符串）：
+
+```gt
+put(json_dumps("a\"b"))     // "a\\\"b"（转义后的字符串）
+put(json_loads("\"x\""))   // x
+```
+
+> ⚠️ `json_dumps` 接受 `str`，不接受 `map`/`list`（无对象序列化）。
+
+---
+
 ## 完整示例
 
 - `examples/http_server.gt` — 路由表 + 静态文件 + JSON
