@@ -112,6 +112,14 @@ net_send(conn, data)   recv_all(conn)   net_close(conn)
 l := tcp_listen(port)   c := accept(l)   close_listener(l)
 ```
 
+## json — string escaping (built-in)
+
+`json_dumps` / `json_loads` are **built-ins** (no import), doing **JSON string escape/unescape only** — no object→JSON serialization.
+
+> `json_dumps` accepts `str`, not `map`/`list`.
+
+---
+
 ## Examples
 
 - `examples/http_server.gt` — routes + static + JSON
