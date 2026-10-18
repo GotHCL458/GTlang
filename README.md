@@ -59,7 +59,8 @@ GTLang is a **statically-typed**, **compiled**, **expression-oriented** programm
 - **C-level performance** — native machine code via LLVM; tight loops match C
 - **Python-like brevity** — expression-oriented, optional type annotations, closures, comprehensions
 - **First-class Chinese identifiers** — `计数器`, `累加`, `点` are all valid names
-- **Two-tier integers** — `int` is a tagged 8-byte value: small values inline (i63), overflow auto-promotes to arbitrary-precision bignum (never aborts)
+- **Raw 64-bit integers** — `int` is a native i64 (overflow wraps, C semantics); tight loops reach C speed
+- **Exact decimals** — a built-in `decimal` type for arbitrary-precision base-10 arithmetic
 - **High-precision decimals** — a built-in `decimal` type for exact base-10 arithmetic (`0.1 + 0.2 == 0.3`)
 - **Zero-link stdlib** — standard library ships as shared DLLs loaded at startup; no `.lib` needed
 
@@ -72,7 +73,8 @@ GTLang is a **statically-typed**, **compiled**, **expression-oriented** programm
 | 🧠 | **Static typing** with bidirectional inference |
 | 🛡️ | **Memory safety** — ownership, borrowing, NLL, bounds/overflow checks |
 | ⚡ | **Native LLVM backend** — compiles to a standalone executable |
-| 🔢 | **Two-tier int** — small ints inline (i63), overflow auto-promotes to bignum |
+| 🔢 | **Raw i64** — native 64-bit int (C semantics, C-speed loops) |
+| 🔢 | **Decimal** — exact high-precision base-10 (`3.14d`) |
 | 🎯 | **Decimal** — exact high-precision base-10 (`3.14d`) |
 | 🧵 | **GTO concurrency** — `chan` backed by the GTO runtime (`gto.dll`) |
 | 🌏 | **Chinese identifiers** — no transliteration needed |
@@ -360,7 +362,7 @@ GTLang compiles to a **standalone native executable** via LLVM + clang. There is
 
 - **Standard library**: shipped as shared DLLs (`res/lib/*.dll`). At build time a small shim is generated that `LoadLibrary`s only the DLLs the program actually uses and forwards each call by its exact signature. The produced executable therefore links **no stdlib `.lib`** — only system DLLs (`KERNEL32.dll`).
 - **Concurrency**: `go` runs real threads; `chan` is backed by **GTO** (`gto.dll`), loaded at runtime.
-- **Integers**: `int` is a tagged 8-byte value — small values inline (i63), overflow auto-promotes to a heap bignum, so integer arithmetic never aborts.
+- **Integers**: `int` is a native 64-bit integer (overflow wraps, C semantics); tight loops compile to plain LLVM arithmetic with no runtime overhead.
 - **Decimals**: the `decimal` type (`3.14d`) provides exact base-10 arithmetic.
 - **Two-stage optimizer**: `-O0..-O4` drives both GTLang's own AST-level optimizer (constant folding/propagation, function inlining, dead-code elimination) and clang's backend. `--emit-optimized-gt[=DIR]` writes the optimized `.gt` source back out (flat, machine-oriented, re-compilable) — like clang's optimized IR.
 
@@ -375,14 +377,14 @@ Benchmark: `loop_sum(2e8)` — sum `0..200_000_000`.
 | C (clang -O2) | ~22 ms | ~5 ms |
 | Rust (rustc -O) | ~24 ms | ~5 ms |
 | nasm (hand-written) | ~36 ms | ~50 ms |
-| **GTLang -O4 (two-tier int)** | ~113 ms | ~818 ms |
-| GTLang -O2 | ~137 ms | ~909 ms |
-| GTLang -O0 | ~309 ms | ~1456 ms |
+| **GTLang -O4 (raw i64)** | ~26 ms | ~4.2 ms |
+| GTLang -O2 | ~30 ms | ~5 ms |
+| GTLang -O0 | ~40 ms | ~40 ms |
 | Node.js 24 (V8 JIT) | ~144 ms | ~195 ms |
 | Lua 5.4 | ~445 ms | ~673 ms |
 | Python 3.12 | ~1300 ms | ~6788 ms |
 
-**GTLang's `int` is a two-tier tagged value** — small ints inline, overflow auto-promotes to a heap bignum (never aborts). This buys safety (no wraparound, no bignum loss), but tight arithmetic loops pay tagged decode/encode on every op, so they run slower than C/Rust's raw i64. The GTLang AST optimizer (`-O0..-O4`) already cuts loop_sum from 1456 ms to 818 ms; a planned "safe-variable raw lowering" pass will specialize provably-safe loops to raw i64, targeting C-level speed.
+**GTLang's `int` is a raw 64-bit integer** — overflow wraps (C semantics). Tight loops compile to plain LLVM `add/sub/mul` with zero runtime overhead, so GTLang matches C on `loop_sum` (~4.2 ms) and comes close on recursive `fib` (~26 ms). For exact high-precision arithmetic, use the separate `decimal` type. The GTLang AST optimizer (`-O0..-O4`) folds constants, inlines, and removes dead code before LLVM.
 
 See [doc/bench.md](doc/bench.md) for methodology.
 
@@ -436,7 +438,7 @@ diag.rs           diagnostic types + source spans
 encoding.rs       source decoding
 tmp.rs            temp directories
 lang.rs           global language switch + bilingual messages
-runtime/gt_rt.c   built-in C runtime (tagged int/bignum, decimal, containers, chan->GTO)
+runtime/gt_rt.c   built-in C runtime (decimal, containers, chan->GTO)
 GTO/              GTO concurrency framework (compiled to gto.dll)
 gtlib/            standard library source (math.rs / string.rs / ...)
 res/lib/            stdlib artifacts (math.dll / string.dll / gto.dll, no .lib)
@@ -510,7 +512,7 @@ A: GTLang treats Unicode identifiers as first-class. Chinese names like `计数�
 A: No. GTLang compiles every program to a standalone native executable via LLVM. The standard library ships as shared DLLs loaded at startup — the produced executable links no stdlib `.lib`, only system DLLs.
 
 **Q: What about big integers and decimals?**
-A: `int` is a tagged 8-byte value: small values inline, and arithmetic that overflows i63 automatically promotes to a heap bignum (no abort). For exact base-10 math there is a `decimal` type (literal suffix `d`, e.g. `3.14d`).
+A: `int` is a raw 64-bit integer (overflow wraps, C semantics) — tight loops reach C speed. For exact base-10 math there is a separate `decimal` type (literal suffix `d`, e.g. `3.14d`).
 
 **Q: How is performance so close to C?**
 A: Overflow checks are the only cost. Flow-sensitive range analysis elides them when provably safe (e.g. `for i in 0..N { s += i }`), letting LLVM vectorize the loop. See `doc/bench.md`.

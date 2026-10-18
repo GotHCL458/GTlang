@@ -7,7 +7,7 @@
 pub(crate) const BUILTIN_NAMES: &[&str] = &[
     "put", "print", "len", "str", "string", "int", "i64", "f64", "float", "bool",
     "read_line", "readline", "input", "read_int", "readint",
-    "list", "set", "map", "dict", "decimal", "dec", "range", "assert", "sleep", "chan", "chan_send", "chan_recv",
+    "list", "set", "map", "dict", "decimal", "dec", "range", "assert", "sleep", "chan", "chan_send", "chan_recv", "chan_send_batch", "chan_recv_batch",
     "push", "append", "pop", "at", "insert", "has", "contains", "keys", "values", "remove",
     "abs", "min", "max", "sum",
     "substr", "split", "join", "find", "upper", "lower", "trim",

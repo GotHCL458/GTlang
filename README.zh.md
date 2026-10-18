@@ -59,7 +59,8 @@ GTLang 是一门**静态类型**、**编译型**、**表达式导向**的编程�
 - **C 级性能** —— 经 LLVM 生成原生机器码；紧循环可与 C 持平
 - **Python 式简洁** —— 表达式导向、类型标注可选、闭包、列表推导
 - **原生中文标识符** —— `计数器`、`累加`、`点` 都是合法名字
-- **双层整数** —— `int` 是 8 字节 tagged 值：小数值内联，溢出自动升级为任意精度 bignum（永不终止）
+- **裸 64 位整数** —— `int` 是原生 i64（溢出回绕，C 语义）；紧循环达 C 速度
+- **精确十进制** —— 内置 `decimal` 类型，任意精度十进制
 - **高精度十进制** —— 内置 `decimal` 类型，精确十进制运算（`0.1 + 0.2 == 0.3`）
 - **零 `.lib` 标准库** —— 标准库以共享 DLL 形式随程序启动加载，无需链接 `.lib`
 
@@ -72,7 +73,8 @@ GTLang 是一门**静态类型**、**编译型**、**表达式导向**的编程�
 | 🧠 | **静态类型** + 双向推断 |
 | 🛡️ | **内存安全** —— 所有权、借用、NLL、边界/溢出检查 |
 | ⚡ | **LLVM 原生后端** —— 编译为独立可执行文件 |
-| 🔢 | **双层 int** —— 小整数内联（i63），溢出自动升级 bignum |
+| 🔢 | **裸 i64** —— 原生 64 位整数（C 语义，循环达 C 速度） |
+| 🔢 | **Decimal** —— 精确高精度十进制（`3.14d`） |
 | 🎯 | **Decimal** —— 精确高精度十进制（`3.14d`） |
 | 🧵 | **GTO 并发** —— `chan` 由 GTO 运行时（`gto.dll`）驱动 |
 | 🌏 | **中文标识符** —— 无需音译 |
@@ -358,7 +360,7 @@ GTLang 经 LLVM + clang 编译为**独立原生可执行文件**，无解释器/
 
 - **标准库**：以共享 DLL（`res/lib/*.dll`）分发。构建时生成一段 shim，运行期 `LoadLibrary` 仅加载程序实际用到的 DLL，并按精确签名转发每个调用。因此产物**不链接任何标准库 `.lib`**，只依赖系统 DLL（`KERNEL32.dll`）。
 - **并发**：`go` 起真线程；`chan` 由 **GTO**（`gto.dll`，运行期加载）驱动。
-- **整数**：`int` 是 8 字节 tagged 值 —— 小值内联（i63），溢出自动升级为堆 bignum，整数运算永不终止。
+- **整数**：`int` 是原生 64 位整数（溢出回绕，C 语义）；紧循环编译为 LLVM 原生算术，零运行时开销。
 - **十进制**：`decimal` 类型（`3.14d`）提供精确十进制运算。
 - **两段式优化器**：`-O0..-O4` 同时驱动 GTLang 自有的 AST 级优化器（常量折叠/传播、函数内联、死代码消除）与 clang 后端。`--emit-optimized-gt[=DIR]` 把优化后的 `.gt` 源码写回（扁平、面向机器、可再编译）——类似 clang 的优化 IR。
 
@@ -373,14 +375,14 @@ GTLang 经 LLVM + clang 编译为**独立原生可执行文件**，无解释器/
 | C（clang -O2） | ~22 ms | ~5 ms |
 | Rust（rustc -O） | ~24 ms | ~5 ms |
 | nasm（手写汇编） | ~36 ms | ~50 ms |
-| **GTLang -O4（双层 int）** | ~113 ms | ~818 ms |
-| GTLang -O2 | ~137 ms | ~909 ms |
-| GTLang -O0 | ~309 ms | ~1456 ms |
+| **GTLang -O4（裸 i64）** | ~26 ms | ~4.2 ms |
+| GTLang -O2 | ~30 ms | ~5 ms |
+| GTLang -O0 | ~40 ms | ~40 ms |
 | Node.js 24（V8 JIT） | ~144 ms | ~195 ms |
 | Lua 5.4 | ~445 ms | ~673 ms |
 | Python 3.12 | ~1300 ms | ~6788 ms |
 
-**GTLang 的 `int` 是双层 tagged 值** —— 小整数内联、溢出自动升级堆 bignum（永不终止）。这带来安全性（无回绕、无大数丢失），但紧循环里每次算术都要 tagged 解码/编码，因此比 C/Rust 的裸 i64 慢。GTLang AST 优化器（`-O0..-O4`）已把 loop_sum 从 1456ms 降到 818ms；后续「安全变量裸化」pass 会把可证明安全的循环特化为裸 i64，目标追平 C。
+**GTLang 的 `int` 是裸 64 位整数** —— 溢出回绕（C 语义）。紧循环编译为 LLVM 原生 `add/sub/mul`，零运行时开销，因此 `loop_sum` 追平 C（~4.2ms）、递归 `fib` 接近 C（~26ms）。高精度运算用独立的 `decimal` 类型。GTLang AST 优化器（`-O0..-O4`）在 LLVM 前做常量折叠、内联、死代码消除。
 
 详见 [doc/bench.md](doc/bench.md)。
 
@@ -434,7 +436,7 @@ diag.rs           诊断类型 + 源码位置
 encoding.rs       源文件解码
 tmp.rs            临时目录
 lang.rs           全局语言开关 + 双语消息
-runtime/gt_rt.c   内置 C 运行时（tagged int/bignum、decimal、容器、chan->GTO）
+runtime/gt_rt.c   内置 C 运行时（decimal、容器、chan->GTO）
 GTO/              GTO 并发框架（编为 gto.dll）
 gtlib/            标准库源码（math.rs / string.rs / ...）
 res/lib/            标准库产物（math.dll / string.dll / gto.dll，无 .lib）

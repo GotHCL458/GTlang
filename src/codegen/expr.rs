@@ -28,18 +28,8 @@ impl<'a> Codegen<'a> {
                 Ok(Val::new_ptr(&Ty::Decimal, r))
             }
             ExprKind::Int(v) => {
-                // tagged int：小整数编码为 (v << 1)；超出 i63 的用 bignum（编译期常量，
-                // 在 runtime 里由 gt_i64_to_int 从 i64 升成 tagged，此处只在 i63 内直接编码）。
-                if *v >= -(1i64 << 62) && *v < (1i64 << 62) {
-                    Ok(Val::new(&Ty::I64, (v << 1).to_string()))
-                } else {
-                    // 极端大常量：调 gt_i64_to_int 让 runtime 造 bignum
-                    self.declare("declare i64 @gt_i64_to_int(i64)");
-                    let r = self.new_reg();
-                    self.body.push_str(&format!("  {} = call i64 @gt_i64_to_int(i64 {})
-", r, v));
-                    Ok(Val::new(&Ty::I64, r))
-                }
+                // 裸 i64：直接作为常量（溢出回绕，C 语义）。
+                Ok(Val::new(&Ty::I64, v.to_string()))
             }
             ExprKind::Float(v) => Ok(Val::new(&Ty::F64, fmt_double(*v))),
             ExprKind::Bool(v) => Ok(Val::new(&Ty::Bool, if *v { "true" } else { "false" })),
@@ -186,15 +176,8 @@ impl<'a> Codegen<'a> {
             ExprKind::Index(base, idx) => {
                 let b = self.expr(base)?;
                 let iv = self.expr(idx)?;
-                // 下标是"内部计数"，需从 tagged int 取裸 i64；非 int 索引（bool/f64）走 as_i64。
-                let iv_raw = if matches!(iv.ty, Ty::I64) {
-                    self.declare("declare i64 @gt_int_to_i64(i64)");
-                    let r = self.new_reg();
-                    self.body.push_str(&format!("  {} = call i64 @gt_int_to_i64(i64 {})
-", r, iv.s));
-                    Val::new(&Ty::I64, r)
-                } else { iv.clone() };
-                let i = self.as_i64(&iv_raw);
+                // 下标直接取裸 i64（int 已是裸值）。
+                let i = self.as_i64(&iv);
                 // map 键可为字符串：统一按 slot（ptrtoint）处理（用原值，键本身是 tagged/ptr）
                 let key_slot = self.to_slot(&iv);
                 match b.ty.clone() {
@@ -816,7 +799,7 @@ impl<'a> Codegen<'a> {
             let todec = |cg: &mut Self, v: &Val| -> Result<String, String> {
                 Ok(match v.ty {
                     Ty::Decimal => v.s.clone(),
-                    Ty::I64 => { let r = cg.new_reg(); let raw = cg.as_i64(v); cg.body.push_str(&format!("  {} = call i64 @gt_int_to_i64(i64 {})\n", r, raw)); let d = cg.new_reg(); cg.body.push_str(&format!("  {} = call ptr @gt_dec_from_i64(i64 {})\n", d, r)); d }
+                    Ty::I64 => { let raw = cg.as_i64(v); let d = cg.new_reg(); cg.body.push_str(&format!("  {} = call ptr @gt_dec_from_i64(i64 {})\n", d, raw)); d }
                     Ty::F64 => { let d = cg.new_reg(); cg.body.push_str(&format!("  {} = call ptr @gt_dec_from_f64(double {})\n", d, v.s)); d }
                     _ => v.s.clone(),
                 })
@@ -904,23 +887,6 @@ impl<'a> Codegen<'a> {
         let x = self.as_i64(a);
         let y = self.as_i64(b);
         if op.is_cmp() {
-            // tagged int 比较：交运行时（小整数/大数统一语义）。
-            if matches!(a.ty, Ty::I64) && matches!(b.ty, Ty::I64) {
-                self.declare("declare i64 @gt_int_cmp(i64, i64)");
-                let c = self.new_reg();
-                self.body.push_str(&format!("  {} = call i64 @gt_int_cmp(i64 {}, i64 {})\n", c, x, y));
-                let pred = match op {
-                    BinOp::Eq => "eq",
-                    BinOp::Ne => "ne",
-                    BinOp::Lt => "slt",
-                    BinOp::Le => "sle",
-                    BinOp::Gt => "sgt",
-                    _ => "sge",
-                };
-                let r = self.new_reg();
-                self.body.push_str(&format!("  {} = icmp {} i64 {}, 0\n", r, pred, c));
-                return Ok(Val::new(&Ty::Bool, r));
-            }
             let pred = match op {
                 BinOp::Eq => "eq",
                 BinOp::Ne => "ne",
@@ -954,41 +920,17 @@ impl<'a> Codegen<'a> {
         if matches!(op, BinOp::Div | BinOp::FloorDiv | BinOp::Rem) {
             self.emit_div_zero_check(&y, line);
         }
-        // 加/减/乘：tagged int。
-        // safe（范围分析证明不溢出）→ 裸 i64 算术 + 结果 tag，不调 runtime。
-        if safe && matches!(op, BinOp::Add | BinOp::Sub | BinOp::Mul) {
-            self.declare("declare i64 @gt_int_to_i64(i64)");
-            self.declare("declare i64 @gt_i64_to_int(i64)");
-            let rx = self.new_reg();
-            self.body.push_str(&format!("  {} = call i64 @gt_int_to_i64(i64 {})\n", rx, x));
-            let ry = self.new_reg();
-            self.body.push_str(&format!("  {} = call i64 @gt_int_to_i64(i64 {})\n", ry, y));
-            let ins = match op { BinOp::Add => "add", BinOp::Sub => "sub", _ => "mul" };
-            let raw = self.new_reg();
-            self.body.push_str(&format!("  {} = {} i64 {}, {}\n", raw, ins, rx, ry));
-            let r = self.new_reg();
-            self.body.push_str(&format!("  {} = call i64 @gt_i64_to_int(i64 {})\n", r, raw));
-            return Ok(Val::new(&Ty::I64, r));
-        }
-        if matches!(op, BinOp::Add | BinOp::Sub | BinOp::Mul) {
-            let fname = match op {
-                BinOp::Add => "gt_int_add",
-                BinOp::Sub => "gt_int_sub",
-                _ => "gt_int_mul",
-            };
-            self.declare(&format!("declare i64 @{}(i64, i64)", fname));
-            let r = self.new_reg();
-            self.body.push_str(&format!("  {} = call i64 @{}(i64 {}, i64 {})\n", r, fname, x, y));
-            return Ok(Val::new(&Ty::I64, r));
-        }
-        let fname = match op {
-            BinOp::Div | BinOp::FloorDiv => "gt_int_div",
-            BinOp::Rem => "gt_int_rem",
-            _ => "gt_int_rem",
+        // 加/减/乘/除/取余：裸 i64（溢出回绕，C 语义；除零已在上方检查）。
+        let ins = match op {
+            BinOp::Add => "add",
+            BinOp::Sub => "sub",
+            BinOp::Mul => "mul",
+            BinOp::Div => "sdiv",
+            BinOp::FloorDiv => "sdiv",
+            _ => "srem",
         };
-        self.declare(&format!("declare i64 @{}(i64, i64)", fname));
         let r = self.new_reg();
-        self.body.push_str(&format!("  {} = call i64 @{}(i64 {}, i64 {})\n", r, fname, x, y));
+        self.body.push_str(&format!("  {} = {} i64 {}, {}\n", r, ins, x, y));
         Ok(Val::new(&Ty::I64, r))
     }
 

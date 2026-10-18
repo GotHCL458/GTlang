@@ -558,6 +558,14 @@ fn builtin_check(name: &str, args: &[Ty]) -> Result<Ty, String> {
             arity(1)?;
             Ok(Ty::I64)
         }
+        "chan_send_batch" => {
+            arity(2)?;
+            Ok(Ty::I64)
+        }
+        "chan_recv_batch" => {
+            arity(2)?;
+            Ok(Ty::List(Box::new(Ty::I64)))
+        }
         // sleep(ms) -> void
         "sleep" => {
             arity(1)?;

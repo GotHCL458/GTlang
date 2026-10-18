@@ -81,29 +81,17 @@ impl<'a> Codegen<'a> {
         // 用户函数优先于内置/标准库（同名时遮蔽）
         if self.fns.contains_key(name) {
             if let Some(info) = self.fns.get(name).cloned() {
-                self.declare("declare i64 @gt_int_to_i64(i64)");
-                self.declare("declare i64 @gt_i64_to_int(i64)");
                 let mut ops = Vec::new();
                 for (i, a) in args.iter().enumerate() {
                     let want = info.params.get(i).cloned().unwrap_or(Ty::I64);
                     let v = self.expr(a)?;
                     let v = self.coerce(&v, &want)?;
-                    let operand = if info.is_c && matches!(want, Ty::I64) {
-                        let r = self.new_reg();
-                        self.body.push_str(&format!("  {} = call i64 @gt_int_to_i64(i64 {})\n", r, v.s));
-                        r
-                    } else { v.s };
-                    ops.push(format!("{} {}", want.llvm(), operand));
+                    ops.push(format!("{} {}", want.llvm(), v.s));
                 }
                 let argstr = ops.join(", ");
                 if info.ret == Ty::Void { self.body.push_str(&format!("  call void @{}({})\n", info.cname, argstr)); return Ok(Val::new(&Ty::Void, "0")); }
                 let r = self.new_reg();
                 self.body.push_str(&format!("  {} = call {} @{}({})\n", r, info.ret.llvm(), info.cname, argstr));
-                if info.is_c && matches!(info.ret, Ty::I64) {
-                    let t = self.new_reg();
-                    self.body.push_str(&format!("  {} = call i64 @gt_i64_to_int(i64 {})\n", t, r));
-                    return Ok(Val::new(&Ty::I64, t));
-                }
                 return Ok(Val::new(&info.ret, r));
             }
         }
@@ -215,7 +203,7 @@ impl<'a> Codegen<'a> {
                     Ty::Decimal => Ok(Val::new_ptr(&Ty::Decimal, v.s)),
                     Ty::Str => { let r = self.new_reg(); self.body.push_str(&format!("  {} = call ptr @gt_dec_from_str(ptr {})\n", r, v.s)); Ok(Val::new_ptr(&Ty::Decimal, r)) }
                     Ty::F64 => { let r = self.new_reg(); self.body.push_str(&format!("  {} = call ptr @gt_dec_from_f64(double {})\n", r, v.s)); Ok(Val::new_ptr(&Ty::Decimal, r)) }
-                    Ty::I64 => { let raw = self.as_i64(&v); let rr = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_int_to_i64(i64 {})\n", rr, raw)); let r = self.new_reg(); self.body.push_str(&format!("  {} = call ptr @gt_dec_from_i64(i64 {})\n", r, rr)); Ok(Val::new_ptr(&Ty::Decimal, r)) }
+                    Ty::I64 => { let raw = self.as_i64(&v); let r = self.new_reg(); self.body.push_str(&format!("  {} = call ptr @gt_dec_from_i64(i64 {})\n", r, raw)); Ok(Val::new_ptr(&Ty::Decimal, r)) }
                     _ => { let r = self.new_reg(); self.body.push_str(&format!("  {} = call ptr @gt_dec_from_i64(i64 0)\n", r)); Ok(Val::new_ptr(&Ty::Decimal, r)) }
                 }
             }
@@ -253,6 +241,79 @@ impl<'a> Codegen<'a> {
                 let r = self.new_reg();
                 self.body.push_str(&format!("  {} = call i64 @gt_chan_recv(ptr {})\n", r, cp));
                 Ok(Val::new(&Ty::I64, r))
+            }
+            "chan_send_batch" => {
+                // chan_send_batch(ch, list[int]) -> int（发送数）
+                let c = self.expr(&args[0])?;
+                let lst = self.expr(&args[1])?;
+                let lp = self.as_ptr(&lst);
+                self.declare("declare i64 @gt_list_len(ptr)");
+                self.declare("declare i64 @gt_list_at(ptr, i64)");
+                let n = self.new_reg();
+                self.body.push_str(&format!("  {} = call i64 @gt_list_len(ptr {})\n", n, lp));
+                // 分配临时 i64 数组
+                self.declare("declare ptr @gt_mem_alloc(i64)");
+                let bytes = self.new_reg();
+                self.body.push_str(&format!("  {} = mul i64 {}, 8\n", bytes, n));
+                let arr = self.new_reg();
+                self.body.push_str(&format!("  {} = call ptr @gt_mem_alloc(i64 {})\n", arr, bytes));
+                let i = self.new_alloca(&Ty::I64);
+                self.body.push_str(&format!("  store i64 0, ptr {}\n", i));
+                let lc = self.new_label(); let le = self.new_label(); let lb = self.new_label();
+                self.body.push_str(&format!("  br label %{}\n", lc));
+                self.emit_label(&lc);
+                let iv = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n", iv, i));
+                let cmp = self.new_reg(); self.body.push_str(&format!("  {} = icmp slt i64 {}, {}\n", cmp, iv, n));
+                self.body.push_str(&format!("  br i1 {}, label %{}, label %{}\n", cmp, lb, le));
+                self.emit_label(&lb);
+                let elem = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_list_at(ptr {}, i64 {})\n", elem, lp, iv));
+                let slotp = self.new_reg(); self.body.push_str(&format!("  {} = getelementptr i64, ptr {}, i64 {}\n", slotp, arr, iv));
+                self.body.push_str(&format!("  store i64 {}, ptr {}\n", elem, slotp));
+                let nx = self.new_reg(); self.body.push_str(&format!("  {} = add i64 {}, 1\n", nx, iv));
+                self.body.push_str(&format!("  store i64 {}, ptr {}\n", nx, i));
+                self.body.push_str(&format!("  br label %{}\n", lc));
+                self.emit_label(&le);
+                let cp = self.new_reg(); self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", cp, c.s));
+                self.declare("declare i64 @gt_chan_send_batch(ptr, ptr, i64)");
+                let r = self.new_reg();
+                self.body.push_str(&format!("  {} = call i64 @gt_chan_send_batch(ptr {}, ptr {}, i64 {})\n", r, cp, arr, n));
+                Ok(Val::new(&Ty::I64, r))
+            }
+            "chan_recv_batch" => {
+                // chan_recv_batch(ch, n) -> list[int]（实际收到 got 个）
+                let c = self.expr(&args[0])?;
+                let nv = self.expr(&args[1])?;
+                let n = self.as_i64(&nv);
+                self.declare("declare ptr @gt_mem_alloc(i64)");
+                let bytes = self.new_reg();
+                self.body.push_str(&format!("  {} = mul i64 {}, 8\n", bytes, n));
+                let arr = self.new_reg();
+                self.body.push_str(&format!("  {} = call ptr @gt_mem_alloc(i64 {})\n", arr, bytes));
+                let cp = self.new_reg(); self.body.push_str(&format!("  {} = inttoptr i64 {} to ptr\n", cp, c.s));
+                self.declare("declare i64 @gt_chan_recv_batch(ptr, ptr, i64)");
+                let got = self.new_reg();
+                self.body.push_str(&format!("  {} = call i64 @gt_chan_recv_batch(ptr {}, ptr {}, i64 {})\n", got, cp, arr, n));
+                self.declare("declare ptr @gt_list_new(i64)");
+                let lst = self.new_reg();
+                self.body.push_str(&format!("  {} = call ptr @gt_list_new(i64 0)\n", lst));
+                self.declare("declare void @gt_list_push(ptr, i64)");
+                let i = self.new_alloca(&Ty::I64);
+                self.body.push_str(&format!("  store i64 0, ptr {}\n", i));
+                let lc = self.new_label(); let le = self.new_label(); let lb = self.new_label();
+                self.body.push_str(&format!("  br label %{}\n", lc));
+                self.emit_label(&lc);
+                let iv = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n", iv, i));
+                let cmp = self.new_reg(); self.body.push_str(&format!("  {} = icmp slt i64 {}, {}\n", cmp, iv, got));
+                self.body.push_str(&format!("  br i1 {}, label %{}, label %{}\n", cmp, lb, le));
+                self.emit_label(&lb);
+                let slotp = self.new_reg(); self.body.push_str(&format!("  {} = getelementptr i64, ptr {}, i64 {}\n", slotp, arr, iv));
+                let elem = self.new_reg(); self.body.push_str(&format!("  {} = load i64, ptr {}\n", elem, slotp));
+                self.body.push_str(&format!("  call void @gt_list_push(ptr {}, i64 {})\n", lst, elem));
+                let nx = self.new_reg(); self.body.push_str(&format!("  {} = add i64 {}, 1\n", nx, iv));
+                self.body.push_str(&format!("  store i64 {}, ptr {}\n", nx, i));
+                self.body.push_str(&format!("  br label %{}\n", lc));
+                self.emit_label(&le);
+                Ok(Val::new_ptr(&Ty::List(Box::new(Ty::I64)), lst))
             }
             "sleep" => {
                 let a = self.expr(&args[0])?;
@@ -378,14 +439,11 @@ impl<'a> Codegen<'a> {
                     if info.ret == Ty::Void { self.body.push_str(&format!("  call void @{}({})\n", info.cname, argstr)); Ok(Val::new(&Ty::Void, "0")) }
                     else { let r = self.new_reg(); self.body.push_str(&format!("  {} = call {} @{}({})\n", r, info.ret.llvm(), info.cname, argstr)); Ok(Val::new(&info.ret, r)) }
                 } else if let Some(sf) = crate::types::gtlib_fn(name) {
-                    // 标准库是 C 函数：int 参数传裸 i64，int 返回值转 tagged。
-                    self.declare("declare i64 @gt_int_to_i64(i64)"); self.declare("declare i64 @gt_i64_to_int(i64)");
                     let mut ops = Vec::new();
                     for (i, a) in args.iter().enumerate() {
                         let want = sf.params.get(i).cloned().unwrap_or(Ty::I64);
                         let v = self.expr(a)?; let v = self.coerce(&v, &want)?;
-                        let opd = if matches!(want, Ty::I64) { let r = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_int_to_i64(i64 {})\n", r, v.s)); r } else { v.s };
-                        ops.push(format!("{} {}", want.llvm(), opd));
+                        ops.push(format!("{} {}", want.llvm(), v.s));
                     }
                     let ret = if sf.ret == Ty::Void { "void".to_string() } else { sf.ret.llvm() };
                     let argstr = ops.join(", ");
@@ -393,8 +451,7 @@ impl<'a> Codegen<'a> {
                     if sf.ret == Ty::Void { self.body.push_str(&format!("  call void @{}({})\n", sf.symbol, argstr)); Ok(Val::new(&Ty::Void, "0")) }
                     else {
                         let r = self.new_reg(); self.body.push_str(&format!("  {} = call {} @{}({})\n", r, ret, sf.symbol, argstr));
-                        if matches!(sf.ret, Ty::I64) { let t = self.new_reg(); self.body.push_str(&format!("  {} = call i64 @gt_i64_to_int(i64 {})\n", t, r)); Ok(Val::new(&Ty::I64, t)) }
-                        else { Ok(Val::new(&sf.ret, r)) }
+                        Ok(Val::new(&sf.ret, r))
                     }
                 } else {
                     Err(crate::lb!(line, "undefined function '{}'", "未定义的函数 '{}'", name))

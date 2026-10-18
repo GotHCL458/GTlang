@@ -2,7 +2,7 @@
 
 > [中文](../syntax_status.md)
 
-> Version 0.0.1d | LLVM native backend (no interpreter); two-tier int, decimal, zero-`.lib` stdlib
+> Version 0.0.1d | LLVM native backend (no interpreter); raw i64, decimal, zero-`.lib` stdlib
 
 ## 1. Implemented (100%)
 

@@ -148,20 +148,11 @@ pub fn bridge_header(funcs: &[GtFn]) -> (String, Vec<String>) {
         let slot = format!("gt_slot_{}", i);
         // 注意：不能用 `static`——桥接头与用户 C 块是**两个编译单元**
         // （分片编译才能让 C 块报错行号从 1 开始），static 函数跨单元不可见。
-        // GTLang 的 int 是 tagged；C 桥接在边界做转换：入参裸→tagged，返回 tagged→裸。
-        let has_i64_param = f.params.iter().any(|t| matches!(t, Ty::I64));
-        let ret_i64 = matches!(f.ret, Ty::I64);
-        if has_i64_param || ret_i64 {
-            out.push_str("long long gt_i64_to_int(long long);\nlong long gt_int_to_i64(long long);\n");
-        }
-        let conv_args: String = f.params.iter().enumerate().map(|(k, t)| {
-            if matches!(t, Ty::I64) { format!("gt_i64_to_int(a{})", k + 1) } else { format!("a{}", k + 1) }
-        }).collect::<Vec<_>>().join(", ");
+        // GTLang 的 int 是裸 i64，与 C 的 long long 一致，无需边界转换。
+        let conv_args: String = f.params.iter().enumerate().map(|(k, _t)| format!("a{}", k + 1)).collect::<Vec<_>>().join(", ");
         let call_expr = format!("(({} (*)({})){})({})", ret, ptypes, slot, conv_args);
         let body = if f.ret == Ty::Void {
             format!("    {};\n", call_expr)
-        } else if ret_i64 {
-            format!("    return gt_int_to_i64({});\n", call_expr)
         } else {
             format!("    return {};\n", call_expr)
         };

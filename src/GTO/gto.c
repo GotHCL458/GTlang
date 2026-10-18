@@ -501,6 +501,51 @@ int gto_chan_try_recv(GtoChan *c, int64_t *out) {
     return 0;
 }
 
+/* 批量发送：循环到全部放入（受 cap 限制时阻塞），一次加锁尽量搬运。返回实际发送数。 */
+int64_t gto_chan_send_batch(GtoChan *c, const int64_t *vals, int64_t n) {
+    if (!c || !vals || n <= 0) return 0;
+    GTO_MTX_LOCK(&c->lock);
+    int64_t sent = 0;
+    while (sent < n) {
+        while (c->cap > 0 && c->len >= c->cap && !c->closed) { GTO_CND_WAIT(&c->not_full, &c->lock); }
+        if (c->closed) break;
+        int64_t room = (c->cap > 0) ? (c->cap - c->len) : (n - sent);
+        int64_t take = (n - sent) < room ? (n - sent) : room;
+        if (take <= 0) break;
+        if (c->cap == 0) {
+            int64_t newcap = c->len + take;
+            c->buf = (int64_t *)realloc(c->buf, sizeof(int64_t) * newcap);
+            for (int64_t i = 0; i < take; i++) c->buf[c->len + i] = vals[sent + i];
+            c->len += take;
+        } else {
+            for (int64_t i = 0; i < take; i++) c->buf[(c->head + c->len + i) % c->cap] = vals[sent + i];
+            c->len += take;
+        }
+        sent += take;
+        GTO_CND_BROADCAST(&c->not_empty);
+    }
+    GTO_MTX_UNLOCK(&c->lock);
+    return sent;
+}
+
+/* 批量接收：一次加锁搬走最多 cap 个；无数据时阻塞等待一个。返回实际接收数。 */
+int64_t gto_chan_recv_batch(GtoChan *c, int64_t *out, int64_t cap) {
+    if (!c || !out || cap <= 0) return 0;
+    GTO_MTX_LOCK(&c->lock);
+    while (c->len == 0 && !c->closed) { GTO_CND_WAIT(&c->not_empty, &c->lock); }
+    if (c->len == 0 && c->closed) { GTO_MTX_UNLOCK(&c->lock); return 0; }
+    int64_t take = c->len < cap ? c->len : cap;
+    for (int64_t i = 0; i < take; i++) {
+        out[i] = c->buf[c->head];
+        if (c->cap > 0) c->head = (c->head + 1) % c->cap;
+        else { memmove(c->buf, c->buf + 1, sizeof(int64_t) * (c->len - 1)); }
+        c->len--;
+    }
+    GTO_CND_BROADCAST(&c->not_full);
+    GTO_MTX_UNLOCK(&c->lock);
+    return take;
+}
+
 void gto_chan_close(GtoChan *c) {
     GTO_MTX_LOCK(&c->lock);
     c->closed = 1;

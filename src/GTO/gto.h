@@ -67,6 +67,10 @@ GTO_API int64_t gto_chan_recv(GtoChan *c);
 int gto_chan_try_send(GtoChan *c, int64_t v);
 int gto_chan_try_recv(GtoChan *c, int64_t *out);
 
+/* 批量发送/接收（一次加锁搬运 n 个元素；返回实际搬运数量） */
+GTO_API int64_t gto_chan_send_batch(GtoChan *c, const int64_t *vals, int64_t n);
+GTO_API int64_t gto_chan_recv_batch(GtoChan *c, int64_t *out, int64_t cap);
+
 /* 关闭通道（recv 返回 -1） */
 void gto_chan_close(GtoChan *c);
 

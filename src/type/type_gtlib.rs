@@ -290,7 +290,7 @@ pub fn is_builtin_name(name: &str) -> bool {
         // 输出 / 长度 / 转换
         "put" | "print" | "len" | "str" | "string" | "int" | "i64" | "f64" | "float" | "bool" | "decimal" | "dec" | "read_line" | "readline" | "input" | "read_int" | "readint" | "fn_addr"
         // 容器构造
-        | "list" | "List" | "set" | "Set" | "map" | "Map" | "dict" | "range" | "assert" | "sleep" | "chan" | "chan_send" | "chan_recv"
+        | "list" | "List" | "set" | "Set" | "map" | "Map" | "dict" | "range" | "assert" | "sleep" | "chan" | "chan_send" | "chan_recv" | "chan_send_batch" | "chan_recv_batch"
         // list 操作
         | "push" | "append" | "pop" | "at" | "insert" | "has" | "contains"
         | "keys" | "values" | "remove"

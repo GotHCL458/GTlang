@@ -2,7 +2,7 @@
 
 > [English](en/syntax_status.md)
 
-> 版本 0.0.1d ｜ LLVM 原生后端（无解释器）；双层 int、decimal、零 `.lib` 标准库
+> 版本 0.0.1d ｜ LLVM 原生后端（无解释器）；裸 i64、decimal、零 `.lib` 标准库
 
 ---
 

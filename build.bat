@@ -6,7 +6,7 @@ REM Just run it -- no arguments needed.
 REM
 REM   1. Check Rust ^(^>= 1.75^) and LLVM/clang ^(^>= 15^) on PATH.
 REM   2. Build gtc (release).
-REM   3. Build the standard library (src\gtlib\*.rs -> *.dll + *.lib).
+REM   3. Build the standard library (src\gtlib\*.rs -> *.dll only; no .lib).
 REM      Build GTO concurrency framework -> res\lib\gto.dll.
 REM   4. Assemble a portable res\ directory.
 REM
@@ -65,8 +65,6 @@ for %%F in ("%ROOT%src\gtlib\*.rs") do (
         echo [build] gtlib !MOD! (rust)
         rustc --edition 2021 --crate-type cdylib --crate-name !MOD! "%%~fF" -o "%STDOUT%\!MOD!.dll" -O
         if errorlevel 1 ( echo [ERROR] gtlib !MOD! dll failed. & exit /b 1 )
-        rustc --edition 2021 --crate-type staticlib --crate-name !MOD! "%%~fF" -o "%STDOUT%\!MOD!_static.lib" -O
-        if errorlevel 1 ( echo [ERROR] gtlib !MOD! static failed. & exit /b 1 )
     )
 )
 REM C gtlib modules
@@ -79,8 +77,6 @@ for %%F in ("%ROOT%src\gtlib\*.c") do (
     if errorlevel 1 ( echo [ERROR] gtlib !MOD! ^(c^) compile failed. & exit /b 1 )
     "%GTC_CLANG%" -shared -O2 -o "%STDOUT%\!MOD!.dll" "!COBJ!"
     if errorlevel 1 ( echo [ERROR] gtlib !MOD! ^(c^) dll failed. & exit /b 1 )
-    REM 静态库（供 AOT 独立链接；与 Rust 模块的 _static.lib 对齐）
-    if exist "%LLD_LINK%" "%LLD_LINK%" /lib /out:"%STDOUT%\!MOD!_static.lib" "!COBJ!" >nul 2>nul
     del /q "!COBJ!" 2>nul
 )
 
@@ -102,8 +98,6 @@ mkdir "%RES%\lib" 2>nul
 
 copy /Y "%ROOT%target\release\gtc.exe"   "%RES%\gtc.exe"   >nul || (echo [ERROR] gtc.exe missing & exit /b 1)
 copy /Y "%STDOUT%\*.dll" "%RES%\lib\" >nul 2>nul
-if not exist "%RES%\lib\.lib" mkdir "%RES%\lib\.lib" 2>nul
-copy /Y "%STDOUT%\*.lib" "%RES%\lib\.lib\" >nul 2>nul
 
 copy /Y "%GTC_CLANG%" "%RES%\llvm\bin\clang.exe" >nul
 if exist "%LLD_LINK%" copy /Y "%LLD_LINK%" "%RES%\llvm\bin\lld-link.exe" >nul

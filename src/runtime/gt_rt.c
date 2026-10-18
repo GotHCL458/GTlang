@@ -1741,6 +1741,29 @@ long long gt_chan_recv(void *p) {
     return -1;
 }
 
+/* 批量：GTO 运行期解析。chan_send_batch(ch, ptr, n) -> sent；chan_recv_batch(ch, ptr, cap) -> got */
+typedef long long (*gto_send_batch_t)(void *, const long long *, long long);
+typedef long long (*gto_recv_batch_t)(void *, long long *, long long);
+static gto_send_batch_t g_gtoc_send_batch = 0;
+static gto_recv_batch_t g_gtoc_recv_batch = 0;
+static void gt_gto_init_batch(void) {
+    gt_gto_init();
+    if (g_gto_mod && !g_gtoc_send_batch) {
+        g_gtoc_send_batch = (gto_send_batch_t)(void *)GetProcAddress(g_gto_mod, "gto_chan_send_batch");
+        g_gtoc_recv_batch = (gto_recv_batch_t)(void *)GetProcAddress(g_gto_mod, "gto_chan_recv_batch");
+    }
+}
+long long gt_chan_send_batch(void *p, const long long *vals, long long n) {
+    gt_gto_init_batch();
+    if (g_gtoc_send_batch) return g_gtoc_send_batch(p, vals, n);
+    return 0;
+}
+long long gt_chan_recv_batch(void *p, long long *out, long long cap) {
+    gt_gto_init_batch();
+    if (g_gtoc_recv_batch) return g_gtoc_recv_batch(p, out, cap);
+    return 0;
+}
+
 
 /* ============================================================
  * 引用计数（RC，非 STW）：

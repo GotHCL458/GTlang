@@ -28,7 +28,7 @@
 | String find | O(n*m) | |
 | Channel send/recv | O(1) | provided by GTO (`gto.dll`) |
 | `go` dispatch | ~µs | fixed worker thread pool (not thread-per-task) |
-| Integer arithmetic | O(1) fast path | small ints inline; bignum only on overflow |
+| Integer arithmetic | O(1) | raw i64, native add/sub/mul |
 | Decimal arithmetic | O(digits²) | exact base-10 (`decimal`) |
 
 ## 3. Backend
@@ -46,7 +46,7 @@ GTLang has a single **LLVM native backend**: programs compile via clang to a sta
 | Enum/Result/Option | heap block | process exit (RC base ready) |
 | String | heap/static pool | process exit |
 | Closure | heap block | process exit |
-| bignum / decimal | heap | process exit |
+| decimal | heap | process exit |
 
 Note: RC base (gt_rc_inc/dec) implemented; instrumentation pending.
 
@@ -58,7 +58,7 @@ Note: RC base (gt_rc_inc/dec) implemented; instrumentation pending.
 | Execution | native machine code | bytecode interpreter |
 | Loop | native | interpreter overhead |
 | Function call | direct | dynamic lookup |
-| Integer | two-tier (i63 inline / bignum on overflow) | arbitrary precision |
+| Integer | raw i64 (wraps on overflow) | arbitrary precision |
 | Decimal | built-in `decimal` | `decimal` module |
 | Expected | **10-100x** Python (numeric) | baseline |
 
