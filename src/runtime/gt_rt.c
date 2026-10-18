@@ -496,15 +496,24 @@ void gt_map_insert_key(GtMap *m, long long k, long long v, long long key_str) {
 }
 
 void gt_map_insert(GtMap *m, long long k, long long v) {
-    long long i = gt_map_find(m, k);
-    if (i >= 0) {
-        m->vals[i] = v;
-        return;
-    }
-    /* 装载因子 > 0.7 时扩容并重建哈希 */
+    // 装载因子 > 0.7 时扩容并重建哈希（在查找前，避免查找后容量变化）。
     if ((m->len + 1) * 10 >= m->hcap * 7) {
         gt_map_rehash(m, m->hcap * 2);
     }
+    unsigned long long mask = (unsigned long long)(m->hcap - 1);
+    unsigned long long h = (m->key_str
+        ? gt_hash_str((const char *)(size_t)k)
+        : gt_hash64((unsigned long long)k)) & mask;
+    long long empty = -1;
+    while (m->ht[h] != -1) {
+        long long idx = m->ht[h];
+        int match = m->key_str
+            ? (strcmp((const char *)(size_t)m->keys[idx], (const char *)(size_t)k) == 0)
+            : (m->keys[idx] == k);
+        if (match) { m->vals[idx] = v; return; }
+        h = (h + 1) & mask;
+    }
+    // 未找到：h 是空槽。
     if (m->len >= m->cap) {
         m->cap *= 2;
         m->keys = (long long *)gt_realloc(m->keys, sizeof(long long) * (size_t)m->cap);
@@ -518,12 +527,8 @@ void gt_map_insert(GtMap *m, long long k, long long v) {
         if (k) gc_inc((void *)(size_t)k);
         if (v) gc_inc((void *)(size_t)v);
     }
-    unsigned long long mask = (unsigned long long)(m->hcap - 1);
-    unsigned long long h = (m->key_str
-        ? gt_hash_str((const char *)(size_t)k)
-        : gt_hash64((unsigned long long)k)) & mask;
-    while (m->ht[h] != -1) h = (h + 1) & mask;
     m->ht[h] = idx;
+    (void)empty;
 }
 
 /* 若调用点声明的键类型与 map 当前记录的不同，先切换并重建哈希。 */

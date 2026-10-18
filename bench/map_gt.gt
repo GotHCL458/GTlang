@@ -1,0 +1,7 @@
+fn main() {
+    m := map()
+    for i in 0..1000000 { insert(m, i, i * 2) }
+    s := 0
+    for i in 0..1000000 { s = s + at(m, i) }
+    put(s)
+}
