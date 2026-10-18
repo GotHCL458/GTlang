@@ -1,0 +1,5 @@
+fn worker(id: int) { }
+fn main() {
+    for t in 0..1000 { go worker(t) }
+    sleep(100)
+}

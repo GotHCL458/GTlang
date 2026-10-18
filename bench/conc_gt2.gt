@@ -1,0 +1,9 @@
+fn worker(id: int) {
+    s := 0
+    for i in 0..1000000 { s = s + i }
+    if s < 0 { put(id) }
+}
+fn main() {
+    for t in 0..1000 { go worker(t) }
+    sleep(3000)
+}

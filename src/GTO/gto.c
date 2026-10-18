@@ -493,7 +493,8 @@ int64_t gto_self(void) { return g_tls_current ? g_tls_current->id : 0; }
 
 struct GtoChan {
     int64_t *buf;
-    int64_t cap;       /* 0 = 无界 */
+    int64_t cap;            /* 0 = 无界 */
+    int64_t unbounded_cap;  /* 无界模式下的实际分配容量（翻倍增长） */
     int64_t len;
     int64_t head;
     int closed;
@@ -506,6 +507,7 @@ GtoChan *gto_chan_new(int64_t cap) {
     GtoChan *c = (GtoChan *)malloc(sizeof(GtoChan));
     c->cap = cap > 0 ? cap : 0;
     c->len = 0; c->head = 0; c->closed = 0;
+    c->unbounded_cap = c->cap;
     c->buf = c->cap > 0 ? (int64_t *)malloc(sizeof(int64_t) * c->cap) : NULL;
     GTO_MTX_INIT(&c->lock);
     GTO_CND_INIT(&c->not_empty);
@@ -520,28 +522,52 @@ void gto_chan_free(GtoChan *c) {
     free(c);
 }
 
+/* 无界通道：追加（翻倍增长，O(1) 摊还）。调用方需持锁。 */
+static void gt_chan_unbounded_push(GtoChan *c, int64_t v) {
+    // 尾部 = head + len；若超出已分配容量，先搬移到头部（摊还 O(1)），必要时扩容。
+    if (c->head + c->len >= c->unbounded_cap) {
+        if (c->len + 1 <= c->unbounded_cap) {
+            // 前部空间够：搬移到头部
+            if (c->head > 0) { memmove(c->buf, c->buf + c->head, sizeof(int64_t) * c->len); c->head = 0; }
+        } else {
+            int64_t newcap = c->unbounded_cap ? c->unbounded_cap * 2 : 1024;
+            while (newcap < c->len + 1) newcap *= 2;
+            c->buf = (int64_t *)realloc(c->buf, sizeof(int64_t) * newcap);
+            c->unbounded_cap = newcap;
+            if (c->head > 0) { memmove(c->buf, c->buf + c->head, sizeof(int64_t) * c->len); c->head = 0; }
+        }
+    }
+    c->buf[c->head + c->len] = v;
+    c->len++;
+}
+/* 无界通道：取头部（head 前移，不搬移，O(1)）。len 归零时重置 head。调用方需持锁。 */
+static int64_t gt_chan_unbounded_pop(GtoChan *c) {
+    int64_t v = c->buf[c->head];
+    c->head++;
+    c->len--;
+    if (c->len == 0) c->head = 0;
+    return v;
+}
+
 void gto_chan_send(GtoChan *c, int64_t v) {
     GTO_MTX_LOCK(&c->lock);
     while (c->cap > 0 && c->len >= c->cap && !c->closed) { GTO_CND_WAIT(&c->not_full, &c->lock); }
     if (c->closed) { GTO_MTX_UNLOCK(&c->lock); return; }
     if (c->cap == 0) {
-        /* 无界：动态扩容 */
-        int64_t newcap = c->len + 1;
-        c->buf = (int64_t *)realloc(c->buf, sizeof(int64_t) * newcap);
-        c->buf[c->len] = v;
-        c->len++;
+        gt_chan_unbounded_push(c, v);
     } else {
         c->buf[(c->head + c->len) % c->cap] = v;
         c->len++;
     }
-    GTO_CND_SIGNAL(&c->not_empty);
+    // 仅当队列从空变非空时才唤醒消费者（减少无谓唤醒）。
+    if (c->len == 1) GTO_CND_SIGNAL(&c->not_empty);
     GTO_MTX_UNLOCK(&c->lock);
 }
 
 int gto_chan_try_send(GtoChan *c, int64_t v) {
     GTO_MTX_LOCK(&c->lock);
     if (c->closed || (c->cap > 0 && c->len >= c->cap)) { GTO_MTX_UNLOCK(&c->lock); return -1; }
-    if (c->cap == 0) { c->buf = (int64_t *)realloc(c->buf, sizeof(int64_t) * (c->len + 1)); c->buf[c->len] = v; c->len++; }
+    if (c->cap == 0) { gt_chan_unbounded_push(c, v); }
     else { c->buf[(c->head + c->len) % c->cap] = v; c->len++; }
     GTO_CND_SIGNAL(&c->not_empty);
     GTO_MTX_UNLOCK(&c->lock);
@@ -552,11 +578,16 @@ int64_t gto_chan_recv(GtoChan *c) {
     GTO_MTX_LOCK(&c->lock);
     while (c->len == 0 && !c->closed) { GTO_CND_WAIT(&c->not_empty, &c->lock); }
     if (c->len == 0 && c->closed) { GTO_MTX_UNLOCK(&c->lock); return -1; }
-    int64_t v = c->buf[c->head];
-    if (c->cap > 0) c->head = (c->head + 1) % c->cap;
-    else { memmove(c->buf, c->buf + 1, sizeof(int64_t) * (c->len - 1)); }
-    c->len--;
-    GTO_CND_SIGNAL(&c->not_full);
+    int64_t v;
+    if (c->cap > 0) {
+        v = c->buf[c->head];
+        c->head = (c->head + 1) % c->cap;
+        c->len--;
+    } else {
+        v = gt_chan_unbounded_pop(c);
+    }
+    // 仅当队列从满变不满时才唤醒生产者。
+    if (c->cap > 0 && c->len == c->cap - 1) GTO_CND_SIGNAL(&c->not_full);
     GTO_MTX_UNLOCK(&c->lock);
     return v;
 }
@@ -564,10 +595,14 @@ int64_t gto_chan_recv(GtoChan *c) {
 int gto_chan_try_recv(GtoChan *c, int64_t *out) {
     GTO_MTX_LOCK(&c->lock);
     if (c->len == 0) { GTO_MTX_UNLOCK(&c->lock); return -1; }
-    int64_t v = c->buf[c->head];
-    if (c->cap > 0) c->head = (c->head + 1) % c->cap;
-    else { memmove(c->buf, c->buf + 1, sizeof(int64_t) * (c->len - 1)); }
-    c->len--;
+    int64_t v;
+    if (c->cap > 0) {
+        v = c->buf[c->head];
+        c->head = (c->head + 1) % c->cap;
+        c->len--;
+    } else {
+        v = gt_chan_unbounded_pop(c);
+    }
     if (out) *out = v;
     GTO_CND_SIGNAL(&c->not_full);
     GTO_MTX_UNLOCK(&c->lock);
@@ -586,10 +621,7 @@ int64_t gto_chan_send_batch(GtoChan *c, const int64_t *vals, int64_t n) {
         int64_t take = (n - sent) < room ? (n - sent) : room;
         if (take <= 0) break;
         if (c->cap == 0) {
-            int64_t newcap = c->len + take;
-            c->buf = (int64_t *)realloc(c->buf, sizeof(int64_t) * newcap);
-            for (int64_t i = 0; i < take; i++) c->buf[c->len + i] = vals[sent + i];
-            c->len += take;
+            for (int64_t i = 0; i < take; i++) gt_chan_unbounded_push(c, vals[sent + i]);
         } else {
             for (int64_t i = 0; i < take; i++) c->buf[(c->head + c->len + i) % c->cap] = vals[sent + i];
             c->len += take;
@@ -609,10 +641,13 @@ int64_t gto_chan_recv_batch(GtoChan *c, int64_t *out, int64_t cap) {
     if (c->len == 0 && c->closed) { GTO_MTX_UNLOCK(&c->lock); return 0; }
     int64_t take = c->len < cap ? c->len : cap;
     for (int64_t i = 0; i < take; i++) {
-        out[i] = c->buf[c->head];
-        if (c->cap > 0) c->head = (c->head + 1) % c->cap;
-        else { memmove(c->buf, c->buf + 1, sizeof(int64_t) * (c->len - 1)); }
-        c->len--;
+        if (c->cap > 0) {
+            out[i] = c->buf[c->head];
+            c->head = (c->head + 1) % c->cap;
+            c->len--;
+        } else {
+            out[i] = gt_chan_unbounded_pop(c);
+        }
     }
     GTO_CND_BROADCAST(&c->not_full);
     GTO_MTX_UNLOCK(&c->lock);
@@ -644,10 +679,13 @@ int64_t gto_chan_recv_timeout(GtoChan *c, int64_t timeout_ms) {
         }
     }
     if (c->len > 0) {
-        v = c->buf[c->head];
-        if (c->cap > 0) c->head = (c->head + 1) % c->cap;
-        else { memmove(c->buf, c->buf + 1, sizeof(int64_t) * (c->len - 1)); }
-        c->len--;
+        if (c->cap > 0) {
+            v = c->buf[c->head];
+            c->head = (c->head + 1) % c->cap;
+            c->len--;
+        } else {
+            v = gt_chan_unbounded_pop(c);
+        }
         got = 1;
         GTO_CND_SIGNAL(&c->not_full);
     }
