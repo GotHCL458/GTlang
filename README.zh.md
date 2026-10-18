@@ -375,7 +375,7 @@ GTLang 经 LLVM + clang 编译为**独立原生可执行文件**，无解释器/
 | C（clang -O2） | ~22 ms | ~5 ms |
 | Rust（rustc -O） | ~24 ms | ~5 ms |
 | nasm（手写汇编） | ~36 ms | ~50 ms |
-| **GTLang -O4（裸 i64）** | ~26 ms | ~4.2 ms |
+| **GTLang -O4（裸 i64）** | ~22 ms | ~5.1 ms |
 | GTLang -O2 | ~30 ms | ~5 ms |
 | GTLang -O0 | ~40 ms | ~40 ms |
 | Node.js 24（V8 JIT） | ~144 ms | ~195 ms |
