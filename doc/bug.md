@@ -54,6 +54,9 @@
 | `while` 无 `else` | 仅 `for ... else` |
 | 泛型结构体字面量不写 `[T]` | `Box { v: 42 }`（推断） |
 | `set` 用 `insert`（非 `push`） | `push` 只接受 list |
+| `startswith`/`endswith`（非 `starts_with`） | `import string` |
+| `strip(s, chars)` 需 2 参 | 去空白传 `""` |
+| `find(s, sub)` 未找到返回 -1 | `import string` |
 | 元组解构仅 `let (a,b) = ...` | 不支持 `a,b := (..)` |
 | list comp 的 `in` 不支持范围 | `[x for x in list]` |
 | 裸 `{}` 块不引入作用域 | 解构 `let (a,b)` 依赖此 |
