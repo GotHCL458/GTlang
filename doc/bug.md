@@ -46,26 +46,59 @@
 
 ## 已知限制 / Known Limitations（非 bug）
 
+> 设计选择/架构限制，非 bug。完整分类见 特性.md §13。
+
+### 类型 / 字面量
+
 | 限制 | 说明 |
 |---|---|
-| `len(str)` 返回字节数 | 字符数用 `utf8_len`（`import string`） |
-| 高阶函数参数不能写闭包类型 `f: |T| -> T` | 省略类型，推断 |
-| `json_dumps`/`json_loads` 仅字符串转义 | 无对象序列化，只接受 `str` |
-| `while` 无 `else` | 仅 `for ... else` |
-| 泛型结构体字面量不写 `[T]` | `Box { v: 42 }`（推断） |
-| `set` 用 `insert`（非 `push`） | `push` 只接受 list |
-| `startswith`/`endswith`（非 `starts_with`） | `import string` |
-| `strip(s, chars)` 需 2 参 | 去空白传 `""` |
-| `find(s, sub)` 未找到返回 -1 | `import string` |
-| 元组解构仅 `let (a,b) = ...` | 不支持 `a,b := (..)` |
-| list comp 的 `in` 不支持范围 | `[x for x in list]` |
-| 元组不能作 match 模式 | `(1,2) =>` 明确拒绝 |
-| `format` 的 args 用 `\n` 分隔 | 非 list |
-| `impl[T]` 泛型 impl 不支持 | 泛型方法需其他方式 |
-| 裸 `{}` 块不引入作用域 | 解构 `let (a,b)` 依赖此 |
-| `serve_fn` 已随解释器移除 | 原 `login_app`/`todo_app` 不可编译 |
-| `loop_lcg` 的 C 块无法内联 | C 块跨编译单元 + 全局状态（LTO 已尽力） |
-| `defer` 函数级、编译期登记 | 循环内只登记 1 次（非 Go 运行时累积）；局部变量引用在函数末尾可能失效 |
-| `chan` 双层函数指针转发 | `gto.dll` 运行期加载，架构必需 |
-| 无 `chan_close`/`select` | 通道不支持关闭/多路复用 |
-| GC 环回收默认关闭 | `GC_COLLECT_ON=0`，需正确插桩才安全 |
+| len(str) 返回字节数 | 字符数用 utf8_len |
+| 泛型结构体字面量不写 [T] | Box { v: 42 } |
+| 裸 {} 块不引入作用域 | 解构 let (a,b) 依赖此 |
+| impl[T] 泛型 impl 不支持 | 仅 impl 类型 { } |
+| 元组解构仅 let (a,b) = ... | 不支持 a,b := (..) |
+
+### 控制流
+
+| 限制 | 说明 |
+|---|---|
+| while 无 else | 仅 for ... else |
+| loop 只接受计数 | 无无限 loop { } |
+| match 不支持 n @ pat | 用守卫或嵌套 |
+| 元组不能作 match 模式 | (1,2) => 明确拒绝 |
+| list comp 的 in 不支持范围 | [x for x in list] |
+
+### 函数 / 闭包
+
+| 限制 | 说明 |
+|---|---|
+| 高阶函数参数不能写闭包类型 | f: |T| -> T 不支持 |
+| defer 函数级、编译期登记 | 循环内只 1 次；局部变量在末尾可能失效 |
+
+### 标准库
+
+| 限制 | 说明 |
+|---|---|
+| set 用 insert（非 push） | push 只接受 list |
+| startswith / endswith（非 starts_with） | import string |
+| strip(s, chars) 需 2 参 | 去空白传 "" |
+| find(s, sub) 未找到返回 -1 | import string |
+| format 的 args 用换行分隔 | 非 list |
+| json_dumps/loads 仅字符串转义 | 无对象序列化 |
+| 无 or 运算符 | Option 解包用 match |
+
+### 并发
+
+| 限制 | 说明 |
+|---|---|
+| 无 chan_close / select | 通道不支持关闭/多路复用 |
+| chan 双层函数指针转发 | gto.dll 运行期加载，架构必需 |
+| GC 环回收默认关闭 | GC_COLLECT_ON=0 |
+
+### 架构 / 工具链
+
+| 限制 | 说明 |
+|---|---|
+| serve_fn 已随解释器移除 | 原 login_app/todo_app 不可编译 |
+| loop_lcg 的 C 块无法内联 | C 块跨编译单元 + 全局状态 |
+
