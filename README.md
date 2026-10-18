@@ -368,18 +368,21 @@ GTLang compiles to a **standalone native executable** via LLVM + clang. There is
 
 ## Performance
 
-Benchmark: `loop_sum(2e8)` — sum `0..200_000_000` with overflow checks enabled.
+Benchmark: `loop_sum(2e8)` — sum `0..200_000_000`.
 
 | Implementation | fib(35) | loop_sum(2e8) |
 |---|---:|---:|
-| C (clang -O2) | ~26 ms | ~5.5 ms |
-| Rust (rustc -O) | ~28 ms | ~8 ms |
-| **GTLang (-O2, checked)** | ~40 ms | **5.9 ms** |
+| C (clang -O2) | ~22 ms | ~5 ms |
+| Rust (rustc -O) | ~24 ms | ~5 ms |
+| nasm (hand-written) | ~36 ms | ~50 ms |
+| **GTLang -O4 (two-tier int)** | ~113 ms | ~818 ms |
+| GTLang -O2 | ~137 ms | ~909 ms |
+| GTLang -O0 | ~309 ms | ~1456 ms |
 | Node.js 24 (V8 JIT) | ~144 ms | ~195 ms |
 | Lua 5.4 | ~445 ms | ~673 ms |
 | Python 3.12 | ~1300 ms | ~6788 ms |
 
-**GTLang's default (safe) mode matches C on tight loops** thanks to flow-sensitive range analysis (`src/range.rs`) that elides provably-safe overflow checks — without sacrificing safety.
+**GTLang's `int` is a two-tier tagged value** — small ints inline, overflow auto-promotes to a heap bignum (never aborts). This buys safety (no wraparound, no bignum loss), but tight arithmetic loops pay tagged decode/encode on every op, so they run slower than C/Rust's raw i64. The GTLang AST optimizer (`-O0..-O4`) already cuts loop_sum from 1456 ms to 818 ms; a planned "safe-variable raw lowering" pass will specialize provably-safe loops to raw i64, targeting C-level speed.
 
 See [doc/bench.md](doc/bench.md) for methodology.
 

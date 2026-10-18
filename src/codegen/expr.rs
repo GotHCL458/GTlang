@@ -954,7 +954,22 @@ impl<'a> Codegen<'a> {
         if matches!(op, BinOp::Div | BinOp::FloorDiv | BinOp::Rem) {
             self.emit_div_zero_check(&y, line);
         }
-        // 加/减/乘：tagged int，溢出自动升级 bignum（runtime gt_int_*）。
+        // 加/减/乘：tagged int。
+        // safe（范围分析证明不溢出）→ 裸 i64 算术 + 结果 tag，不调 runtime。
+        if safe && matches!(op, BinOp::Add | BinOp::Sub | BinOp::Mul) {
+            self.declare("declare i64 @gt_int_to_i64(i64)");
+            self.declare("declare i64 @gt_i64_to_int(i64)");
+            let rx = self.new_reg();
+            self.body.push_str(&format!("  {} = call i64 @gt_int_to_i64(i64 {})\n", rx, x));
+            let ry = self.new_reg();
+            self.body.push_str(&format!("  {} = call i64 @gt_int_to_i64(i64 {})\n", ry, y));
+            let ins = match op { BinOp::Add => "add", BinOp::Sub => "sub", _ => "mul" };
+            let raw = self.new_reg();
+            self.body.push_str(&format!("  {} = {} i64 {}, {}\n", raw, ins, rx, ry));
+            let r = self.new_reg();
+            self.body.push_str(&format!("  {} = call i64 @gt_i64_to_int(i64 {})\n", r, raw));
+            return Ok(Val::new(&Ty::I64, r));
+        }
         if matches!(op, BinOp::Add | BinOp::Sub | BinOp::Mul) {
             let fname = match op {
                 BinOp::Add => "gt_int_add",

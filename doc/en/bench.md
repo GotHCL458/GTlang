@@ -26,12 +26,21 @@ fib is **recursive** (`n-1`/`n-2`); range analysis cannot prove non-overflow, so
 
 | Lang / Impl | fib(35) | loop_sum(2e8) | Notes |
 |---|---|---|---|
-| C (clang -O2) | ~26 | ~5.5 | vectorized |
-| Rust (rustc -O) | ~28 | ~8 | wrapping_add |
-| GTLang (-O2, checked) | ~40 | 5.9 | overflow checks + range analysis |
+| C (clang -O2) | ~22 | ~5 | vectorized |
+| Rust (rustc -O) | ~24 | ~5 | wrapping_add |
+| nasm (hand-written) | ~36 | ~50 | no optimization |
+| **GTLang -O4 (two-tier int)** | **~113** | **~818** | tagged int + overflow->bignum |
+| GTLang -O2 | ~137 | ~909 | |
+| GTLang -O0 | ~309 | ~1456 | |
 | Node.js 24 (V8 JIT) | ~144 | ~195 | JIT |
 | Lua 5.4 | ~445 | ~673 | interpreter |
 | Python 3.12 | ~1300 | ~6788 | interpreter |
+
+> **Cost of two-tier int**: GTLang's `int` is an 8-byte tagged value — small ints inline, overflow auto-promotes to bignum (never aborts). This buys safety (no wraparound, no bignum loss) but every arithmetic op in a tight loop pays tagged decode/encode, so it is slower than C/Rust's raw i64. `loop_sum`'s `s = s + i` calls `gt_int_add` 2e8 times — the main cost.
+>
+> **The optimizer works**: `-O0 -> -O4` cuts loop_sum from 1456 to 818 ms, fib from 309 to 113 ms (constant folding / inlining / DCE).
+>
+> **Next**: "safe-variable raw lowering" — when range analysis proves a loop variable cannot overflow, use a raw i64 slot (drop tagged overhead), targeting C-level speed.
 
 ## 3. Analysis
 
@@ -39,8 +48,8 @@ GTLang's range analysis (src/range.rs) is flow-sensitive: when an Add/Sub/Mul
 is provably non-overflowing (e.g. for i in 0..N with monotone accumulation
 s = s + i), the overflow check is elided while keeping semantics safe.
 
-- loop_sum(2e8): 5.9 ms (matches C's 5.5 ms)
-- covers Stmt::Assign arithmetic (bare s = s + i and compound s += i)
+- Range analysis currently only elides **bounds checks**; integer arithmetic still goes through tagged `gt_int_*` (to preserve overflow->bignum semantics).
+- `loop_sum` is currently ~818 ms (-O4), far slower than C — each `s = s + i` calls `gt_int_add`. The planned "safe-variable raw lowering" will specialize such loops to raw i64, targeting C-level speed.
 
 ## 4. Disabling Overflow Checks
 

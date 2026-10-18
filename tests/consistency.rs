@@ -3842,3 +3842,53 @@ fn put_nested_containers_match() {
         ],
     );
 }
+// ============================================================
+// 优化后源码可再编译（--emit-optimized-gt 回归）
+// ============================================================
+
+#[test]
+fn optimized_gt_recompiles() {
+    let files = example_files();
+    let dir = tmp_dir();
+    let gtc = gtc();
+    for f in &files {
+        let tag = f.file_stem().unwrap().to_string_lossy().to_string();
+        // 跳过含闭包/单态化实例的 example：它们经 hoist 后变为 __closure_N + ClosureNew，
+        // 无法无损还原为源码（架构限制，见 doc/bench.md）。仅验证"可无损回写"的程序。
+        let src_text = std::fs::read_to_string(f).unwrap_or_default();
+        if src_text.contains("| ") || src_text.contains("|x|") || src_text.contains("__closure_")
+            || src_text.contains("fn_addr") {
+            continue;
+        }
+        // 1) 编译原程序，记输出
+        let exe1 = dir.join(format!("orig_{}.exe", tag));
+        let c1 = Command::new(&gtc).arg("--c").arg(f).arg("-o").arg(&exe1)
+            .arg("-O").arg("4").output().expect("gtc --c");
+        assert!(c1.status.success(), "[{}] 原程序编译失败：\n{}", tag, decode(&c1.stderr));
+        let stdlib_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("res").join("lib");
+        let r1 = Command::new(&exe1).env("GTC_STDLIB_DIR", &stdlib_dir).output().expect("run orig");
+        assert!(r1.status.success(), "[{}] 原程序运行失败", tag);
+        let out1 = decode(&r1.stdout);
+        // 2) 生成优化后 .gt
+        let optgt = dir.join(format!("{}_opt.gt", tag));
+        let c2 = Command::new(&gtc).arg("--c").arg(f).arg("-o").arg(dir.join(format!("tmp_{}.exe", tag)))
+            .arg("-O").arg("4").arg("--emit-optimized-gt").output().expect("gtc --c emit");
+        assert!(c2.status.success(), "[{}] --emit-optimized-gt 失败：\n{}", tag, decode(&c2.stderr));
+        // 默认输出到源文件旁 <stem>.opt.gt
+        let produced = f.with_file_name(format!("{}.opt.gt", tag));
+        if !produced.is_file() {
+            // 跳过（某些 example 输出位置不同）
+            continue;
+        }
+        std::fs::copy(&produced, &optgt).ok();
+        let _ = std::fs::remove_file(&produced);
+        // 3) 编译优化后 .gt
+        let exe2 = dir.join(format!("opt_{}.exe", tag));
+        let c3 = Command::new(&gtc).arg("--c").arg(&optgt).arg("-o").arg(&exe2).output().expect("recompile opt");
+        assert!(c3.status.success(), "[{}] 优化后 .gt 编译失败：\n{}", tag, decode(&c3.stderr));
+        let r2 = Command::new(&exe2).env("GTC_STDLIB_DIR", &stdlib_dir).output().expect("run opt");
+        assert!(r2.status.success(), "[{}] 优化后程序运行失败", tag);
+        let out2 = decode(&r2.stdout);
+        assert_eq!(out1, out2, "[{}] 优化后源码与原程序输出不一致", tag);
+    }
+}

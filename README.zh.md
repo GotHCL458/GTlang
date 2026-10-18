@@ -366,18 +366,21 @@ GTLang 经 LLVM + clang 编译为**独立原生可执行文件**，无解释器/
 
 ## 性能
 
-基准：`loop_sum(2e8)` —— 累加 `0..200_000_000`，**开启溢出检查**。
+基准：`loop_sum(2e8)` —— 累加 `0..200_000_000`。
 
 | 实现 | fib(35) | loop_sum(2e8) |
 |---|---:|---:|
-| C（clang -O2） | ~26 ms | ~5.5 ms |
-| Rust（rustc -O） | ~28 ms | ~8 ms |
-| **GTLang（-O2，有检查）** | ~40 ms | **5.9 ms** |
+| C（clang -O2） | ~22 ms | ~5 ms |
+| Rust（rustc -O） | ~24 ms | ~5 ms |
+| nasm（手写汇编） | ~36 ms | ~50 ms |
+| **GTLang -O4（双层 int）** | ~113 ms | ~818 ms |
+| GTLang -O2 | ~137 ms | ~909 ms |
+| GTLang -O0 | ~309 ms | ~1456 ms |
 | Node.js 24（V8 JIT） | ~144 ms | ~195 ms |
 | Lua 5.4 | ~445 ms | ~673 ms |
 | Python 3.12 | ~1300 ms | ~6788 ms |
 
-**GTLang 默认（安全）模式在紧循环上追平 C** —— 流敏感范围分析（`src/range.rs`）证明安全即省略溢出检查，**不牺牲安全性**。
+**GTLang 的 `int` 是双层 tagged 值** —— 小整数内联、溢出自动升级堆 bignum（永不终止）。这带来安全性（无回绕、无大数丢失），但紧循环里每次算术都要 tagged 解码/编码，因此比 C/Rust 的裸 i64 慢。GTLang AST 优化器（`-O0..-O4`）已把 loop_sum 从 1456ms 降到 818ms；后续「安全变量裸化」pass 会把可证明安全的循环特化为裸 i64，目标追平 C。
 
 详见 [doc/bench.md](doc/bench.md)。
 

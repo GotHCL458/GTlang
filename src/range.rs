@@ -76,7 +76,28 @@ fn analyze_stmt(ctx: &mut Ctx, s: &Stmt) {
             let rv = range_of(ctx, value);
             if index.is_none() {
                 let r = match op {
-                    None => rv,
+                    // 裸赋值 s = <expr>：若 <expr> 是 name <op> other，且结果范围已知，标记安全。
+                    None => {
+                        let mut marked = false;
+                        if let ExprKind::Binary(bop, lhs, rhs) = &value.kind {
+                            if matches!(bop, BinOp::Add | BinOp::Sub | BinOp::Mul) {
+                                if let ExprKind::Ident(l) = &lhs.kind {
+                                    if l == name {
+                                        let cur = ctx.lookup(name);
+                                        let rr = range_of(ctx, rhs);
+                                        let res = match bop {
+                                            BinOp::Add => cur.add(&rr),
+                                            BinOp::Sub => cur.sub(&rr),
+                                            _ => cur.mul(&rr),
+                                        };
+                                        if res.is_known() { marked = true; }
+                                    }
+                                }
+                            }
+                        }
+                        if marked { ctx.safe_stmt.insert(s as *const Stmt as usize); }
+                        rv
+                    }
                     Some(o) => {
                         let cur = ctx.lookup(name);
                         let res = match o {
