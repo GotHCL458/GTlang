@@ -33,3 +33,6 @@
 *.dll
 *.dll.lib
 *.db
+bench/*.pdb 
+bench/*.exe 
+bench/*.obj 
