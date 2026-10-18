@@ -53,6 +53,13 @@ int64_t gto_self(void);
  * 2. 通道（有界/无界，多生产者多消费者）
  * ============================================================ */
 
+/* 无锁有界 MPMC 队列（Vyukov）。容量向上取 2 的幂；满/空时 enqueue/dequeue 返回 -1。 */
+typedef struct GtoMpsc GtoMpsc;
+GTO_API GtoMpsc *gto_mpsc_new(int64_t mincap);
+GTO_API void gto_mpsc_free(GtoMpsc *q);
+GTO_API int gto_mpsc_enqueue_pub(GtoMpsc *q, int64_t v);
+GTO_API int gto_mpsc_dequeue_pub(GtoMpsc *q, int64_t *out);
+
 typedef struct GtoChan GtoChan;
 
 /* 创建通道：cap <= 0 表示无界 */

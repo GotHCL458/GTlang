@@ -104,6 +104,15 @@ static void gto_coro_entry(GtoCoro *c);
 static GtoCoro *gto_take_ready(GtoWorker *w);
 static void gto_worker_loop(int wid);
 
+/* 线程本地：当前正在运行的协程 + 当前 worker id（供 gto_yield/gto_self 用）。 */
+#ifdef _MSC_VER
+__declspec(thread) static GtoCoro *g_tls_current = NULL;
+__declspec(thread) static int g_tls_wid = -1;
+#else
+static __thread GtoCoro *g_tls_current = NULL;
+static __thread int g_tls_wid = -1;
+#endif
+
 const char *gto_version(void) { return GTO_VERSION; }
 
 /* ============================================================
@@ -268,34 +277,66 @@ int gto_select_send(GtoChan **chans, int n, int64_t v, int64_t timeout_ms) {
  *   —— 供高性能通道与内部任务队列复用
  * ============================================================ */
 
-typedef struct GtoNode { int64_t val; struct GtoNode *next; } GtoNode;
-typedef struct {
-    GtoNode *head;   /* 出队端 */
-    GtoNode *tail;   /* 入队端 */
-    gto_mtx_t lock;  /* 简化：临界区保护（比通道锁更细） */
-} GtoMpsc;
-
-static void gto_mpsc_init(GtoMpsc *q) { q->head = q->tail = NULL; GTO_MTX_INIT(&q->lock); }
-static void gto_mpsc_push(GtoMpsc *q, int64_t v) {
-    GtoNode *n = (GtoNode *)malloc(sizeof(GtoNode));
-    n->val = v; n->next = NULL;
-    GTO_MTX_LOCK(&q->lock);
-    if (q->tail) q->tail->next = n; else q->head = n;
-    q->tail = n;
-    GTO_MTX_UNLOCK(&q->lock);
-}
-static int gto_mpsc_pop(GtoMpsc *q, int64_t *out) {
-    GTO_MTX_LOCK(&q->lock);
-    if (!q->head) { GTO_MTX_UNLOCK(&q->lock); return -1; }
-    GtoNode *n = q->head;
-    q->head = n->next;
-    if (!q->head) q->tail = NULL;
-    GTO_MTX_UNLOCK(&q->lock);
-    if (out) *out = n->val;
-    free(n);
+/* 无锁有界 MPMC 队列（Vyukov）。容量向上取 2 的幂；满/空返回 -1。 */
+struct GtoMpsc {
+    int64_t *buf;                  /* 槽数组：每槽 [seq, val] */
+    int64_t cap;                   /* 容量（2 的幂） */
+    int64_t mask;
+    volatile int64_t enqueue_pos;
+    volatile int64_t dequeue_pos;
+};
+static int64_t *gto_mpsc_slot(GtoMpsc *q, int64_t pos) { return &q->buf[(pos & q->mask) * 2]; }
+static int gto_mpsc_init_cap(GtoMpsc *q, int64_t mincap) {
+    int64_t cap = 1; while (cap < mincap) cap <<= 1;
+    q->cap = cap; q->mask = cap - 1; q->enqueue_pos = 0; q->dequeue_pos = 0;
+    q->buf = (int64_t *)calloc((size_t)cap * 2, sizeof(int64_t));
+    if (!q->buf) return -1;
+    for (int64_t i = 0; i < cap; i++) gto_mpsc_slot(q, i)[0] = i;
     return 0;
 }
+static void gto_mpsc_destroy(GtoMpsc *q) { if (q->buf) free(q->buf); q->buf = NULL; }
+static int gto_mpsc_enqueue(GtoMpsc *q, int64_t v) {
+    int64_t pos = __atomic_load_n(&q->enqueue_pos, __ATOMIC_RELAXED);
+    for (;;) {
+        int64_t *slot = gto_mpsc_slot(q, pos);
+        int64_t seq = __atomic_load_n(&slot[0], __ATOMIC_ACQUIRE);
+        int64_t dif = seq - pos;
+        if (dif == 0) {
+            if (__atomic_compare_exchange_n(&q->enqueue_pos, &pos, pos + 1, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {
+                __atomic_store_n(&slot[1], v, __ATOMIC_RELAXED);
+                __atomic_store_n(&slot[0], pos + 1, __ATOMIC_RELEASE);
+                return 0;
+            }
+        } else if (dif < 0) { return -1; }
+        else { pos = __atomic_load_n(&q->enqueue_pos, __ATOMIC_RELAXED); }
+    }
+}
+static int gto_mpsc_dequeue(GtoMpsc *q, int64_t *out) {
+    int64_t pos = __atomic_load_n(&q->dequeue_pos, __ATOMIC_RELAXED);
+    for (;;) {
+        int64_t *slot = gto_mpsc_slot(q, pos);
+        int64_t seq = __atomic_load_n(&slot[0], __ATOMIC_ACQUIRE);
+        int64_t dif = seq - (pos + 1);
+        if (dif == 0) {
+            if (__atomic_compare_exchange_n(&q->dequeue_pos, &pos, pos + 1, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {
+                if (out) *out = __atomic_load_n(&slot[1], __ATOMIC_RELAXED);
+                __atomic_store_n(&slot[0], pos + q->cap, __ATOMIC_RELEASE);
+                return 0;
+            }
+        } else if (dif < 0) { return -1; }
+        else { pos = __atomic_load_n(&q->dequeue_pos, __ATOMIC_RELAXED); }
+    }
+}
 
+
+GtoMpsc *gto_mpsc_new(int64_t mincap) {
+    GtoMpsc *q = (GtoMpsc *)malloc(sizeof(GtoMpsc));
+    if (gto_mpsc_init_cap(q, mincap > 0 ? mincap : 1) != 0) { free(q); return NULL; }
+    return q;
+}
+void gto_mpsc_free(GtoMpsc *q) { if (q) { gto_mpsc_destroy(q); free(q); } }
+int gto_mpsc_enqueue_pub(GtoMpsc *q, int64_t v) { return q ? gto_mpsc_enqueue(q, v) : -1; }
+int gto_mpsc_dequeue_pub(GtoMpsc *q, int64_t *out) { return q ? gto_mpsc_dequeue(q, out) : -1; }
 
 void gto_stats(GtoStats *out) {
     if (!out) return;
@@ -338,6 +379,7 @@ static void *gto_worker_thread(void *p) {
 
 /* worker 主循环：不断取 ready 协程运行 */
 static void gto_worker_loop(int wid) {
+    g_tls_wid = wid;
     GtoWorker *w = &g_workers[wid];
     while (g_running) {
         GtoCoro *c = gto_take_ready(w);
@@ -355,6 +397,7 @@ static void gto_worker_loop(int wid) {
         swapcontext(&g_sched_ctx[wid], &c->ctx);
 #endif
         w->current = NULL;
+        g_tls_current = NULL; /* 回到调度器：清空当前协程 */
     }
 }
 
@@ -420,11 +463,19 @@ int64_t gto_spawn(GtoFn fn, void *arg) {
 }
 
 void gto_yield(void) {
+    GtoCoro *c = g_tls_current;
+    if (!c) return; /* 主线程/非协程：无操作 */
+    /* 把自己重新标记为 ready，让 worker 循环重新调度（可能换到别的协程）。 */
+    GTO_MTX_LOCK(&g_coro_lock);
+    c->state = 1; /* ready */
+    g_ctx_switches++;
+    GTO_CND_BROADCAST(&g_coro_cond);
+    GTO_MTX_UNLOCK(&g_coro_lock);
 #ifdef _WIN32
-    /* 当前 fiber 让出：回到其 worker 主循环 */
-    /* 简化：Fiber 版 yield 由 worker 轮转，用户一般不需显式 yield */
+    /* 切回**当前 worker** 的主 fiber（不是 spawn 时分配的 c->worker）。 */
+    SwitchToFiber(g_main_fiber[g_tls_wid >= 0 ? g_tls_wid : 0]);
 #else
-    /* POSIX：切回调度器 */
+    swapcontext(&c->ctx, &g_sched_ctx[g_tls_wid >= 0 ? g_tls_wid : 0]);
 #endif
 }
 
@@ -434,7 +485,7 @@ void gto_wait_all(void) {
     GTO_MTX_UNLOCK(&g_coro_lock);
 }
 
-int64_t gto_self(void) { return 0; }
+int64_t gto_self(void) { return g_tls_current ? g_tls_current->id : 0; }
 
 /* ============================================================
  * 通道（GtoChan）：有界/无界，多生产者多消费者，阻塞 send/recv
@@ -745,11 +796,13 @@ int gto_select_recv(GtoChan **chans, int n, int64_t *out, int64_t timeout_ms) {
 
 /* 取下一个可运行的协程（round-robin，跳过 done/空） */
 static GtoCoro *gto_take_ready(GtoWorker *w) {
+    int wid = (int)(w - g_workers);
     GTO_MTX_LOCK(&g_coro_lock);
     for (int k = 0; k < GTO_MAX_CORO; k++) {
         int64_t i = (w->next_coro + k) % GTO_MAX_CORO;
         GtoCoro *c = &g_coros[i];
-        if (c->state == 1) { c->state = 2; w->next_coro = (i + 1) % GTO_MAX_CORO; GTO_MTX_UNLOCK(&g_coro_lock); return c; }
+        // 协程与 worker 绑定：只取分配给本 worker 的协程（避免跨 worker 迁移导致栈/ctx 错乱）。
+        if (c->state == 1 && c->worker == wid) { c->state = 2; w->next_coro = (i + 1) % GTO_MAX_CORO; GTO_MTX_UNLOCK(&g_coro_lock); return c; }
     }
     GTO_MTX_UNLOCK(&g_coro_lock);
     return NULL;
@@ -757,6 +810,7 @@ static GtoCoro *gto_take_ready(GtoWorker *w) {
 
 /* 协程体（Windows fiber 入口 / POSIX 入口） */
 static void gto_coro_entry(GtoCoro *c) {
+    g_tls_current = c;
     if (c->fn) c->fn(c->arg);
     GTO_MTX_LOCK(&g_coro_lock);
     c->state = 3;   /* done */
@@ -764,10 +818,10 @@ static void gto_coro_entry(GtoCoro *c) {
     GTO_CND_BROADCAST(&g_coro_cond);
     GTO_MTX_UNLOCK(&g_coro_lock);
 #ifdef _WIN32
-    SwitchToFiber(g_main_fiber[c->worker]);   /* 回该 worker 的主 fiber */
+    SwitchToFiber(g_main_fiber[g_tls_wid >= 0 ? g_tls_wid : 0]);   /* 回当前 worker 的主 fiber */
 #else
     /* POSIX：切回调度器 */
-    swapcontext(&c->ctx, &g_sched_ctx[c->worker]);
+    swapcontext(&c->ctx, &g_sched_ctx[g_tls_wid >= 0 ? g_tls_wid : 0]);
 #endif
 }
   
