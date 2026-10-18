@@ -60,6 +60,7 @@
 | 元组解构仅 `let (a,b) = ...` | 不支持 `a,b := (..)` |
 | list comp 的 `in` 不支持范围 | `[x for x in list]` |
 | 元组不能作 match 模式 | `(1,2) =>` 明确拒绝 |
+| `format` 的 args 用 `\n` 分隔 | 非 list |
 | `impl[T]` 泛型 impl 不支持 | 泛型方法需其他方式 |
 | 裸 `{}` 块不引入作用域 | 解构 `let (a,b)` 依赖此 |
 | `serve_fn` 已随解释器移除 | 原 `login_app`/`todo_app` 不可编译 |
