@@ -222,7 +222,11 @@ fn expr(s: &mut String, e: &Expr, depth: usize) {
         ExprKind::Closure { params, param_tys, ret_ty, body, .. } => { s.push('|'); let xs: Vec<String> = params.iter().enumerate().map(|(i, p)| { match param_tys.get(i).and_then(|t| t.as_ref()) { Some(t) => format!("{}: {}", p, ty_str(t)), None => p.clone() } }).collect(); s.push_str(&xs.join(", ")); s.push('|'); if let Some(rt) = ret_ty { s.push_str(&format!(" -> {} ", ty_str(rt))); } expr(s, body, depth); }
         ExprKind::CallValue { callee, args } => { expr(s, callee, depth); s.push('('); args_list(s, args, depth); s.push(')'); }
         ExprKind::MethodOn { recv, method, args } => { expr(s, recv, depth); s.push('.'); s.push_str(&san(method)); s.push('('); args_list(s, args, depth); s.push(')'); }
-        ExprKind::ClosureNew { fn_name, captures } => { s.push_str(&format!("{}(", san(fn_name))); args_list(s, captures, depth); s.push(')'); }
+        ExprKind::ClosureNew { fn_name, captures } => {
+            // 无捕获闭包 = 函数作一等值：直接打印函数名（可再编译）。
+            if captures.is_empty() { s.push_str(&san(fn_name)); }
+            else { s.push_str(&format!("{}(", san(fn_name))); args_list(s, captures, depth); s.push(')'); }
+        }
         ExprKind::Borrow { mutable, inner } => { if *mutable { s.push_str("&mut ") } else { s.push('&') } expr(s, inner, depth); }
         ExprKind::Ok(v) => { s.push_str("Ok("); expr(s, v, depth); s.push(')'); }
         ExprKind::Err(v) => { s.push_str("Err("); expr(s, v, depth); s.push(')'); }
